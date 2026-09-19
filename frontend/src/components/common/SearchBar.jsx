@@ -84,7 +84,7 @@ const getResultImage = (item, type) => {
   return getBestImageUrl(item?.image || item?.cover || item?.thumbnail || []) || ''
 }
 
-export default function SearchBar({ disabled = false }) {
+export default function SearchBar({ disabled = false, onSearchStateChange }) {
   const [query, setQuery] = useState('')
   const [history, setHistory] = useState(() => readHistory())
   const [results, setResults] = useState([])
@@ -138,6 +138,10 @@ export default function SearchBar({ disabled = false }) {
   }, [query])
 
   const recentHistory = useMemo(() => history.slice(0, 4), [history])
+
+  useEffect(() => {
+    onSearchStateChange?.({ query, history: recentHistory, results, loading })
+  }, [history, loading, onSearchStateChange, query, recentHistory, results])
 
   const addToHistory = (value) => {
     const trimmed = String(value || '').trim()
@@ -215,9 +219,21 @@ export default function SearchBar({ disabled = false }) {
     inputRef.current?.focus()
   }
 
+  useEffect(() => {
+    const handleSearchCommand = (event) => {
+      const { type, value, item } = event.detail || {}
+      if (type === 'select-history') handleSelect(value, { __type: 'history' })
+      if (type === 'select-result') handleSelect(value, item)
+      if (type === 'remove-history') removeFromHistory(value)
+    }
+
+    window.addEventListener('autumn-search-command', handleSearchCommand)
+    return () => window.removeEventListener('autumn-search-command', handleSearchCommand)
+  })
+
   return (
-    <div className={`relative ml-14 w-full max-w-[480px] ${disabled ? 'pointer-events-none opacity-60' : ''}`}>
-      <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-[#2d2f31] px-4 py-2.5 text-white/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+    <div className={`relative md:ml-14 w-full max-w-[480px] ${disabled ? 'pointer-events-none opacity-60' : ''}`}>
+      <div className="flex items-center gap-1 md:gap-3 rounded-lg border border-white/10 bg-[#2d2f31] px-4 py-2.5 text-white/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
         <Search size={18} className="text-white/70" />
         <input
           ref={inputRef}
@@ -247,7 +263,7 @@ export default function SearchBar({ disabled = false }) {
       </div>
 
       {focused && (
-        <div className="absolute left-0 right-0 top-[calc(100%+10px)] overflow-hidden rounded border border-white/10 bg-[#17191a]/95 shadow-[0_20px_40px_rgba(0,0,0,0.45)] backdrop-blur-md">
+        <div className="absolute left-0 right-0 top-[calc(100%+10px)] hidden overflow-hidden rounded border border-white/10 bg-[#17191a]/95 shadow-[0_20px_40px_rgba(0,0,0,0.45)] backdrop-blur-md lg:block">
           {showHistory && recentHistory.length > 0 && (
             <div className="py-1.5">
               {recentHistory.map((item) => (

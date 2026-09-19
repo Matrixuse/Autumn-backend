@@ -197,17 +197,17 @@ export default function Home() {
 
   return (
     <div>
-        <div className="space-y-10">
-            <MoodChips />
-            <ListenAgain songs={listenAgainSongs} />
-            <QuickPicks songs={quickPickSongs} />
-            <PopularArtists artists={artists} />
-            <Library songs={librarySongs} />
-            <MixForYou playlists={mixPlaylists} />
-            <Moods songs={librarySongs} />
-            <Hollywood songs={hollywoodSongs} />
-            <Albums albums={albumsForYou} />
-            <LongToListen songs={longSongs} />
+        <div className="flex flex-col space-y-5 md:space-y-10">
+          <div className="order-0 lg:order-1"><MoodChips /></div>
+            <div className="order-1 lg:order-3"><QuickPicks songs={quickPickSongs} /></div>
+            <div className="order-2 lg:order-2"><ListenAgain songs={listenAgainSongs} /></div>
+            <div className="order-3 lg:order-5"><Library songs={librarySongs} /></div>
+            <div className="order-4 lg:order-6"><MixForYou playlists={mixPlaylists} /></div>
+            <div className="order-5 lg:order-4"><PopularArtists artists={artists} /></div>
+            <div className="order-6 lg:order-9"><Albums albums={albumsForYou} /></div>
+            <div className="order-7 lg:order-7"><Moods songs={librarySongs} /></div>
+            <div className="order-8 lg:order-8"><Hollywood songs={hollywoodSongs} /></div>
+            <div className="order-9 lg:order-10"><LongToListen songs={longSongs} /></div>
             {(loading || quickLoading || releaseLoading || longLoading) && <div className="flex justify-center py-4"><Loader label="Loading more music" /></div>}
             {error && !loading && <div className="py-4 text-sm text-red-400">Unable to load songs right now.</div>}
             {quickError && !quickLoading && <div className="py-4 text-sm text-red-400">Unable to load quick picks right now.</div>}

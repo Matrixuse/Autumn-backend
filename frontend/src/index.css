@@ -5,6 +5,11 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: #0d0e0c; }
 button, input { font: inherit; }
+.mobile-nav { height: calc(3.75rem + max(10px, env(safe-area-inset-bottom))); }
+.player-bar { bottom: calc(3.75rem + max(10px, env(safe-area-inset-bottom))); }
+@media (min-width: 1024px) {
+	.player-bar { bottom: 0; }
+}
 button { cursor: pointer; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { scrollbar-width: none; }

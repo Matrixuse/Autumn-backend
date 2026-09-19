@@ -81,7 +81,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
   const { playlistId: encodedPlaylistId, playlistName: encodedPlaylistName } = useParams();
   const [playlistTitle, setPlaylistTitle] = useState('Playlist');
   const playlistRouteName = React.useMemo(() => {
-    const rawValue = libraryOption || encodedPlaylistName || encodedPlaylistId || '';
+  const rawValue = libraryOption || encodedPlaylistName || encodedPlaylistId || '';
     try {
       return decodeURIComponent(rawValue).trim();
     } catch (error) {
@@ -308,7 +308,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
         <div className="grow flex flex-col min-h-0 min-w-0">
           <div className={`shrink-0 transition-all duration-300 ${isHeaderExpanded ? 'bg-[#0f0f0f]/80 p-6' : 'bg-[#0f0f0f]/80 p-3'}`}>
             <div className="flex items-center gap-3 mb-0">
-              <button type="button" onClick={() => navigate(-1)} className="p-2 rounded-full bg-[#0f0f0f] hover:bg-[#282828] shrink-0" aria-label="Go back">
+              <button type="button" onClick={() => navigate(-1)} className="hidden md:block p-2 rounded-full bg-[#0f0f0f] hover:bg-[#282828] shrink-0" aria-label="Go back">
                 <ArrowLeft size={20} />
               </button>
               {isHeaderExpanded ? (
@@ -490,7 +490,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
       </div>
 
       <div className="hidden md:flex md:h-[calc(100vh-10rem)] md:min-h-0 md:min-w-0 md:flex-none md:overflow-hidden md:flex-row">
-        <div className="shrink-0 transition-all duration-300 bg-[#0f0f0f]/80 p-6 md:w-107.5 md:min-w-107.5 md:sticky md:top-0 md:h-full md:border-r md:border-gray-800 md:p-5">
+        <div className="shrink-0 transition-all duration-300 bg-[#0f0f0f]/80 p-6 lg:w-107.5 lg:min-w-107.5 md:w-90 md:min-w-90 md:sticky md:top-0 md:h-full md:border-r md:border-gray-800 md:p-5">
           <div className="flex items-center gap-3 mb-0 md:mb-4">
             <button type="button" onClick={() => navigate(-1)} className="p-2 rounded-full bg-[#0f0f0f] hover:bg-[#282828] shrink-0" aria-label="Go back">
               <ArrowLeft size={20} />
@@ -506,8 +506,8 @@ export default function PlaylistPage({ libraryOption = '' }) {
                 fallback={'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'}
               />
               <div className="flex-1 mt-5 md:mt-5 md:w-full">
-                <h2 className="text-2xl leading-none tracking-tight font-bold text-white md:text-4xl">{displayName}</h2>
-                <div className="mt-6 flex items-center justify-center gap-5 md:gap-6">
+                <h2 className="text-2xl leading-none tracking-tight font-bold text-white lg:text-4xl md:text-2xl">{displayName}</h2>
+                <div className="lg:mt-6 md:mt-1 flex items-center justify-center gap-5 md:gap-6">
                   <button
                     onClick={async () => {
                       handleSelectSong(dailySongs[0]?.id);

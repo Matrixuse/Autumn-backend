@@ -63,6 +63,7 @@ export default function AuthPage({ mode = 'login' }) {
       return undefined
     }
 
+    let resizeObserver
     const initializeGoogle = () => {
       if (!window.google?.accounts?.id || !googleButtonRef.current) return
       window.google.accounts.id.initialize({
@@ -78,13 +79,22 @@ export default function AuthPage({ mode = 'login' }) {
           } finally { setSubmitting(false) }
         }
       })
-      window.google.accounts.id.renderButton(googleButtonRef.current, { theme: 'filled_black', size: 'large', width: 420, text: 'continue_with', shape: 'rectangular' })
+            const renderGoogleButton = () => {
+                if (!googleButtonRef.current) return
+                googleButtonRef.current.replaceChildren()
+                const width = Math.min(420, Math.max(240, googleButtonRef.current.clientWidth))
+                window.google.accounts.id.renderButton(googleButtonRef.current, { theme: 'filled_black', size: 'large', width, text: 'continue_with', shape: 'rectangular' })
+            }
+
+            renderGoogleButton()
+            resizeObserver = new ResizeObserver(renderGoogleButton)
+            resizeObserver.observe(googleButtonRef.current)
     }
 
     const existingScript = document.querySelector('script[data-google-identity]')
     if (existingScript) {
       initializeGoogle()
-      return undefined
+            return () => resizeObserver?.disconnect()
     }
     const script = document.createElement('script')
     script.src = 'https://accounts.google.com/gsi/client'
@@ -93,7 +103,7 @@ export default function AuthPage({ mode = 'login' }) {
     script.dataset.googleIdentity = 'true'
     script.onload = initializeGoogle
     document.head.appendChild(script)
-    return undefined
+    return () => resizeObserver?.disconnect()
   }, [isLogin, location.state, loginWithGoogle, navigate])
 
   if (!loading && isAuthenticated) return <Navigate to={location.state?.from || '/'} replace />
@@ -114,10 +124,10 @@ export default function AuthPage({ mode = 'login' }) {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_95%_0%,#252313_0%,transparent_30%),#050505] p-4 text-white sm:p-8 lg:p-0">
-        <div className="mx-auto flex min-h-[calc(100vh-32px)] max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-[#0a0b0b] shadow-2xl sm:min-h-[calc(100vh-64px)] lg:min-h-screen lg:max-w-none lg:rounded-none lg:border-0">
+    <main className="min-h-dvh overflow-x-hidden bg-[radial-gradient(circle_at_95%_0%,#252313_0%,transparent_30%),#050505] p-2 text-white sm:p-6 md:p-8 lg:min-h-screen lg:p-0">
+        <div className="mx-auto flex min-h-[calc(100dvh-16px)] max-w-6xl overflow-hidden rounded-2xl border border-white/10 bg-[#0a0b0b] shadow-2xl sm:min-h-[calc(100dvh-48px)] sm:rounded-3xl md:min-h-[calc(100dvh-64px)] lg:min-h-screen lg:max-w-none lg:rounded-none lg:border-0">
             <ArtPanel />
-            <section className="flex flex-1 flex-col px-6 py-7 sm:px-12 lg:px-20 lg:py-10">
+            <section className="flex min-w-0 flex-1 flex-col px-5 py-6 sm:px-10 sm:py-8 md:px-14 lg:px-20 lg:py-10">
                 <div className="flex items-center gap-2 lg:hidden">
                     <div className="grid h-8 w-8 place-items-center rounded-full bg-[#101a1d] text-[#42d4ee]">
                         <Sparkles size={15} />
@@ -131,7 +141,7 @@ export default function AuthPage({ mode = 'login' }) {
                         <p className="mb-2 text-xs font-bold uppercase tracking-[.2em] text-[#d29a55]">
                             {isLogin ? 'Welcome back' : 'Create your space'}
                         </p>
-                        <h1 className="font-['Space_Grotesk'] text-4xl font-bold tracking-tight">
+                        <h1 className="font-['Space_Grotesk'] text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
                             {isLogin ? 'Pick up where you left off.' : 'Make room for your sound.'}
                         </h1>
                         <p className="mt-3 text-sm leading-6 text-white/45">

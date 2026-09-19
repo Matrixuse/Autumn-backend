@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
-import { Ban, Bookmark, ListEnd, ListPlus, MoreVertical, Pin, UserRound } from 'lucide-react'
+import { Ban, ListEnd, ListPlus, MoreVertical, Pin, ThumbsUp, UserRound } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../../context/PlayerContext'
 import axiosInstance from '../../api/axiosInstance'
@@ -127,7 +127,7 @@ export default function SongActionsMenu({ song, queue = [], itemType = 'song', i
   const menuItems = [
     { label: 'Play next', icon: ListEnd, onClick: playNext },
     { label: 'Add to queue', icon: ListPlus, onClick: addQueue },
-    { label: saved ? 'Remove from library' : 'Save to library', icon: Bookmark, onClick: saveToLibrary },
+    { label: saved ? 'Remove from Liked Songs' : 'Add to Liked Songs', icon: ThumbsUp, onClick: saveToLibrary },
     { label: 'Save to playlist', icon: ListPlus, onClick: () => { navigate('/new-playlist', { state: { song } }); close() }, disabled: !isSong },
     { label: 'Go to artist', icon: UserRound, onClick: goToArtist, disabled: !isSong || !getArtistId(song) },
     { label: 'Add to Listen again', icon: Pin, onClick: listenAgain, disabled: !isSong },

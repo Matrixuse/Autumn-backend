@@ -329,7 +329,7 @@ export default function ArtistPage() {
 
       <div className="hidden h-full md:flex md:min-h-0 md:min-w-0 md:flex-1 md:flex-row md:overflow-hidden">
         <div
-          className="relative shrink-0 overflow-hidden border-r border-gray-800 bg-[#0f0f0f]/80 p-2 md:w-150 md:min-w-150 md:sticky md:top-0 md:h-full md:p-2"
+          className="relative shrink-0 overflow-hidden border-r border-gray-800 bg-[#0f0f0f]/80 p-2 md:w-100 md:min-w-100 lg:w-150 lg:min-w-150  md:sticky md:top-0 md:h-full md:p-2"
           style={{
             backgroundImage: `linear-gradient(180deg, rgba(15,15,15,0.25), rgba(15,15,15,0.75)), url(${displayArtistImage})`,
             backgroundSize: 'cover',
@@ -346,11 +346,11 @@ export default function ArtistPage() {
               </button>
             </div>
 
-            <div className="mt-70 flex items-center gap-5 pb-1 text-center">
+            <div className="lg:mt-70 md:mt-57  flex items-center gap-5 pb-1 text-center">
               <img 
                 src={songs[0]?.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'} 
                 alt={artistName} 
-                className="h-40 w-40 rounded object-cover shadow-lg md:h-40 md:w-40"
+                className="h-40 w-40 rounded object-cover shadow-lg lg:h-40 lg:w-40 md:h-30 md:w-28"
               />
               <div className="ml-6 flex flex-col items-center justify-center">
                 <h2 className="text-4xl font-bold leading-none tracking-tight text-white">{artistName}</h2>
@@ -370,9 +370,9 @@ export default function ArtistPage() {
 
         <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
           <div ref={desktopScrollContainerRef} className="mt-2 min-h-0 flex-1 overflow-y-auto p-4 pb-28 md:p-4 md:pb-28 scrollbar-none">
-            <div className="mr-8 space-y-1 md:space-y-1 scrollbar-none">
+            <div className="space-y-1 md:space-y-1 scrollbar-none">
               {filteredSongs.map((song) => (
-                <div key={song.id} className="group relative flex cursor-pointer items-center gap-1 overflow-visible rounded border-b border-gray-800 bg-[#0f0f0f]/50 px-1 py-1 pr-12 transition-colors hover:bg-[#282828]/80 md:gap-4 md:px-1 md:py-1 md:pr-14" onClick={() => playTrack(song, filteredSongs)}>
+                <div key={song.id} className="group relative flex cursor-pointer items-center gap-1 overflow-visible rounded border-b border-gray-800 bg-[#0f0f0f]/50 px-1 py-1 transition-colors hover:bg-[#282828]/80 md:gap-4 md:px-1 md:py-1 lg:pr-5" onClick={() => playTrack(song, filteredSongs)}>
                   <div className="shrink-0">
                     <img src={song.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'} alt={song.title} className="h-10 w-10 rounded object-cover md:h-10 md:w-10" />
                   </div>

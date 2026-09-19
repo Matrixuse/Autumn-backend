@@ -52,7 +52,7 @@ export default function NewPlaylist() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/5 p-4 backdrop-blur-xs" onMouseDown={(event) => { if (event.target === event.currentTarget) navigate(-1) }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-700/5 p-4 backdrop-blur-xs" onMouseDown={(event) => { if (event.target === event.currentTarget) navigate(-1) }}>
       <form onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="new-playlist-title" className="w-full max-w-xl rounded-xl border border-white/15 bg-[#242424] p-5 text-white shadow-2xl sm:p-6">
         <div className="mb-6 flex items-center justify-between">
           <h1 id="new-playlist-title" className="text-xl font-bold">New playlist</h1>

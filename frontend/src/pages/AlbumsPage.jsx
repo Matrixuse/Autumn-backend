@@ -258,21 +258,21 @@ export default function AlbumsPage() {
       </div>
 
       <div className="hidden md:flex md:h-[calc(100vh-10rem)] md:min-h-0 md:min-w-0 md:flex-1 md:flex-row md:overflow-hidden">
-        <div className="flex h-full min-h-0 shrink-0 flex-col border-r border-gray-800 bg-[#0f0f0f]/80 p-6 md:w-107.5 md:min-w-107.5 md:p-5">
+        <div className="flex h-full min-h-0 shrink-0 flex-col border-r border-gray-800 bg-[#0f0f0f]/80 p-6 lg:w-107.5 lg:min-w-107.5 md:w-90 md:min-w-90 md:p-5">
           <div className="mb-0 flex items-center gap-3 md:mb-4">
             <button type="button" onClick={goBack} className="shrink-0 rounded-full bg-[#0f0f0f] p-2 hover:bg-[#282828]" aria-label="Go back">
               <ArrowLeft size={20} />
             </button>
           </div>
 
-          <div className="mt-4 md:mt-8 md:flex md:flex-col md:items-center md:text-center">
+          <div className="lg:mt-4 md:mt-8 md:flex md:flex-col md:items-center md:text-center">
             <img
               src={songs[0]?.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'}
               alt={albumName}
-              className="h-56 w-56 rounded-xl object-cover shadow-lg md:h-64 md:w-64"
+              className="lg:h-56 lg:w-56 rounded-xl object-cover shadow-lg md:h-34 md:w-34"
             />
             <div className="mt-5 flex-1 md:mt-7 md:w-full">
-              <h2 className="text-4xl font-bold leading-none tracking-tight text-white">{albumName}</h2>
+              <h2 className="lg:text-4xl md:text-2xl font-bold leading-none tracking-tight text-white">{albumName}</h2>
               <div className="mt-6 flex items-center justify-center gap-5 md:gap-6">
                 <button className="rounded-full p-2 text-white transition-colors hover:bg-[#282828]" aria-label="Play album">
                   <Shuffle size={20} className="fill-white text-white" />
@@ -308,9 +308,9 @@ export default function AlbumsPage() {
           </div>
 
           <div ref={desktopScrollContainerRef} className="min-h-0 flex-1 overflow-y-auto p-4 pb-28 scrollbar-none">
-            <div className="mr-8 space-y-1 md:space-y-1">
+            <div className="mr-3 space-y-1 md:space-y-1">
               {hasSearchResults ? filteredSongs.map((song) => (
-                <div key={song.id} className="group relative flex cursor-pointer items-center gap-1 overflow-visible rounded border-b border-gray-800 bg-[#0f0f0f]/50 px-1 py-1 pr-12 transition-colors hover:bg-[#282828]/80 md:gap-4 md:px-1 md:py-1 md:pr-14" onClick={() => playTrack(song, songs)}>
+                <div key={song.id} className="group relative flex cursor-pointer items-center gap-1 overflow-visible rounded border-b border-gray-800 bg-[#0f0f0f]/50 px-1 py-1 pr-12 transition-colors hover:bg-[#282828]/80 lg:gap-4 lg:px-1 lg:py-1 lg:pr-14 md:gap-4 md:px-1 md:py-1 md:pr-1" onClick={() => playTrack(song, songs)}>
                   <div className="shrink-0">
                     <img src={song.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'} alt={song.title} className="h-10 w-10 rounded object-cover md:h-10 md:w-10" />
                   </div>

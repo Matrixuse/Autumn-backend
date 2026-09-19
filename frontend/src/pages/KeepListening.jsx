@@ -121,6 +121,41 @@ export default function KeepListening() {
   }, [currentTrack?.id])
 
   useEffect(() => {
+    if (!currentTrack?.id) return undefined
+
+    const controller = new AbortController()
+    const loadRelatedSongs = async () => {
+      try {
+        const historyIds = new Set(listenHistory.map((song) => String(song.id)))
+        const isHollywood = isLikelyHollywoodSong(currentTrack)
+        const artist = String(currentTrack.artist || '').split(',')[0].trim()
+        const searchQueries = [
+          `${artist} songs`.trim(),
+          `${artist} latest songs`.trim(),
+          currentTrack.title,
+          `${currentTrack.title} ${artist}`.trim()
+        ].filter(Boolean)
+        const searchResults = await Promise.all(
+          searchQueries.flatMap((query) => [0, 1].map((page) => searchSongs(query, 10, page).catch(() => [])))
+        )
+        const candidates = searchResults.flat().map(normalizeSong).filter((song) => !historyIds.has(String(song.id)))
+        const suggestions = rankRelatedSongs(candidates, currentTrack, isHollywood)
+
+        if (!controller.signal.aborted) {
+          setRelatedSongs(suggestions.slice(0, 12))
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setRelatedSongs([])
+        }
+      }
+    }
+
+    loadRelatedSongs()
+    return () => controller.abort()
+  }, [currentTrack?.id, listenHistory])
+
+  useEffect(() => {
     if (!currentTrack?.id || isRecommendationQueue) return undefined
     const controller = new AbortController()
     const fillQueue = async () => {
@@ -222,16 +257,20 @@ export default function KeepListening() {
 
   return (
     <div className="flex h-[calc(100vh-11rem)] animate-[queue-reveal_.45s_ease-out] flex-col gap-2 overflow-hidden rounded bg-linear-to-br from-[#0f0f0f] to-[#080a0c] shadow-2xl sm:flex-row">
-      <div className="min-h-0 w-3/5 overflow-hidden sm:w-3/5">
+      <div className="min-h-0 w-3/5 overflow-hidden md:w-1/2 sm:w-3/5">
         <div className="items-center justify-center">
           <h1 className="text-2xl font-bold">Keep Listening</h1>
           <button type="button" aria-label="Toggle current song" onClick={togglePlay}>
-            <img src={getBestImageUrl(currentTrack?.image)} alt={currentTrack?.title || 'Current song'} className="mt-4 max-h-[calc(100vh-14rem)] w-full rounded-lg object-contain object-top sm:w-110" />
+            <img 
+              src={getBestImageUrl(currentTrack?.image)} 
+              alt={currentTrack?.title || 'Current song'} 
+              className="mt-4 max-h-[calc(100vh-14rem)] lg:w-full rounded-lg object-contain object-top md:w-150 sm:w-110" 
+            />
           </button>
         </div>
       </div>
 
-      <div className="min-h-0 min-w-0 w-2/5 sm:w-2/5">
+      <div className="min-h-0 min-w-0 w-2/5 md:w-1/2 sm:w-2/5">
         <div aria-label="Keep Listening details" className="flex h-full min-h-0 flex-col">
           <div className="flex items-center gap-6 border-b border-white/10 px-2 justify-between">
             {tabs.map((tab) => (

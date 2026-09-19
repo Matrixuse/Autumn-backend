@@ -12,7 +12,7 @@ export default function PlaylistCard({ song, playlist, to, compact = false, item
     const destination = to || `/playlist/${encodeURIComponent(String(playlistId))}/${playlistSlug}`
     
     return (
-        <article className={`group relative ${compact ? 'w-36 min-w-36 shrink-0' : 'min-w-42.5 flex-1'}`}>
+        <article className={`group relative ${compact ? 'w-36 min-w-36 shrink-0' : 'min-w-40.5 md:min-w-42.5 flex-1'}`}>
             <Link to={destination} className="block">
                 <div className={`${compact ? 'aspect-square rounded-lg' : 'aspect-square rounded-xl'} overflow-hidden bg-[#28251f]`}>
                     {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}

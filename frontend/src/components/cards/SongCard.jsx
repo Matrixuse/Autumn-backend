@@ -24,7 +24,7 @@ export default function SongCard({ song, queue = [] }) {
     const artist = song?.artist || song?.artists?.all?.[0]?.name || song?.subtitle || 'Unknown Artist'
 
     return (
-        <article className="group min-w-40 max-w-45 flex-1">
+        <article className="group min-w-35 md:min-w-40 md:max-w-45 flex-1">
             <div className="relative">
                 <button onClick={() => playTrack(song, queue)} className="relative block aspect-square w-full overflow-hidden rounded-lg bg-[#28251f] text-left shadow-lg transition duration-300 group-hover:scale-[1.02] group-hover:shadow-[0_16px_35px_rgba(0,0,0,.35)]">
                     {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className={`relative h-full w-full overflow-hidden bg-linear-to-br ${color}`}>

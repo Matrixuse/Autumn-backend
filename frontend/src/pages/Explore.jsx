@@ -67,15 +67,15 @@ export default function Explore() {
     }, [listenHistory])
 
     return (
-    <div className="space-y-10">
+    <div className="space-y-5 md:space-y-10">
         <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-[.2em] text-[#d29a55]">
+            <p className="mb-1 md:mb-2 text-xs font-bold uppercase tracking-[.2em] text-[#d29a55]">
                 Browse the feeling
             </p>
-            <h1 className="font-['Space_Grotesk'] text-4xl font-bold">
+            <h1 className="font-['Space_Grotesk'] md:text-4xl text-3xl font-bold">
                 For you
             </h1>
-            <p className="mt-3 text-sm text-white/45">
+            <p className="mt-1 md:mt-3 text-sm text-white/45">
                 A little more of what makes the day sound right.
             </p>
         </div>

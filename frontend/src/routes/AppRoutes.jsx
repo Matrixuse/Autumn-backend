@@ -17,6 +17,7 @@ import PlaylistsLibrary from '../pages/PlaylistsLibrary'
 import NewPlaylist from '../pages/NewPlaylist'
 import Profile from '../pages/Profile'
 import SearchPage from '../pages/SearchPage'
+import MobilePlayerPage from '../pages/MobilePlayerPage'
 
 export default function AppRoutes() {
     return (
@@ -26,6 +27,7 @@ export default function AppRoutes() {
             <Route element={<AppLayout />}>
                 <Route path="/" element={<Home />} />
                 <Route path="/keep-listening" element={<KeepListening />} />
+                <Route path="/now-playing" element={<MobilePlayerPage />} />
                 <Route path="/explore" element={<Explore />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/library" element={<Library />} />

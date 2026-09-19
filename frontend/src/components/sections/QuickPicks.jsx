@@ -42,14 +42,38 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                 </div>
             </div>
 
-            <div className="scrollbar-none -mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
+            <div className="scrollbar-none -mx-1 grid auto-cols-[calc((100vw-3rem)/3)] grid-flow-col grid-rows-3 gap-1 overflow-x-auto px-1 md:hidden">
+                {visibleSongs.map((song, index) => (
+                    <article key={song.id || `${song.title}-mobile-${index}`} className="min-w-0">
+                        <button
+                            type="button"
+                            aria-label={`Play ${song.title || 'song'}`}
+                            onClick={() => playTrack(song, visibleSongs)}
+                            className="group relative aspect-square w-full overflow-hidden rounded-lg bg-[#28251f] text-left shadow-[0_8px_20px_rgba(0,0,0,0.28)]"
+                        >
+                            {song.image ? (
+                                <img src={song.image} alt="" className="h-full w-full object-cover transition duration-300 group-active:scale-105" />
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-[#4a4138] to-[#140f13] text-center text-[10px] font-black uppercase tracking-[.12em] text-white/75">
+                                    {song.title?.slice(0, 2) || 'AU'}
+                                </div>
+                            )}
+                            <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/55 to-transparent px-2 pb-2 pt-8">
+                                <span className="block truncate text-xs font-bold text-white">{shortTitle(song.title, 22)}</span>
+                            </span>
+                        </button>
+                    </article>
+                ))}
+            </div>
+
+            <div className="scrollbar-none -mx-1 hidden gap-3 overflow-x-auto px-1 pb-2 md:flex">
                 {Array.from({ length: columnCount }).map((_, columnIndex) => {
                     const columnSongs = visibleSongs.slice(columnIndex * 4, columnIndex * 4 + 4)
 
                     return (
                         <div
                             key={`quick-pick-column-${columnIndex}`}
-                            className="flex min-w-[350px] flex-col gap-1"
+                            className="flex min-w-82.5 flex-col gap-1 md:min-w-87.5"
                         >
                             {columnSongs.map((song, index) => (
                                 <article
@@ -57,12 +81,12 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                                     className="group cursor-pointer rounded border border-white/0 bg-transparent p-0"
                                     onClick={() => playTrack(song, visibleSongs)}
                                 >
-                                    <div className="mr-3 flex items-center gap-3 rounded bg-transparent p-1 transition hover:bg-white/[0.02]">
+                                    <div className="mr-1 flex items-center gap-3 rounded bg-transparent p-1 transition hover:bg-white/2 md:mr-3">
                                         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
                                             {song.image ? (
                                                 <img src={song.image} alt={song.title} className="h-full w-full object-cover" />
                                             ) : (
-                                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#4a4138] to-[#140f13] text-[10px] font-black uppercase tracking-[.2em] text-white/75">
+                                                <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-[#4a4138] to-[#140f13] text-[10px] font-black uppercase tracking-[.2em] text-white/75">
                                                     {song.title?.slice(0, 2) || 'AU'}
                                                 </div>
                                             )}
@@ -75,7 +99,7 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                                             <h3 className="truncate text-[1.05rem] font-bold text-white">
                                                 {shortTitle(song.title, 26)}
                                             </h3>
-                                            <div className="flex min-w-0 items-center gap-2 truncate text-[13px] tracking-[.1em] text-white/55">
+                                            <div className="flex min-w-0 items-center gap-2 truncate text-[13px] tracking-widest text-white/55">
                                                 <span>{getArtistLabel(song.artist)}</span>
                                             </div>
                                         </div>

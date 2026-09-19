@@ -52,10 +52,10 @@ export default function LongToListen({ songs }) {
                 {visibleSongs.map((song, index) => (
                     <article
                         key={song.id || `${song.title}-${index}`}
-                        className="group min-w-[350px] cursor-pointer flex-1 rounded border border-white/0 bg-transparent p-0"
+                        className="group min-w-[330px] md:min-w-[350px] cursor-pointer flex-1 rounded border border-white/0 bg-transparent p-0"
                         onClick={() => playTrack(song, visibleSongs)}
                     >
-                        <div className="flex items-center gap-3 rounded bg-transparent p-1 transition hover:bg-white/[0.02] mr-3">
+                        <div className="flex items-center gap-3 rounded bg-transparent p-1 transition hover:bg-white/[0.02] mr-1 md:mr-3">
                             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
                                 {song.image ? (
                                     <img src={song.image} alt={song.title} className="h-full w-full object-cover" />
