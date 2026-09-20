@@ -7,7 +7,7 @@ export default function ListenAgain({ songs }) { return (
                 <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">
                     Your listening space
                 </p>
-                <h1 className="font-['Space_Grotesk'] text-3xl font-bold sm:text-4xl">
+                <h1 className="font-['Space_Grotesk'] md:text-3xl font-bold text-2xl">
                     Listen again
                 </h1>
             </div>

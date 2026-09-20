@@ -167,12 +167,7 @@ export default function AlbumsPage() {
   return (
     <>
       <div className="flex min-h-0 min-w-0 flex-col md:hidden">
-        <div className="flex min-h-0 min-w-0 grow flex-col">
-          <div className={`shrink-0 transition-all duration-300 ${isHeaderExpanded ? 'bg-[#0f0f0f]/80 p-6' : 'bg-[#0f0f0f]/80 p-3'}`}>
-            <div className="mb-0 flex items-center gap-3">
-              <button type="button" onClick={goBack} className="shrink-0 rounded-full bg-[#0f0f0f] p-2 hover:bg-[#282828]" aria-label="Go back">
-                <ArrowLeft size={20} />
-              </button>
+        <div className="mb-0 flex items-center gap-3">
               {isHeaderExpanded ? <h1 className="flex-1" /> : <h1 className="flex-1 text-xl font-bold">{albumName}</h1>}
               <div className="flex items-center gap-2">
                 <button onClick={() => setSearchOpen((value) => !value)} className="shrink-0 rounded-full bg-[#0f0f0f] p-2 hover:bg-[#282828]">
@@ -182,10 +177,12 @@ export default function AlbumsPage() {
                   <Shuffle size={20} className="text-white" />
                 </button>
               </div>
-            </div>
+        </div>
+        <div className="flex min-h-0 min-w-0 grow flex-col">
+          <div className={`shrink-0 transition-all duration-300 ${isHeaderExpanded ? 'bg-[#0f0f0f]/80 p-6' : 'bg-[#0f0f0f]/80 p-3'}`}>
 
             {isHeaderExpanded && (
-              <div className="mt-4 flex items-center">
+              <div className="flex items-center">
                 <img
                   src={songs[0]?.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'}
                   alt={albumName}
@@ -197,11 +194,6 @@ export default function AlbumsPage() {
                     <button className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 shadow-sm shadow-red-500/40 transition-all hover:bg-blue-500" aria-label="Play album">
                       <Play className="ml-1 h-5 w-5 fill-white text-white" />
                     </button>
-                    <div className="relative">
-                      <button className="rounded-full bg-[#1f1f1f] p-2 text-white transition-colors hover:bg-[#282828]" aria-label="Album actions">
-                        <MoreVertical size={20} />
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -231,7 +223,7 @@ export default function AlbumsPage() {
           )}
 
           <hr className="h-px bg-[#5f5f5f]" />
-          <div ref={mobileScrollContainerRef} className="grow overflow-y-auto p-4 pb-24 custom-scrollbar">
+          <div ref={mobileScrollContainerRef} className="grow overflow-y-auto pt-5 md:p-4 pb-24 custom-scrollbar">
             <div className="grid grid-cols-1 gap-2">
               {hasSearchResults ? filteredSongs.map((song) => (
                 <div key={song.id} className="group relative cursor-pointer rounded bg-[#0f0f0f]/50 p-1 transition-colors hover:bg-[#282828]/80" onClick={() => playTrack(song, songs)}>
@@ -239,11 +231,11 @@ export default function AlbumsPage() {
                     <div className="shrink-0">
                       <img src={song.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'} alt={song.title} className="h-10 w-10 rounded-md object-cover" />
                     </div>
-                    <div className="min-w-0 flex-1 overflow-hidden">
+                    <div className="min-w-0 flex-1 overflow-hidden mr-17 md:mr-0">
                       <h4 className="truncate text-sm font-semibold text-white">{song.title}</h4>
                       <p className="truncate text-xs text-gray-400">{song.artist}</p>
                     </div>
-                    <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-2"><span className="text-xs text-gray-300">{formatDuration(song)}</span><SongActionsMenu song={song} queue={songs} /></div>
+                    <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-2"><span className="text-xs text-gray-300">{formatDuration(song)}</span><SongActionsMenu song={song} queue={songs} alwaysVisible /></div>
                   </div>
                 </div>
               )) : (

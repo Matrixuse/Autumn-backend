@@ -305,12 +305,10 @@ export default function PlaylistPage({ libraryOption = '' }) {
   return (
     <>
       <div className="flex flex-col min-h-0 min-w-0 md:hidden">
-        <div className="grow flex flex-col min-h-0 min-w-0">
-          <div className={`shrink-0 transition-all duration-300 ${isHeaderExpanded ? 'bg-[#0f0f0f]/80 p-6' : 'bg-[#0f0f0f]/80 p-3'}`}>
-            <div className="flex items-center gap-3 mb-0">
-              <button type="button" onClick={() => navigate(-1)} className="hidden md:block p-2 rounded-full bg-[#0f0f0f] hover:bg-[#282828] shrink-0" aria-label="Go back">
-                <ArrowLeft size={20} />
-              </button>
+        <div className="flex items-center gap-3 mb-0">
+          <button type="button" onClick={() => navigate(-1)} className="hidden md:block p-2 rounded-full bg-[#0f0f0f] hover:bg-[#282828] shrink-0" aria-label="Go back">
+            <ArrowLeft size={20} />
+          </button>
               {isHeaderExpanded ? (
                 <h1 className="flex-1"></h1>
               ) : (
@@ -333,11 +331,12 @@ export default function PlaylistPage({ libraryOption = '' }) {
                     <Shuffle size={20} className="text-white" />
                   </button>
                 )}
-              </div>
-            </div>
-
+          </div>
+        </div>
+        <div className="grow flex flex-col min-h-0 min-w-0">
+          <div className={`shrink-0 transition-all duration-300 ${isHeaderExpanded ? 'bg-[#0f0f0f]/80 p-6' : 'bg-[#0f0f0f]/80 p-3'}`}>
             {isHeaderExpanded && dailySongs.length > 0 && (
-              <div className="mt-4 flex items-center">
+              <div className="flex items-center">
                 <ImageWithFallback
                   src={displayImage}
                   alt={displayName}
@@ -429,7 +428,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
           )}
 
           <hr className="h-px bg-[#5f5f5f]" />
-          <div ref={mobileScrollContainerRef} className="grow overflow-y-auto custom-scrollbar p-4 pb-24">
+          <div ref={mobileScrollContainerRef} className="grow overflow-y-auto custom-scrollbar p-1 pt-5 pb-24">
           {filteredSongs.length > 0 ? (
             <div className="grid grid-cols-1 gap-2">
               {filteredSongs.map((song) => {
@@ -457,7 +456,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
                           fallback={'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'}
                         />
                       </div>
-                      <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex-1 min-w-0 overflow-hidden mr-6">
                         <h4 className={`text-sm font-semibold truncate ${isActive ? 'text-red-300' : 'text-white'}`}>{song.title}</h4>
                         <p className="text-xs text-gray-400 truncate">{Array.isArray(song.artist) ? song.artist.join(', ') : (song.artist || '')}</p>
                       </div>
@@ -490,7 +489,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
       </div>
 
       <div className="hidden md:flex md:h-[calc(100vh-10rem)] md:min-h-0 md:min-w-0 md:flex-none md:overflow-hidden md:flex-row">
-        <div className="shrink-0 transition-all duration-300 bg-[#0f0f0f]/80 p-6 lg:w-107.5 lg:min-w-107.5 md:w-90 md:min-w-90 md:sticky md:top-0 md:h-full md:border-r md:border-gray-800 md:p-5">
+        <div className="shrink-0 transition-all duration-300 bg-[#0f0f0f]/80 p-1 lg:w-107.5 lg:min-w-107.5 md:w-90 md:min-w-90 md:sticky md:top-0 md:h-full md:border-r md:border-gray-800 md:p-5">
           <div className="flex items-center gap-3 mb-0 md:mb-4">
             <button type="button" onClick={() => navigate(-1)} className="p-2 rounded-full bg-[#0f0f0f] hover:bg-[#282828] shrink-0" aria-label="Go back">
               <ArrowLeft size={20} />

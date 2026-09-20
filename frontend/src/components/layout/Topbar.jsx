@@ -14,7 +14,7 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
     const isExplorePage = location.pathname === '/explore'
     const isPlaylistsPage = location.pathname === '/playlists' || location.pathname.startsWith('/playlist/')
     const isLibraryPage = location.pathname === '/library'
-    const isMobileHiddenPage = location.pathname === '/recently-played' || location.pathname === '/liked-songs' || location.pathname === '/keep-listening'
+    const isMobileHiddenPage = location.pathname === '/recently-played' || location.pathname === '/liked-songs' || location.pathname === '/keep-listening' || location.pathname.startsWith('/album/') || location.pathname.startsWith('/artist/') || location.pathname.startsWith('/mood/')
     const disabledState = locked ? 'pointer-events-none opacity-60' : ''
     const closeMenu = () => setIsMenuOpen(false)
 

@@ -199,7 +199,7 @@ export default function Home() {
     <div>
         <div className="flex flex-col space-y-5 md:space-y-10">
           <div className="order-0 lg:order-1"><MoodChips /></div>
-            <div className="order-1 lg:order-3"><QuickPicks songs={quickPickSongs} /></div>
+            <div className="order-1 lg:order-3"><QuickPicks songs={quickPickSongs} homeMobileGrid /></div>
             <div className="order-2 lg:order-2"><ListenAgain songs={listenAgainSongs} /></div>
             <div className="order-3 lg:order-5"><Library songs={librarySongs} /></div>
             <div className="order-4 lg:order-6"><MixForYou playlists={mixPlaylists} /></div>

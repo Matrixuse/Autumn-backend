@@ -4,7 +4,7 @@ export default function Albums({ albums, title = 'Albums for you' }) {
     return (
         <section>
             <div className="mb-5">
-                <h2 className="font-['Space_Grotesk'] text-3xl font-bold">
+                <h2 className="font-['Space_Grotesk'] text-2xl md:text-3xl font-bold">
                     {title}
                 </h2>
             </div>

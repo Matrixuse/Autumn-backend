@@ -24,7 +24,7 @@ const getArtistLabel = (artist) => {
     return String(artist)
 }
 
-export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow = 'Made for the moment', limit = 24 }) {
+export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow = 'Made for the moment', limit = 24, homeMobileGrid = false }) {
     const { playTrack } = usePlayer()
     const visibleSongs = Array.isArray(songs) ? songs.slice(0, limit) : []
     const columnCount = Math.max(1, Math.ceil(visibleSongs.length / 4))
@@ -36,37 +36,39 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                     <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">
                         {eyebrow}
                     </p>
-                    <h2 className="font-['Space_Grotesk'] text-3xl font-bold leading-none tracking-[-0.04em] text-white">
+                    <h2 className="font-['Space_Grotesk'] text-2xl md:text-3xl font-bold leading-none tracking-[-0.04em] text-white">
                         {title}
                     </h2>
                 </div>
             </div>
 
-            <div className="scrollbar-none -mx-1 grid auto-cols-[calc((100vw-3rem)/3)] grid-flow-col grid-rows-3 gap-1 overflow-x-auto px-1 md:hidden">
-                {visibleSongs.map((song, index) => (
-                    <article key={song.id || `${song.title}-mobile-${index}`} className="min-w-0">
-                        <button
-                            type="button"
-                            aria-label={`Play ${song.title || 'song'}`}
-                            onClick={() => playTrack(song, visibleSongs)}
-                            className="group relative aspect-square w-full overflow-hidden rounded-lg bg-[#28251f] text-left shadow-[0_8px_20px_rgba(0,0,0,0.28)]"
-                        >
-                            {song.image ? (
-                                <img src={song.image} alt="" className="h-full w-full object-cover transition duration-300 group-active:scale-105" />
-                            ) : (
-                                <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-[#4a4138] to-[#140f13] text-center text-[10px] font-black uppercase tracking-[.12em] text-white/75">
-                                    {song.title?.slice(0, 2) || 'AU'}
-                                </div>
-                            )}
-                            <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/55 to-transparent px-2 pb-2 pt-8">
-                                <span className="block truncate text-xs font-bold text-white">{shortTitle(song.title, 22)}</span>
-                            </span>
-                        </button>
-                    </article>
-                ))}
-            </div>
+            {homeMobileGrid && (
+                <div className="scrollbar-none -mx-1 grid auto-cols-[calc((100vw-3rem)/3)] grid-flow-col grid-rows-3 gap-2 overflow-x-auto px-1 md:hidden">
+                    {visibleSongs.map((song, index) => (
+                        <article key={song.id || `${song.title}-mobile-${index}`} className="min-w-0">
+                            <button
+                                type="button"
+                                aria-label={`Play ${song.title || 'song'}`}
+                                onClick={() => playTrack(song, visibleSongs)}
+                                className="group relative aspect-square w-full overflow-hidden rounded-lg bg-[#28251f] text-left shadow-[0_8px_20px_rgba(0,0,0,0.28)]"
+                            >
+                                {song.image ? (
+                                    <img src={song.image} alt="" className="h-full w-full object-cover transition duration-300 group-active:scale-105" />
+                                ) : (
+                                    <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-[#4a4138] to-[#140f13] text-center text-[10px] font-black uppercase tracking-[.12em] text-white/75">
+                                        {song.title?.slice(0, 2) || 'AU'}
+                                    </div>
+                                )}
+                                <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/55 to-transparent px-2">
+                                    <span className="block truncate text-xs font-bold text-white">{shortTitle(song.title, 22)}</span>
+                                </span>
+                            </button>
+                        </article>
+                    ))}
+                </div>
+            )}
 
-            <div className="scrollbar-none -mx-1 hidden gap-3 overflow-x-auto px-1 pb-2 md:flex">
+            <div className={`scrollbar-none -mx-1 gap-3 overflow-x-auto px-1 pb-2 ${homeMobileGrid ? 'hidden md:flex' : 'flex'}`}>
                 {Array.from({ length: columnCount }).map((_, columnIndex) => {
                     const columnSongs = visibleSongs.slice(columnIndex * 4, columnIndex * 4 + 4)
 

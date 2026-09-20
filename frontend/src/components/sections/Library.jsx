@@ -36,7 +36,7 @@ export default function Library({ songs = [] }) {
                     <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">
                         Best for you
                     </p>
-                    <h2 className="font-['Space_Grotesk'] text-3xl font-bold leading-none tracking-[-0.04em] text-white">
+                    <h2 className="font-['Space_Grotesk'] text-2xl md:text-3xl font-bold leading-none tracking-[-0.04em] text-white">
                         Your Library
                     </h2>
                 </div>

@@ -66,7 +66,7 @@ export default function Hollywood({ songs = [] }) {
                     <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">
                         Feels like a foreigner
                     </p>
-                    <h2 className="font-['Space_Grotesk'] text-3xl font-bold leading-none tracking-[-0.04em] text-white">
+                    <h2 className="font-['Space_Grotesk'] text-2xl md:text-3xl font-bold leading-none tracking-[-0.04em] text-white">
                         Hollywood Vibes
                     </h2>
                 </div>

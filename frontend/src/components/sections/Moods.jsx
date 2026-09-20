@@ -6,7 +6,7 @@ export default function Moods({ songs = [], title = 'Your Moods', eyebrow = 'Moo
                 <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">
                     {eyebrow}
                 </p>
-                <h2 className="font-['Space_Grotesk'] text-3xl font-bold">
+                <h2 className="font-['Space_Grotesk'] text-2xl md:text-3xl font-bold">
                     {title}
                 </h2>
             </div>

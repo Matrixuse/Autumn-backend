@@ -232,7 +232,7 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
   })
 
   return (
-    <div className={`relative md:ml-14 w-full max-w-[480px] ${disabled ? 'pointer-events-none opacity-60' : ''}`}>
+    <div className={`relative md:ml-14 w-full min-w-[340px] ${disabled ? 'pointer-events-none opacity-60' : ''}`}>
       <div className="flex items-center gap-1 md:gap-3 rounded-lg border border-white/10 bg-[#2d2f31] px-4 py-2.5 text-white/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
         <Search size={18} className="text-white/70" />
         <input
