@@ -32,7 +32,7 @@ const getArtistLabel = (artist) => {
     return String(artist)
 }
 export default function LongToListen({ songs }) {
-    const { playTrack } = usePlayer()
+    const { playTrack, currentTrack, isPlaying } = usePlayer()
     const visibleSongs = Array.isArray(songs) ? songs.slice(0, 20) : []
 
     return (
@@ -52,21 +52,22 @@ export default function LongToListen({ songs }) {
                 {visibleSongs.map((song, index) => (
                     <article
                         key={song.id || `${song.title}-${index}`}
-                        className="group min-w-[330px] md:min-w-[350px] cursor-pointer flex-1 rounded border border-white/0 bg-transparent p-0"
+                        className="group min-w-82.5 md:min-w-87.5 cursor-pointer flex-1 rounded border border-white/0 bg-transparent p-0"
                         onClick={() => playTrack(song, visibleSongs)}
                     >
-                        <div className="flex items-center gap-3 rounded bg-transparent p-1 transition hover:bg-white/[0.02] mr-1 md:mr-3">
+                        <div className="mr-1 flex items-center gap-3 rounded bg-transparent p-1 transition hover:bg-white/2 md:mr-3">
                             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
                                 {song.image ? (
                                     <img src={song.image} alt={song.title} className="h-full w-full object-cover" />
                                 ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#4a4138] to-[#140f13] text-[10px] font-black uppercase tracking-[.2em] text-white/75">
+                                    <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-[#4a4138] to-[#140f13] text-[10px] font-black uppercase tracking-[.2em] text-white/75">
                                         {song.title?.slice(0, 2) || 'AU'}
                                     </div>
                                 )}
                                 <button type="button" aria-label={`Play ${song.title || 'song'}`} onClick={(event) => { event.stopPropagation(); playTrack(song, visibleSongs) }} className="absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition group-hover:opacity-100">
                                     <span className="grid h-7 w-7 place-items-center rounded-full bg-transparent text-white"><Play size={27} fill="currentColor" /></span>
                                 </button>
+                                {isPlaying && String(currentTrack?.id) === String(song?.id) && <span className="absolute bottom-1 left-1 grid h-6 w-6 place-items-center rounded-full bg-[#d29a55] text-[#17130e]"><Play size={13} fill="currentColor" /></span>}
                             </div>
 
 
@@ -80,10 +81,10 @@ export default function LongToListen({ songs }) {
                             </div>
                             <div className="relative ml-auto h-8 min-w-8 shrink-0">
                                 <span className="absolute inset-0 grid place-items-center whitespace-nowrap text-sm font-medium text-white/70 transition-opacity group-hover:opacity-0">
-                                    {formatDuration(song.duration)}
+                                    <span className="hidden md:inline">{formatDuration(song.duration)}</span>
                                 </span>
                                 <div className="absolute inset-0 flex items-center justify-end">
-                                    <SongActionsMenu song={song} queue={visibleSongs} />
+                                    <SongActionsMenu song={song} queue={visibleSongs} mobileAlwaysVisible />
                                 </div>
                             </div>
                         </div>

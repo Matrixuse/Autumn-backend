@@ -98,7 +98,7 @@ export default function PlaylistDetail() {
         <ArrowLeft size={17} />
         Back
       </button>
-      <section className="flex flex-col gap-6 rounded-3xl border border-white/[.08] bg-white/[.04] p-6 sm:flex-row sm:items-end sm:p-10">
+      <section className="flex flex-col gap-6 rounded-3xl border border-white/8 bg-white/4 p-6 sm:flex-row sm:items-end sm:p-10">
         <div className="grid aspect-square w-40 shrink-0 place-items-center overflow-hidden rounded-2xl shadow-2xl">
           {coverImage ? (
             <img src={coverImage} alt={displayName} className="h-full w-full object-cover" />

@@ -183,7 +183,10 @@ export default function ArtistPage() {
     if (!containers.length) return;
 
     const pathKey = `artist-scroll:${window.location.pathname}`;
-    const currentScrollTop = () => Math.max(...containers.map((container) => container.scrollTop || 0), 0);
+    const currentScrollTop = () => Math.max(
+      window.scrollY || document.documentElement.scrollTop || 0,
+      ...containers.map((container) => container.scrollTop || 0)
+    );
 
     const saveScroll = () => {
       const maxScrollTop = currentScrollTop();
@@ -209,15 +212,17 @@ export default function ArtistPage() {
     setIsHeaderExpanded((savedScroll || 0) < 50);
 
     containers.forEach((container) => container.addEventListener('scroll', updateHeaderState));
+    window.addEventListener('scroll', updateHeaderState, { passive: true });
     const handleBeforeUnload = () => saveScroll();
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       saveScroll();
       containers.forEach((container) => container.removeEventListener('scroll', updateHeaderState));
+      window.removeEventListener('scroll', updateHeaderState);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [artistId, artistName]);
+  }, [artistId, artistName, loading]);
 
   const displayArtistImage = artistImage || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Artist';
 
@@ -263,36 +268,39 @@ export default function ArtistPage() {
 
   return (
     <div className="md:h-[calc(100vh-13rem)] md:min-h-0">
-      <div className="mb-0 flex items-center gap-3">
-        {isHeaderExpanded ? <h1 className="flex-1" /> : <h1 className="flex-1 text-xl font-bold">{artistName}</h1>}
+      <div className={`z-30 mb-0 flex items-center gap-3 transition-all duration-300 ${isHeaderExpanded ? 'relative h-0 overflow-hidden opacity-0 md:h-auto md:overflow-visible md:opacity-100' : 'fixed inset-x-0 top-0 h-14 bg-[#0f0f0f]/95 px-3 opacity-100 shadow-lg backdrop-blur-md md:static md:h-auto md:bg-transparent md:px-0 md:shadow-none md:backdrop-blur-none'}`}>
+        {isHeaderExpanded ? <h1 className="hidden flex-1 md:block" /> : <h1 className="min-w-0 flex-1 truncate text-xl font-bold text-white">{artistName}</h1>}
         <div className="flex items-center gap-2">
-          <button onClick={() => setSearchOpen((value) => !value)} className="shrink-0 rounded-full bg-[#0f0f0f] p-2 hover:bg-[#282828]">
+          <button onClick={() => setSearchOpen((value) => !value)} className="shrink-0 rounded-full bg-[#0f0f0f] p-2 transition-colors hover:bg-[#282828]" aria-label={searchOpen ? 'Close artist search' : 'Search artist songs'}>
             {searchOpen ? <X size={18} /> : <Search size={18} />}
           </button>
-          <button className="shrink-0 rounded-full bg-[#0f0f0f] p-2 hover:bg-[#5f5f5f]" title="Shuffle songs">
+          <button className="shrink-0 rounded-full bg-[#0f0f0f] p-2 transition-colors hover:bg-[#5f5f5f]" title="Shuffle songs" aria-label="Shuffle songs">
             <Shuffle size={20} className="text-white" />
           </button>
         </div>
       </div>
       <div className="flex min-h-0 min-w-0 flex-col md:hidden">
         <div className="flex min-h-0 min-w-0 grow flex-col">
-          <div className={`shrink-0 transition-all duration-300 ${isHeaderExpanded ? 'bg-[#0f0f0f]/80 p-6' : 'bg-[#0f0f0f]/80 p-3'}`}>
-
+          <div
+            className={`relative shrink-0 overflow-hidden transition-all duration-300 ${isHeaderExpanded ? 'bg-[#0f0f0f]/80 p-6' : 'bg-[#0f0f0f]/80 p-3'}`}
+            style={{
+              backgroundImage: `linear-gradient(180deg, rgba(15,15,15,0.3), rgba(15,15,15,0.82)), url(${displayArtistImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            }}
+          >
+          <div className="absolute inset-0 bg-black/20" />
             {isHeaderExpanded && (
-              <div className="flex items-center">
-                <img
-                  src={displayArtistImage}
-                  alt={artistName}
-                  className="h-24 w-24 rounded-lg object-cover shadow-lg"
-                />
-                <div className="mt-3 w-full">
-                  <h2 className="ml-5 text-2xl font-bold leading-none tracking-tight text-white">{artistName}</h2>
-                  <div className="ml-5 mt-3 flex items-center justify-start gap-5 md:gap-6">
+              <div className="relative z-10">
+                <div className='mt-20 flex items-center justify-between w-full'>
+                  <h2 className="md:ml-5 mt-2 text-2xl font-bold leading-none tracking-tight text-white">{artistName}</h2>
+                  <div className="ml-5 md:mt-3 flex items-center justify-between gap-3 md:gap-6">
                     <button className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 shadow-sm shadow-red-500/40 transition-all hover:bg-blue-500" aria-label="Play artist songs">
                       <Play className="ml-1 h-5 w-5 fill-white text-white" />
                     </button>
                     <div className="relative">
-                      <button className="rounded-full bg-[#1f1f1f] p-2 text-white transition-colors hover:bg-[#282828]" aria-label="Artist actions">
+                      <button className="rounded-full bg-transparent p-2 text-white transition-colors hover:bg-[#282828]" aria-label="Artist actions">
                         <MoreVertical size={20} />
                       </button>
                     </div>

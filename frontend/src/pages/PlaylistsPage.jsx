@@ -259,7 +259,10 @@ export default function PlaylistPage({ libraryOption = '' }) {
       const containers = [mobileScrollContainerRef.current, desktopScrollContainerRef.current].filter(Boolean);
       if (containers.length === 0) return;
 
-      const maxScrollTop = containers.reduce((max, container) => Math.max(max, container.scrollTop || 0), 0);
+      const maxScrollTop = Math.max(
+        window.scrollY || document.documentElement.scrollTop || 0,
+        ...containers.map((container) => container.scrollTop || 0)
+      );
       setIsHeaderExpanded(maxScrollTop < 50);
     };
 
@@ -267,6 +270,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
     containers.forEach((container) => {
       container.addEventListener('scroll', updateHeaderState);
     });
+    window.addEventListener('scroll', updateHeaderState, { passive: true });
 
     updateHeaderState();
 
@@ -274,8 +278,9 @@ export default function PlaylistPage({ libraryOption = '' }) {
       containers.forEach((container) => {
         container.removeEventListener('scroll', updateHeaderState);
       });
+      window.removeEventListener('scroll', updateHeaderState);
     };
-  }, []);
+  }, [isLoadingSongs]);
 
   const hasSongData = songs.length > 0;
 
@@ -305,25 +310,21 @@ export default function PlaylistPage({ libraryOption = '' }) {
   return (
     <>
       <div className="flex flex-col min-h-0 min-w-0 md:hidden">
-        <div className="flex items-center gap-3 mb-0">
+        <div className={`z-30 mb-0 flex items-center gap-3 transition-all duration-300 ${isHeaderExpanded ? 'relative h-14 opacity-100' : 'fixed inset-x-0 top-0 h-14 bg-[#0f0f0f]/95 px-3 opacity-100 shadow-lg backdrop-blur-md'}`}>
           <button type="button" onClick={() => navigate(-1)} className="hidden md:block p-2 rounded-full bg-[#0f0f0f] hover:bg-[#282828] shrink-0" aria-label="Go back">
             <ArrowLeft size={20} />
           </button>
-              {isHeaderExpanded ? (
-                <h1 className="flex-1"></h1>
-              ) : (
-                <h1 className="text-xl font-bold flex-1">{displayName}</h1>
-              )}
+              {isHeaderExpanded ? <h1 className="flex-1" /> : <h1 className="min-w-0 flex-1 truncate text-xl font-bold text-white">{displayName}</h1>}
               <div className="flex items-center gap-2">
                 {dailySongs.length > 0 && (
-                  <button onClick={toggleSearch} className="p-2 rounded-full bg-[#0f0f0f] hover:bg-[#282828] shrink-0">
+                  <button onClick={toggleSearch} className="shrink-0 rounded-full bg-[#0f0f0f] p-2 transition-colors hover:bg-[#282828]" aria-label={searchOpen ? 'Close playlist search' : 'Search playlist songs'}>
                     {searchOpen ? <X size={18} /> : <Search size={18} />}
                   </button>
                 )}
                 {dailySongs.length > 0 && (
                   <button
                     onClick={handleToggleShuffle}
-                    className={`p-2 rounded-full transition-all shrink-0 ${
+                    className={`shrink-0 rounded-full p-2 transition-all ${
                       isVibeShuffleMode ? 'bg-blue-900 shadow-lg shadow-red-500/50 animate-pulse' : 'bg-[#0f0f0f] hover:bg-[#5f5f5f]'
                     }`}
                     title={isVibeShuffleMode ? 'Shuffle is on - songs will play randomly' : 'Shuffle is off - click to turn on'}
@@ -445,7 +446,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
                         handleSelectSong(song.id);
                       }
                     }}
-                    className={`group relative p-1 cursor-pointer transition-colors ${isActive ? 'bg-blue-900/30' : 'bg-[#0f0f0f]/50 hover:bg-[#282828]/80'}`}
+                    className="group relative cursor-pointer bg-[#0f0f0f]/50 p-1 transition-colors hover:bg-[#282828]/80"
                   >
                     <div className="relative flex gap-3 items-start min-w-0 w-full">
                       <div onClick={() => handleSelectSong(song.id)} className="cursor-pointer shrink-0">
@@ -614,7 +615,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
                           handleSelectSong(song.id);
                         }
                       }}
-                      className={`group relative flex cursor-pointer items-center border-b gap-1 rounded border-gray-800 bg-[#0f0f0f]/50 px-1 py-1 pr-12 transition-colors hover:bg-[#282828]/80 md:gap-4 md:px-1 md:py-1 md:pr-14 overflow-visible z-0 ${isActive ? 'border-red-500 bg-blue-900/20' : ''}`}
+                      className="group relative z-0 flex cursor-pointer items-center gap-1 overflow-visible rounded border-b border-gray-800 bg-[#0f0f0f]/50 px-1 py-1 pr-12 transition-colors hover:bg-[#282828]/80 md:gap-4 md:px-1 md:py-1 md:pr-14"
                     >
                       <div className="shrink-0">
                         <ImageWithFallback

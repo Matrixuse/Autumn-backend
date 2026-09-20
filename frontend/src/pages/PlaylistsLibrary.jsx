@@ -47,7 +47,7 @@ export default function PlaylistsLibrary({locked = false}) {
         <div className="flex flex-1 items-center justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-[#d29a55]">Your listening space</p>
-            <h1 className="font-['Space_Grotesk'] lg:text-4xl md:text-2xl text-3xl font-bold">Playlists</h1>
+            <h1 className="font-['Space_Grotesk'] lg:text-4xl text-2xl font-bold">Playlists</h1>
             <p className="mt-2 text-sm text-white/45">Find a mix for every mood.</p>
           </div>
           <div className="block sm:hidden">

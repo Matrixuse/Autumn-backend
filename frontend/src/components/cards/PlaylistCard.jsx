@@ -17,14 +17,14 @@ export default function PlaylistCard({ song, playlist, to, compact = false, item
                 <div className={`${compact ? 'aspect-square rounded-lg' : 'aspect-square rounded-xl'} overflow-hidden bg-[#28251f]`}>
                     {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
                 </div>
-                <h3 className={`${compact ? 'mt-2 text-xs' : 'mt-3 text-sm'} truncate font-bold text-white`}>
+                <h3 className={`${compact ? 'mt-2 text-xs' : 'mt-3 text-sm'} truncate pr-8 font-bold text-white`}>
                     {playlist.name}
                 </h3>
-                <p className={`${compact ? 'mt-1 text-[10px]' : 'mt-1 text-xs'} truncate text-white/40`}>
+                <p className={`${compact ? 'mt-1 text-[10px]' : 'mt-1 text-xs'} truncate pr-8 text-white/40`}>
                     {playlist.description || 'A personal collection'}
                 </p>
             </Link>
-            <div className="absolute right-2 top-2"><SongActionsMenu song={playlist} itemType={itemType} items={items} /></div>
+            <div className="absolute bottom-0 right-0 md:bottom-auto md:right-2 md:top-2"><SongActionsMenu song={playlist} itemType={itemType} items={items} mobileAlwaysVisible /></div>
         </article>
     )
 }

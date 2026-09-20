@@ -5,10 +5,15 @@ import { usePlayer } from '../context/PlayerContext'
 import axiosInstance from '../api/axiosInstance'
 import { getBestImageUrl } from '../utils/mediaQuality'
 import { formatTime } from '../utils/formatTime'
+import SongActionsMenu from '../components/common/SongActionsMenu'
+import { searchPlaylists } from '../api/playlists'
+import ArtistCard from '../components/cards/ArtistCard'
+import PlaylistCard from '../components/cards/PlaylistCard'
+import SongCard from '../components/cards/SongCard'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
-export default function MobilePlayerPage() {
+export default function MobilePlayerPage({ song }) {
   const navigate = useNavigate()
   const {
     currentTrack,
@@ -36,6 +41,8 @@ export default function MobilePlayerPage() {
   const [detailsDragOffset, setDetailsDragOffset] = useState(0)
   const [lyrics, setLyrics] = useState('')
   const [lyricsLoading, setLyricsLoading] = useState(false)
+  const [recommendedPlaylists, setRecommendedPlaylists] = useState([])
+  const [similarArtists, setSimilarArtists] = useState([])
   const gestureStartRef = useRef(null)
 
   const image = getBestImageUrl(currentTrack?.image)
@@ -75,7 +82,7 @@ export default function MobilePlayerPage() {
       seenIds.add(id)
       seenTitles.add(title)
       return true
-    }).map(({ track }) => track).slice(0, 30)
+    }).map(({ track }) => track).slice(0, 24)
   }, [currentTrack, likedSongs, listenAgain, listenHistory, nextTracks])
 
   const relatedTracks = useMemo(() => {
@@ -85,8 +92,47 @@ export default function MobilePlayerPage() {
       if (!title || seenTitles.has(title)) return false
       seenTitles.add(title)
       return true
-    }).slice(0, 30)
+    }).slice(0, 24)
   }, [nextTracks])
+
+  useEffect(() => {
+    if (!currentTrack?.id) {
+      setRecommendedPlaylists([])
+      setSimilarArtists([])
+      return undefined
+    }
+
+    const controller = new AbortController()
+    const artistName = String(currentTrack.artist || currentTrack.subtitle || '').split(',')[0].trim()
+    const playlistQuery = `${currentTrack.title || ''} ${artistName} playlist`.trim()
+
+    const loadRelatedSections = async () => {
+      const [playlistResult, artistResult] = await Promise.allSettled([
+        searchPlaylists(playlistQuery, 8, 0),
+        axiosInstance.get('/search/artists', { params: { query: artistName || currentTrack.title, page: 0, limit: 8 }, signal: controller.signal })
+      ])
+
+      if (controller.signal.aborted) return
+
+      const playlists = playlistResult.status === 'fulfilled' ? playlistResult.value : []
+      const artists = artistResult.status === 'fulfilled' ? artistResult.value.data?.data?.results || [] : []
+      const currentArtistKey = artistName.toLowerCase()
+
+      setRecommendedPlaylists(playlists.filter((playlist, index, items) => items.findIndex((item) => String(item.id) === String(playlist.id)) === index).slice(0, 8))
+      setSimilarArtists(artists
+        .filter((artist) => String(artist.name || artist.title || '').trim().toLowerCase() !== currentArtistKey)
+        .map((artist) => ({
+          id: artist.id,
+          name: artist.name || artist.title || 'Artist',
+          image: getBestImageUrl(artist.image || artist.images || artist.image_url || artist.thumbnail || artist.cover || [])
+        }))
+        .filter((artist) => artist.id)
+        .slice(0, 8))
+    }
+
+    loadRelatedSections()
+    return () => controller.abort()
+  }, [currentTrack?.id, currentTrack?.title, currentTrack?.artist, currentTrack?.subtitle, listenHistory])
 
   const minimizePlayer = () => {
     navigate(-1)
@@ -148,19 +194,61 @@ export default function MobilePlayerPage() {
 
     if (activeTab === 'RELATED') {
       return (
-        <div className="space-y-3 px-5 py-5">
-          {relatedTracks.length ? relatedTracks.map((track) => (
-            <button key={track.id} type="button" onClick={() => playTrack(track)} className="flex w-full items-center gap-3 text-left">
-              <div className="h-12 w-12 shrink-0 overflow-hidden bg-white/10">
-                {getBestImageUrl(track.image) ? <img src={getBestImageUrl(track.image)} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
+        <div className="px-5 py-3">
+          {relatedTracks.length ? (
+            <section>
+              <div className="mb-5">
+                <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Quick picks</p>
+                <h2 className="font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">For you</h2>
               </div>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{track.title}</span>
-                <span className="mt-1 block truncate text-xs text-white/45">{track.artist}</span>
-              </span>
-              <span className="text-xs text-white/40">{formatTime(track.duration)}</span>
-            </button>
-          )) : <p className="py-6 text-center text-sm text-white/45">No related songs available.</p>}
+              <div className="scrollbar-none grid auto-cols-80 grid-flow-col grid-rows-4 gap-x-2 gap-y-1 overflow-x-auto pb-3">
+                {relatedTracks.map((track, index) => (
+                  <div key={track.id || `${track.title}-${index}`} role="button" tabIndex={0} onClick={() => playTrack(track, relatedTracks)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); playTrack(track, relatedTracks) } }} className="group flex h-16 min-w-0 items-center gap-3 rounded-lg bg-black/5 px-2 text-left transition hover:bg-white/10">
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-white/10">
+                      {getBestImageUrl(track.image) ? <img src={getBestImageUrl(track.image)} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
+                    </div>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-white">{track.title}</span>
+                      <span className="mt-1 block truncate text-xs text-white/45">{track.artist}</span>
+                    </span>
+                    <span className="shrink-0 text-xs text-white/45">{formatTime(track.duration)}</span>
+                    <span onClick={(event) => event.stopPropagation()}><SongActionsMenu song={track} queue={relatedTracks} mobileAlwaysVisible /></span>
+                  </div>
+                ))}
+              </div>
+              {recommendedPlaylists.length > 0 && (
+                <section className="mt-8">
+                  <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Recommended playlists</p>
+                  <h2 className="mb-4 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Playlists for you</h2>
+                  <div className="scrollbar-none flex gap-4 overflow-x-auto pb-2">
+                    {recommendedPlaylists.map((playlist) => <PlaylistCard key={playlist.id} playlist={playlist} />)}
+                  </div>
+                </section>
+              )}
+              {similarArtists.length > 0 && (
+                <section className="mt-8">
+                  <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Similar artists</p>
+                  <h2 className="mb-4 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Artists you may like</h2>
+                  <div className="scrollbar-none flex gap-4 overflow-x-auto pb-2">
+                    {similarArtists.map((artist) => <ArtistCard key={artist.id} artist={artist} compact />)}
+                  </div>
+                </section>
+              )}
+              {recommendedTracks.length > 0 && (
+                <section className="mt-8 pb-8">
+                  <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Your moods</p>
+                  <h2 className="mb-4 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Moods for you</h2>
+                  <div className="scrollbar-none flex gap-4 overflow-x-auto pb-2">
+                    {recommendedTracks.slice(0, 8).map((track) => <SongCard key={track.id} song={track} queue={recommendedTracks} />)}
+                  </div>
+                </section>
+              )}
+              <br />
+              <br />
+              <br />
+              <br />
+            </section>
+          ) : <p className="py-6 text-center text-sm text-white/45">No related songs available.</p>}
         </div>
       )
     }
@@ -211,22 +299,20 @@ export default function MobilePlayerPage() {
           <ChevronDown size={25} />
         </button>
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Now playing</p>
-        <button type="button" aria-label="More options" className="p-2 text-white">
-          <EllipsisVertical size={23} />
-        </button>
+        <SongActionsMenu song={currentTrack} queue={queue} alwaysVisible />
       </header>
 
       <main
-        className="flex min-h-[calc(100dvh-7rem)] touch-none flex-col px-6 pb-5 pt-3"
+        className="flex min-h-[calc(100dvh-7rem)] touch-none flex-col px-6 pb-5 pt-5"
         onTouchStart={handlePlayerTouchStart}
         onTouchMove={handlePlayerTouchMove}
         onTouchEnd={handlePlayerTouchEnd}
       >
-        <div className="mx-auto aspect-square w-full max-w-65 overflow-hidden bg-[#171717] shadow-[0_18px_70px_rgba(255,255,255,0.08)]">
+        <div className="mx-auto aspect-square w-full max-w-80 overflow-hidden bg-[#171717] shadow-[0_18px_70px_rgba(255,255,255,0.08)]">
           {image ? <img src={image} alt={currentTrack.title} className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
         </div>
 
-        <div className="mt-3 flex items-start justify-between gap-4">
+        <div className="mt-5 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h1 className="truncate text-[22px] font-bold tracking-tight">{currentTrack.title}</h1>
             <p className="mt-1 truncate text-sm text-white/60">{currentTrack.artist}</p>
@@ -236,15 +322,15 @@ export default function MobilePlayerPage() {
           </button>
         </div>
 
-        <div className="mt-2">
+        <div className="mt-5">
           <input aria-label="Track progress" className="h-0.5 w-full cursor-pointer accent-white/25" type="range" min="0" max={duration || 1} value={progress} onChange={(event) => seek(event.target.value)} />
-          <div className="mt-1 flex justify-between text-[11px] text-white/55">
+          <div className="mt-3 flex justify-between text-[11px] text-white/55">
             <span>{formatTime(progress)}</span>
             <span>{formatTime(duration)}</span>
           </div>
         </div>
 
-        <div className="mt-2 flex items-center justify-between px-1 text-white">
+        <div className="mt-3 flex items-center justify-between px-1 text-white">
           <button type="button" aria-label={isShuffleEnabled ? 'Disable shuffle' : 'Enable shuffle'} onClick={toggleShuffle} className={isShuffleEnabled ? 'text-[#8ba3ff]' : 'text-white/80'}>
             <Shuffle size={21} />
           </button>

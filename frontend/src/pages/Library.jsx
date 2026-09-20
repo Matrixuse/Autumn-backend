@@ -30,7 +30,7 @@ export default function Library({locked = false}) {
                 Your space
             </p>
             <div className="mb-5 flex items-center justify-between">
-                <h1 className="font-['Space_Grotesk'] lg:text-4xl md:text-2xl text-3xl font-bold">
+                <h1 className="font-['Space_Grotesk'] lg:text-4xl text-2xl font-bold">
                     Library
                 </h1>
                 <div className="flex items-center gap-5 text-sm hover:text-white/50 sm:hidden">

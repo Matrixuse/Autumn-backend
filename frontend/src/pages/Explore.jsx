@@ -21,6 +21,21 @@ const shuffleSongs = (songs) => {
     return shuffled
 }
 
+const getDailySeed = () => `${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`
+
+const shuffleByDay = (items = []) => {
+    const seed = getDailySeed()
+    const shuffled = [...items]
+
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+        const charCode = seed.charCodeAt((index + seed.length) % seed.length)
+        const nextIndex = (charCode + index * 17) % (index + 1)
+        ;[shuffled[index], shuffled[nextIndex]] = [shuffled[nextIndex], shuffled[index]]
+    }
+
+    return shuffled
+}
+
 export default function Explore() {
     const { listenHistory } = usePlayer()
     const [songs, setSongs] = useState([])
@@ -45,8 +60,8 @@ export default function Explore() {
 
                 if (isMounted) {
                     setSongs(shuffleSongs(results).slice(0, 30))
-                    setAlbums(shuffleSongs(albumResults))
-                    setPlaylists(shuffleSongs(playlistResults))
+                    setAlbums(shuffleByDay(albumResults))
+                    setPlaylists(shuffleByDay(playlistResults))
                 }
             } catch {
                 if (isMounted) {
@@ -81,7 +96,7 @@ export default function Explore() {
         </div>
         <MoodChips />
         <section>
-            <h2 className="mb-5 text-3xl font-bold">
+            <h2 className="mb-5 text-2xl md:text-3xl font-bold">
                 Fresh discoveries
             </h2>
             {loading ? (

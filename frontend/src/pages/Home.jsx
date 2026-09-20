@@ -35,17 +35,6 @@ const shuffleBySeed = (items = []) => {
   return array
 }
 
-const shuffleItems = (items = []) => {
-  const shuffled = [...items]
-
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1))
-    ;[shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]]
-  }
-
-  return shuffled
-}
-
 const getSuggestedLibrarySongs = (fallbackSongs = [], limit = 24) => {
   const basePool = Array.isArray(fallbackSongs) ? fallbackSongs.filter(Boolean) : []
 
@@ -93,14 +82,15 @@ const normalizeName = (value) => String(value || '').trim().toLowerCase().replac
 const readDailyCache = (key) => {
   try {
     const cached = JSON.parse(localStorage.getItem(`autumn_home_${key}`) || 'null')
-    return Array.isArray(cached) ? cached : null
+    if (Array.isArray(cached)) return null
+    return cached?.date === getDailySeed() && Array.isArray(cached.items) ? cached.items : null
   } catch {
     return null
   }
 }
 
 const writeDailyCache = (key, value) => {
-  localStorage.setItem(`autumn_home_${key}`, JSON.stringify(value))
+  localStorage.setItem(`autumn_home_${key}`, JSON.stringify({ date: getDailySeed(), items: value }))
 }
 
 const fetchArtistDetails = async (name) => {
@@ -169,7 +159,7 @@ export default function Home() {
         return
       }
       const results = await getMixForYouPlaylists(listenHistory, 10)
-      const shuffled = shuffleItems(results)
+      const shuffled = shuffleBySeed(results)
       writeDailyCache('mix', shuffled)
       if (isMounted) setMixPlaylists(shuffled)
     }
@@ -181,7 +171,7 @@ export default function Home() {
         return
       }
       const results = await getAlbumsForYou(listenHistory, 10)
-      const shuffled = shuffleItems(results)
+      const shuffled = shuffleBySeed(results)
       writeDailyCache('albums', shuffled)
       if (isMounted) setAlbumsForYou(shuffled)
     }

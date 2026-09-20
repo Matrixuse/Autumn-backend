@@ -16,7 +16,7 @@ const getColorIndex = (value) => {
 }
 
 export default function SongCard({ song, queue = [] }) {
-    const { playTrack, isNotInterested } = usePlayer()
+    const { playTrack, isNotInterested, currentTrack, isPlaying } = usePlayer()
     if (isNotInterested(song)) return null
     const image = song?.image || null
     const color = artwork[getColorIndex(song?.id)]
@@ -24,7 +24,7 @@ export default function SongCard({ song, queue = [] }) {
     const artist = song?.artist || song?.artists?.all?.[0]?.name || song?.subtitle || 'Unknown Artist'
 
     return (
-        <article className="group min-w-35 md:min-w-40 md:max-w-45 flex-1">
+        <article className="group relative min-w-35 flex-1 md:min-w-40 md:max-w-45">
             <div className="relative">
                 <button onClick={() => playTrack(song, queue)} className="relative block aspect-square w-full overflow-hidden rounded-lg bg-[#28251f] text-left shadow-lg transition duration-300 group-hover:scale-[1.02] group-hover:shadow-[0_16px_35px_rgba(0,0,0,.35)]">
                     {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className={`relative h-full w-full overflow-hidden bg-linear-to-br ${color}`}>
@@ -39,17 +39,22 @@ export default function SongCard({ song, queue = [] }) {
                             <Play size={48} fill="currentColor" />
                         </span>
                     </span>
+                    {isPlaying && String(currentTrack?.id) === String(song?.id) && (
+                        <span className="absolute bottom-2 left-2 grid h-8 w-8 place-items-center rounded-full bg-transparent text-[#fffffe] shadow-lg">
+                            <Play size={30} fill="currentColor" />
+                        </span>
+                    )}
                 </button>
-                <div className="absolute right-2 top-2">
-                    <SongActionsMenu song={song} queue={queue} />
-                </div>
             </div>
-            <h3 className="mt-3 truncate text-sm font-bold text-white/90">
+            <h3 className="mt-3 truncate pr-8 text-sm font-bold text-white/90">
                 {title}
             </h3>
-            <p className="mt-1 truncate text-xs text-white/50">
+            <p className="truncate pr-8 text-xs text-white/50">
                 Song · {artist}
             </p>
+            <div className="absolute bottom-0 right-0 md:bottom-auto md:right-2 md:top-2">
+                <SongActionsMenu song={song} queue={queue} mobileAlwaysVisible />
+            </div>
         </article>
     )
 }

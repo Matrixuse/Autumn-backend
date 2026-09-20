@@ -25,7 +25,7 @@ const getArtistLabel = (artist) => {
 }
 
 export default function Library({ songs = [] }) {
-    const { playTrack } = usePlayer()
+    const { playTrack, currentTrack, isPlaying } = usePlayer()
     const visibleSongs = Array.isArray(songs) ? songs.slice(0, 24) : []
     const columnCount = Math.max(1, Math.ceil(visibleSongs.length / 4))
 
@@ -69,6 +69,7 @@ export default function Library({ songs = [] }) {
                                             <button type="button" aria-label={`Play ${song.title || 'song'}`} onClick={(event) => { event.stopPropagation(); playTrack(song, visibleSongs) }} className="absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition group-hover:opacity-100">
                                                 <span className="grid h-7 w-7 place-items-center rounded-full bg-transparent text-white"><Play size={27} fill="currentColor" /></span>
                                             </button>
+                                            {isPlaying && String(currentTrack?.id) === String(song?.id) && <span className="absolute bottom-1 left-1 grid h-6 w-6 place-items-center rounded-full bg-[#d29a55] text-[#17130e]"><Play size={13} fill="currentColor" /></span>}
                                         </div>
 
                                         <div className="flex min-w-0 flex-col justify-between gap-1">
@@ -81,10 +82,10 @@ export default function Library({ songs = [] }) {
                                         </div>
                                         <div className="relative ml-auto h-8 min-w-8 shrink-0">
                                             <span className="absolute inset-0 grid place-items-center whitespace-nowrap text-sm font-medium text-white/70 transition-opacity group-hover:opacity-0">
-                                                {formatDuration(song.duration)}
+                                                <span className="hidden md:inline">{formatDuration(song.duration)}</span>
                                             </span>
                                             <div className="absolute inset-0 flex items-center justify-end">
-                                                <SongActionsMenu song={song} queue={visibleSongs} />
+                                                <SongActionsMenu song={song} queue={visibleSongs} mobileAlwaysVisible />
                                             </div>
                                         </div>
                                     </div>

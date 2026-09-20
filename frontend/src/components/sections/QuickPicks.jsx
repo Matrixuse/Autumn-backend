@@ -25,7 +25,7 @@ const getArtistLabel = (artist) => {
 }
 
 export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow = 'Made for the moment', limit = 24, homeMobileGrid = false }) {
-    const { playTrack } = usePlayer()
+    const { playTrack, currentTrack, isPlaying } = usePlayer()
     const visibleSongs = Array.isArray(songs) ? songs.slice(0, limit) : []
     const columnCount = Math.max(1, Math.ceil(visibleSongs.length / 4))
 
@@ -95,6 +95,7 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                                             <button type="button" aria-label={`Play ${song.title || 'song'}`} onClick={(event) => { event.stopPropagation(); playTrack(song, visibleSongs) }} className="absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition group-hover:opacity-100">
                                                 <span className="grid h-7 w-7 place-items-center rounded-full bg-transparent text-white"><Play size={27} fill="currentColor" /></span>
                                             </button>
+                                            {isPlaying && String(currentTrack?.id) === String(song?.id) && <span className="absolute bottom-1 left-1 grid h-6 w-6 place-items-center rounded-full bg-[#d29a55] text-[#17130e]"><Play size={13} fill="currentColor" /></span>}
                                         </div>
 
                                         <div className="flex min-w-0 flex-col justify-between gap-1">

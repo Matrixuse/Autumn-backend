@@ -114,15 +114,22 @@ export default function AlbumsPage() {
     if (!containers.length) return;
 
     const updateHeaderState = () => {
-      const maxScrollTop = containers.reduce((max, container) => Math.max(max, container.scrollTop || 0), 0);
+      const maxScrollTop = Math.max(
+        window.scrollY || document.documentElement.scrollTop || 0,
+        ...containers.map((container) => container.scrollTop || 0)
+      );
       setIsHeaderExpanded(maxScrollTop < 50);
     };
 
     containers.forEach((container) => container.addEventListener('scroll', updateHeaderState));
+    window.addEventListener('scroll', updateHeaderState, { passive: true });
     updateHeaderState();
 
-    return () => containers.forEach((container) => container.removeEventListener('scroll', updateHeaderState));
-  }, []);
+    return () => {
+      containers.forEach((container) => container.removeEventListener('scroll', updateHeaderState));
+      window.removeEventListener('scroll', updateHeaderState);
+    };
+  }, [loading]);
 
   const filteredSongs = useMemo(() => {
     if (!searchTerm.trim()) return songs;
@@ -167,13 +174,13 @@ export default function AlbumsPage() {
   return (
     <>
       <div className="flex min-h-0 min-w-0 flex-col md:hidden">
-        <div className="mb-0 flex items-center gap-3">
-              {isHeaderExpanded ? <h1 className="flex-1" /> : <h1 className="flex-1 text-xl font-bold">{albumName}</h1>}
+        <div className={`z-30 mb-0 flex items-center gap-3 transition-all duration-300 ${isHeaderExpanded ? 'relative h-14 opacity-100' : 'fixed inset-x-0 top-0 h-14 bg-[#0f0f0f]/95 px-3 opacity-100 shadow-lg backdrop-blur-md'}`}>
+              {isHeaderExpanded ? <h1 className="flex-1" /> : <h1 className="min-w-0 flex-1 truncate text-xl font-bold text-white">{albumName}</h1>}
               <div className="flex items-center gap-2">
-                <button onClick={() => setSearchOpen((value) => !value)} className="shrink-0 rounded-full bg-[#0f0f0f] p-2 hover:bg-[#282828]">
+                <button onClick={() => setSearchOpen((value) => !value)} className="shrink-0 rounded-full bg-[#0f0f0f] p-2 transition-colors hover:bg-[#282828]" aria-label={searchOpen ? 'Close album search' : 'Search album songs'}>
                   {searchOpen ? <X size={18} /> : <Search size={18} />}
                 </button>
-                <button className="shrink-0 rounded-full bg-[#0f0f0f] p-2 hover:bg-[#5f5f5f]" title="Shuffle songs">
+                <button className="shrink-0 rounded-full bg-[#0f0f0f] p-2 transition-colors hover:bg-[#5f5f5f]" title="Shuffle songs" aria-label="Shuffle songs">
                   <Shuffle size={20} className="text-white" />
                 </button>
               </div>

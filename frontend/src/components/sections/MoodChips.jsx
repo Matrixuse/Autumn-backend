@@ -12,7 +12,7 @@ export default function MoodChips() {
                     key={mood}
                     type="button"
                     onClick={() => navigate(`/mood/${encodeURIComponent(mood)}`)}
-                    className="whitespace-nowrap rounded-lg border border-white/[.04] bg-[#1f2325] px-3 py-1 text-xs font-semibold text-white/85 transition hover:bg-[#33373a]"
+                    className="whitespace-nowrap rounded-lg border border-white/4 bg-[#1f2325] px-3 py-1 text-xs font-semibold text-white/85 transition hover:bg-[#33373a]"
                 >
                     {mood}
                 </button>

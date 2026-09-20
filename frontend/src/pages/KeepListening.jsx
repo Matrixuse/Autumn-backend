@@ -7,6 +7,7 @@ import { formatTime } from '../utils/formatTime'
 import { isLikelyHollywoodSong, searchSongs } from '../api/songs'
 import { searchPlaylists } from '../api/playlists'
 import Loader from '../components/common/Loader'
+import SongActionsMenu from '../components/common/SongActionsMenu'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
@@ -59,7 +60,7 @@ const rankRelatedSongs = (songs, currentTrack, isHollywood) => {
 }
 
 export default function KeepListening() {
-  const { currentTrack, queue, listenHistory, isPlaying, isRecommendationQueue, playTrack, setPlaybackQueue, togglePlay } = usePlayer()
+  const { currentTrack, queue, listenHistory, isPlaying, isRecommendationQueue, playTrack, addTracksToQueue, togglePlay } = usePlayer()
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [relatedSongs, setRelatedSongs] = useState([])
   const [relatedLoading, setRelatedLoading] = useState(false)
@@ -142,7 +143,7 @@ export default function KeepListening() {
         const suggestions = rankRelatedSongs(candidates, currentTrack, isHollywood)
 
         if (!controller.signal.aborted) {
-          setRelatedSongs(suggestions.slice(0, 12))
+          setRelatedSongs(suggestions.slice(0, 24))
         }
       } catch {
         if (!controller.signal.aborted) {
@@ -174,15 +175,16 @@ export default function KeepListening() {
         )
         const candidates = searchResults.flat().map(normalizeSong).filter((song) => !historyIds.has(String(song.id)))
         const suggestions = rankRelatedSongs(candidates, currentTrack, isHollywood)
-        const expanded = [currentTrack, ...suggestions].slice(0, 40)
-        if (!controller.signal.aborted) setPlaybackQueue(expanded)
+        const remainingSlots = Math.max(0, 40 - queue.length)
+        const fillers = suggestions.slice(0, remainingSlots)
+        if (!controller.signal.aborted && fillers.length) addTracksToQueue(fillers)
       } catch {
         // Keep the existing queue when suggestions are unavailable.
       }
     }
     fillQueue()
     return () => controller.abort()
-  }, [currentTrack?.id, isRecommendationQueue, listenHistory, setPlaybackQueue])
+  }, [currentTrack?.id, isRecommendationQueue, listenHistory, queue.length])
 
   const renderSongRow = (song, index) => {
     const isActive = song.id === currentTrack?.id
@@ -192,7 +194,7 @@ export default function KeepListening() {
         type="button"
         key={`${song.id}-${index}`}
         onClick={() => playTrack(song)}
-        className={`flex w-full items-center gap-3 border-b border-gray-800 px-1 py-1 text-left transition ${isActive ? 'bg-white/10' : 'hover:bg-white/6'}`}
+        className="flex w-full items-center gap-3 border-b border-gray-800 px-1 py-1 text-left transition hover:bg-white/6"
       >
         <div className="relative h-11 w-11 shrink-0 overflow-hidden bg-white/10">
           {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
@@ -214,6 +216,30 @@ export default function KeepListening() {
         <div><ListMusic className="mx-auto mb-3 text-white/30" size={30} /><p>{emptyText}</p></div>
       </div>
     )
+
+  const renderRelatedGrid = () => (
+    <section className="mb-8">
+      <div className="mb-5 px-1">
+        <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Quick picks</p>
+        <h2 className="font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">For you</h2>
+      </div>
+      <div className="scrollbar-none auto-cols-72 grid grid-flow-col grid-rows-4 gap-x-3 gap-y-2 overflow-x-auto px-1 pb-3">
+        {relatedSongs.slice(0, 24).map((song, index) => (
+          <div key={song.id || `${song.title}-${index}`} role="button" tabIndex={0} onClick={() => playTrack(song, relatedSongs)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); playTrack(song, relatedSongs) } }} className="group flex h-16 min-w-0 items-center gap-3 rounded-lg bg-white/5 px-2 text-left transition hover:bg-white/10">
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-white/10">
+              {getBestImageUrl(song.image) ? <img src={getBestImageUrl(song.image)} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
+            </div>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-white">{song.title}</span>
+              <span className="mt-1 block truncate text-xs text-white/45">{song.artist}</span>
+            </span>
+            <span className="shrink-0 text-xs text-white/45">{formatTime(song.duration)}</span>
+            <span onClick={(event) => event.stopPropagation()}><SongActionsMenu song={song} queue={relatedSongs} mobileAlwaysVisible /></span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 
   const renderArtistRail = () => (
     <section className="mt-6 space-y-5">
@@ -290,13 +316,12 @@ export default function KeepListening() {
             <div>
               {activeTab === 'UP NEXT' && <><p className="text-xs text-white/55">Playing from</p><h2 className="mt-1 truncate text-base font-bold text-white">Keep Listening queue</h2></>}
               {activeTab === 'LYRICS' && <h2 className="text-base font-bold text-white">Lyrics</h2>}
-              {activeTab === 'RELATED' && <h2 className="text-2xl font-bold text-white">For you</h2>}
             </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thumb-gray-300">
             {activeTab === 'UP NEXT' && renderSongList(queue, 'Your queue is empty.')}
-            {activeTab === 'RELATED' && (relatedLoading ? <div className="grid min-h-56 place-items-center"><Loader label="Loading related songs" /></div> : <><div className="space-y-1">{relatedSongs.length ? <div className="scrollbar-none grid h-60 auto-cols-[minmax(22rem,1fr)] grid-flow-col grid-rows-4 gap-x-2 overflow-x-auto overflow-y-hidden">{relatedSongs.map(renderSongRow)}</div> : renderSongList([], 'No related songs available.')}</div>{renderArtistRail()}{renderPlaylistRail()}</>)}
+            {activeTab === 'RELATED' && (relatedLoading ? <div className="grid min-h-56 place-items-center"><Loader label="Loading related songs" /></div> : <>{relatedSongs.length ? renderRelatedGrid() : renderSongList([], 'No related songs available.')}{renderArtistRail()}{renderPlaylistRail()}</>)}
             {activeTab === 'LYRICS' && (lyricsLoading ? <div className="grid min-h-56 place-items-center"><Loader label="Loading lyrics" /></div> : <div className="whitespace-pre-wrap px-3 py-2 text-sm leading-7 text-white/80">{lyrics || 'Lyrics are not available for this song.'}</div>)}
           </div>
         </div>
