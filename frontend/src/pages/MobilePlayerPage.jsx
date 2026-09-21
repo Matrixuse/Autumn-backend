@@ -325,9 +325,9 @@ export default function MobilePlayerPage({ song }) {
           aria-label="Player details"
           aria-modal="true"
           onClick={(event) => event.stopPropagation()}
-          onTouchStart={handleSheetTouchStart}
-          onTouchMove={handleSheetTouchMove}
-          onTouchEnd={handleSheetTouchEnd}
+          // onTouchStart={handleSheetTouchStart}
+          // onTouchMove={handleSheetTouchMove}
+          // onTouchEnd={handleSheetTouchEnd}
           className={`absolute inset-x-0 bottom-0 h-dvh overflow-hidden rounded-t-xl border-t border-white/10 bg-[#101010] shadow-[0_-20px_80px_rgba(0,0,0,0.65)] ${detailsDragOffset ? '' : 'transition-transform duration-500 ease-out'} ${isDetailsOpen ? 'translate-y-0' : 'translate-y-full'}`}
           style={{ transform: `translateY(${isDetailsOpen ? detailsDragOffset : window.innerHeight}px)` }}
         >
