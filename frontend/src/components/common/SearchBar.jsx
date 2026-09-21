@@ -137,7 +137,7 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
     }
   }, [query])
 
-  const recentHistory = useMemo(() => history.slice(0, 4), [history])
+  const recentHistory = useMemo(() => history, [history])
 
   useEffect(() => {
     onSearchStateChange?.({ query, history: recentHistory, results, loading })
@@ -149,7 +149,7 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
 
     setHistory((current) => {
       const filtered = current.filter((entry) => entry !== trimmed)
-      const next = [trimmed, ...filtered].slice(0, 4)
+      const next = [trimmed, ...filtered]
       persistHistory(next)
       return next
     })

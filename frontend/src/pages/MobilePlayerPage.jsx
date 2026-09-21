@@ -303,7 +303,7 @@ export default function MobilePlayerPage({ song }) {
       </header>
 
       <main
-        className="flex min-h-[calc(100dvh-7rem)] touch-none flex-col px-6 pb-5 pt-5"
+        className="flex min-h-[calc(100dvh-7rem)] touch-none flex-col px-6 pb-5 pt-7"
         onTouchStart={handlePlayerTouchStart}
         onTouchMove={handlePlayerTouchMove}
         onTouchEnd={handlePlayerTouchEnd}
@@ -312,7 +312,7 @@ export default function MobilePlayerPage({ song }) {
           {image ? <img src={image} alt={currentTrack.title} className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
         </div>
 
-        <div className="mt-5 flex items-start justify-between gap-4">
+        <div className="mt-7 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h1 className="truncate text-[22px] font-bold tracking-tight">{currentTrack.title}</h1>
             <p className="mt-1 truncate text-sm text-white/60">{currentTrack.artist}</p>
@@ -348,7 +348,7 @@ export default function MobilePlayerPage({ song }) {
           </button>
         </div>
 
-        <button type="button" aria-label="Open queue, lyrics and related songs" onClick={() => setIsDetailsOpen(true)} className="mt-5 flex w-full items-center justify-center text-white/80 transition hover:text-white">
+        <button type="button" aria-label="Open queue, lyrics and related songs" onClick={() => setIsDetailsOpen(true)} className="mt-7 flex w-full items-center justify-center text-white/80 transition hover:text-white">
             <ChevronDown size={22} />
         </button>
       </main>
