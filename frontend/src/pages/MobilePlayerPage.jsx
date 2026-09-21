@@ -332,23 +332,23 @@ export default function MobilePlayerPage({ song }) {
 
         <div className="mt-3 flex items-center justify-between px-1 text-white">
           <button type="button" aria-label={isShuffleEnabled ? 'Disable shuffle' : 'Enable shuffle'} onClick={toggleShuffle} className={isShuffleEnabled ? 'text-[#8ba3ff]' : 'text-white/80'}>
-            <Shuffle size={21} />
+            <Shuffle size={23} />
           </button>
           <button type="button" aria-label="Previous track" onClick={previous} className="p-2">
-            <SkipBack size={28} fill="currentColor" />
+            <SkipBack size={30} fill="currentColor" />
           </button>
-          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} className="grid h-16 w-16 place-items-center rounded-full bg-white text-black shadow-lg">
-            {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play className="ml-1" size={32} fill="currentColor" />}
+          <button type="button" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay} className="grid h-20 w-20 place-items-center rounded-full bg-white text-black shadow-lg">
+            {isPlaying ? <Pause size={35} fill="currentColor" /> : <Play className="ml-1" size={35} fill="currentColor" />}
           </button>
           <button type="button" aria-label="Next track" onClick={next} className="p-2">
-            <SkipForward size={28} fill="currentColor" />
+            <SkipForward size={30} fill="currentColor" />
           </button>
           <button type="button" aria-label={isRepeatEnabled ? 'Disable repeat' : 'Enable repeat'} onClick={toggleRepeat} className={isRepeatEnabled ? 'text-[#8ba3ff]' : 'text-white/80'}>
-            <Repeat2 size={21} />
+            <Repeat2 size={23} />
           </button>
         </div>
 
-        <button type="button" aria-label="Open queue, lyrics and related songs" onClick={() => setIsDetailsOpen(true)} className="mt-7 flex w-full items-center justify-center text-white/80 transition hover:text-white">
+        <button type="button" aria-label="Open queue, lyrics and related songs" onClick={() => setIsDetailsOpen(true)} className="mt-10 flex w-full items-center justify-center text-white/80 transition hover:text-white">
             <ChevronDown size={22} />
         </button>
       </main>
