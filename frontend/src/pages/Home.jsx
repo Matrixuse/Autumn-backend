@@ -18,7 +18,6 @@ import { getHollywoodSongs } from '../api/songs'
 import { getMixForYouPlaylists } from '../api/playlists'
 import { getAlbumsForYou } from '../api/albums'
 import { mapWithConcurrency } from '../api/requestQueue'
-import Loader from '../components/common/Loader'
 
 const getDailySeed = () => `${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`
 
@@ -198,7 +197,6 @@ export default function Home() {
             <div className="order-7 lg:order-7"><Moods songs={librarySongs} /></div>
             <div className="order-8 lg:order-8"><Hollywood songs={hollywoodSongs} /></div>
             <div className="order-9 lg:order-10"><LongToListen songs={longSongs} /></div>
-            {(loading || quickLoading || releaseLoading || longLoading) && <div className="flex justify-center py-4"><Loader label="Loading more music" /></div>}
             {error && !loading && <div className="py-4 text-sm text-red-400">Unable to load songs right now.</div>}
             {quickError && !quickLoading && <div className="py-4 text-sm text-red-400">Unable to load quick picks right now.</div>}
             {releaseError && !releaseLoading && <div className="py-4 text-sm text-red-400">Unable to load release picks right now.</div>}

@@ -1,6 +1,8 @@
 import { useContext, useEffect, useState } from 'react'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import PlayerContext from './player-context'
+import { getBestImageUrl } from '../utils/mediaQuality'
+import { AutumnMedia } from '../nativeMedia'
 
 const HISTORY_LIMIT = 18
 
@@ -238,6 +240,87 @@ export const PlayerProvider = ({ children }) => {
     setIsRecommendationQueue(true)
   }
   const { audioRef } = useAudioPlayer({ src: currentTrack?.audio, isPlaying, volume, onTimeUpdate: handleTimeUpdate, onEnded: handleEnded })
+
+  useEffect(() => {
+    if (currentTrack?.id) {
+      AutumnMedia.updateTrack({
+        id: String(currentTrack.id),
+        title: currentTrack.title || currentTrack.name || 'Autumn',
+        artist: currentTrack.artist || currentTrack.subtitle || 'Autumn Player',
+        album: currentTrack.album || 'Autumn',
+        artwork: getBestImageUrl(currentTrack.image),
+        isPlaying
+      })
+    } else {
+      AutumnMedia.stop()
+    }
+  }, [currentTrack, isPlaying])
+
+  useEffect(() => {
+    let listener
+    let active = true
+
+    AutumnMedia.addListener('mediaAction', ({ action }) => {
+      if (!active) return
+      if (action === 'com.autumn.player.PLAY') setIsPlaying(true)
+      if (action === 'com.autumn.player.PAUSE') setIsPlaying(false)
+      if (action === 'com.autumn.player.NEXT') next()
+      if (action === 'com.autumn.player.PREVIOUS') previous()
+      if (action === 'com.autumn.player.STOP') stopPlayback()
+    }).then((handle) => {
+      listener = handle
+    })
+
+    return () => {
+      active = false
+      listener?.remove()
+    }
+  }, [currentTrack, queue, isPlaying])
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || !currentTrack) return undefined
+
+    const mediaSession = navigator.mediaSession
+    const artwork = getBestImageUrl(currentTrack.image)
+    mediaSession.metadata = new MediaMetadata({
+      title: currentTrack.title || currentTrack.name || 'Autumn',
+      artist: currentTrack.artist || currentTrack.subtitle || 'Autumn Player',
+      album: currentTrack.album || 'Autumn',
+      artwork: artwork ? [{ src: artwork, sizes: '512x512', type: 'image/jpeg' }] : []
+    })
+    mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
+
+    const actions = {
+      play: () => setIsPlaying(true),
+      pause: () => setIsPlaying(false),
+      nexttrack: next,
+      previoustrack: previous,
+      seekbackward: () => seek(Math.max(0, progress - 10)),
+      seekforward: () => seek(Math.min(duration || Infinity, progress + 10))
+    }
+
+    Object.entries(actions).forEach(([action, handler]) => {
+      try {
+        mediaSession.setActionHandler(action, handler)
+      } catch {
+        // Some browsers expose Media Session without supporting every action.
+      }
+    })
+
+    if (duration > 0 && Number.isFinite(duration) && typeof mediaSession.setPositionState === 'function') {
+      mediaSession.setPositionState({ duration, playbackRate: 1, position: Math.min(progress, duration) })
+    }
+
+    return () => {
+      Object.keys(actions).forEach((action) => {
+        try {
+          mediaSession.setActionHandler(action, null)
+        } catch {
+          // Ignore unsupported action cleanup.
+        }
+      })
+    }
+  }, [currentTrack, duration, isPlaying, previous, progress])
 
   return (
     <PlayerContext.Provider value={{ currentTrack, queue, listenHistory, likedSongs, isLiked, toggleLike, addToQueue, addTracksToQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, isRecommendationQueue, playTrack, setPlaybackQueue, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue }}>

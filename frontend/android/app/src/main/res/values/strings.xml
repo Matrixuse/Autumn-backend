@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Autumn</string>
+    <string name="title_activity_main">Autumn</string>
+    <string name="package_name">com.autumn.player</string>
+    <string name="custom_url_scheme">com.autumn.player</string>
+</resources>

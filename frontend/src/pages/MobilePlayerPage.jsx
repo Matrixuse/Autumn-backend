@@ -44,6 +44,7 @@ export default function MobilePlayerPage({ song }) {
   const [recommendedPlaylists, setRecommendedPlaylists] = useState([])
   const [similarArtists, setSimilarArtists] = useState([])
   const gestureStartRef = useRef(null)
+  const [playerDragOffset, setPlayerDragOffset] = useState(0)
 
   const image = getBestImageUrl(currentTrack?.image)
   const currentIndex = queue.findIndex((track) => String(track.id) === String(currentTrack?.id))
@@ -136,6 +137,25 @@ export default function MobilePlayerPage({ song }) {
 
   const minimizePlayer = () => {
     navigate(-1)
+  }
+
+  const handlePlayerTouchStart = (event) => {
+    if (isDetailsOpen) return
+    gestureStartRef.current = event.touches[0].clientY
+  }
+
+  const handlePlayerTouchMove = (event) => {
+    if (gestureStartRef.current === null) return
+    const delta = event.touches[0].clientY - gestureStartRef.current
+    if (delta > 0) setPlayerDragOffset(Math.min(window.innerHeight * 0.7, delta))
+  }
+
+  const handlePlayerTouchEnd = (event) => {
+    if (gestureStartRef.current === null) return
+    const delta = event.changedTouches[0].clientY - gestureStartRef.current
+    gestureStartRef.current = null
+    setPlayerDragOffset(0)
+    if (delta > 64) minimizePlayer()
   }
 
   const handleSheetTouchStart = (event) => {
@@ -272,7 +292,11 @@ export default function MobilePlayerPage({ song }) {
       </header>
 
       <main
-        className="flex min-h-[calc(100dvh-7rem)] flex-col px-6 pb-5 pt-7"
+        className="flex min-h-[calc(100dvh-7rem)] touch-none flex-col px-6 pb-5 pt-7"
+        onTouchStart={handlePlayerTouchStart}
+        onTouchMove={handlePlayerTouchMove}
+        onTouchEnd={handlePlayerTouchEnd}
+        style={{ transform: `translateY(${playerDragOffset}px)`, transition: playerDragOffset === 0 ? 'transform 220ms ease-out' : 'none' }}
       >
         <div className="mx-auto aspect-square w-full max-w-80 overflow-hidden bg-[#171717] shadow-[0_18px_70px_rgba(255,255,255,0.08)]">
           {image ? <img src={image} alt={currentTrack.title} className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
@@ -325,9 +349,6 @@ export default function MobilePlayerPage({ song }) {
           aria-label="Player details"
           aria-modal="true"
           onClick={(event) => event.stopPropagation()}
-          // onTouchStart={handleSheetTouchStart}
-          // onTouchMove={handleSheetTouchMove}
-          // onTouchEnd={handleSheetTouchEnd}
           className={`absolute inset-x-0 bottom-0 h-dvh overflow-hidden rounded-t-xl border-t border-white/10 bg-[#101010] shadow-[0_-20px_80px_rgba(0,0,0,0.65)] ${detailsDragOffset ? '' : 'transition-transform duration-500 ease-out'} ${isDetailsOpen ? 'translate-y-0' : 'translate-y-full'}`}
           style={{ transform: `translateY(${isDetailsOpen ? detailsDragOffset : window.innerHeight}px)` }}
         >

@@ -104,7 +104,7 @@ export default function PlayerBar() {
           </div>
         </button>
         <div className="ml-auto flex shrink-0 items-center gap-3 text-white/80 md:mr-10 md:gap-5">
-          <div className="flex items-center gap-3 md:hidden">
+          <div className="flex items-center gap-5 md:hidden">
             <button onClick={toggleShuffle} aria-label={isShuffleEnabled ? 'Disable shuffle' : 'Enable shuffle'} className={`hover:text-white ${isShuffleEnabled ? 'text-[#5b7cff]' : ''}`}>
               <Shuffle size={20} />
             </button>
