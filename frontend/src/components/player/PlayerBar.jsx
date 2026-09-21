@@ -46,22 +46,23 @@ export default function PlayerBar() {
       swipeConsumedRef.current = false
       return
     }
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      navigate('/now-playing')
+      return
+    }
     if (isKeepListeningOpen) {
       navigate(-1)
       return
     }
 
-    navigate(window.matchMedia('(max-width: 1023px)').matches ? '/now-playing' : '/keep-listening')
+    navigate('/keep-listening')
   }
 
   if (!currentTrack) return null
   const image = getBestImageUrl(currentTrack.image)
   return (
     <footer
-      className="player-bar fixed inset-x-0 bottom-0 z-40 h-17 touch-none border-t border-white/10 bg-[#202020] px-4 text-white shadow-2xl sm:px-5 md:h-19.5"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      className="player-bar fixed inset-x-0 bottom-0 z-40 h-17 border-t border-white/10 bg-[#202020] px-4 text-white shadow-2xl sm:px-5 md:h-19.5"
       style={{ transform: `translateY(${dragOffset}px)`, transition: dragOffset === 0 ? 'transform 280ms ease-out' : 'none' }}
     >
       <input aria-label="Track progress" className="absolute left-0 right-0 top-0 h-0.5 w-full cursor-pointer appearance-auto bg-white/20 accent-[#2243ec]" type="range" min="0" max={duration || 1} value={progress} onChange={(event) => seek(event.target.value)} />
@@ -82,7 +83,14 @@ export default function PlayerBar() {
                 <span>{formatTime(duration)}</span>
             </span>
         </div>
-        <button onClick={toggleKeepListening} aria-label={isKeepListeningOpen ? 'Close queue' : 'Open queue'} className="lg:ml-3 md:ml-17 flex min-w-0 flex-1 items-center justify-start gap-4 text-left sm:max-w-155">
+        <button
+          onClick={toggleKeepListening}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          aria-label={isKeepListeningOpen ? 'Close queue' : 'Open queue'}
+          className="lg:ml-3 md:ml-17 flex min-w-0 flex-1 touch-none items-center justify-start gap-4 text-left sm:max-w-155"
+        >
           <div className="h-10 w-10 shrink-0 overflow-hidden bg-[#343434]">
             {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
           </div>

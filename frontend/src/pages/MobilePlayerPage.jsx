@@ -138,37 +138,6 @@ export default function MobilePlayerPage({ song }) {
     navigate(-1)
   }
 
-  const handlePlayerTouchStart = (event) => {
-    if (isDetailsOpen) return
-    gestureStartRef.current = event.touches[0].clientY
-  }
-
-  const handlePlayerTouchMove = (event) => {
-    if (gestureStartRef.current === null) return
-    const delta = gestureStartRef.current - event.touches[0].clientY
-    if (delta > 8) {
-      setIsDetailsOpen(true)
-      setDetailsDragOffset(Math.max(0, window.innerHeight - delta))
-    } else if (delta < -8) {
-      setDetailsDragOffset(0)
-    }
-  }
-
-  const handlePlayerTouchEnd = (event) => {
-    if (gestureStartRef.current === null) return
-    const delta = gestureStartRef.current - event.changedTouches[0].clientY
-    gestureStartRef.current = null
-    if (delta > 64) {
-      setDetailsDragOffset(0)
-      setIsDetailsOpen(true)
-    } else if (delta < -64) {
-      setDetailsDragOffset(0)
-      minimizePlayer()
-    } else {
-      setDetailsDragOffset(0)
-    }
-  }
-
   const handleSheetTouchStart = (event) => {
     gestureStartRef.current = event.touches[0].clientY
   }
@@ -294,7 +263,7 @@ export default function MobilePlayerPage({ song }) {
 
   return (
     <div className="min-h-[calc(100dvh-4rem)] bg-black text-white lg:hidden">
-      <header className="flex touch-none items-center justify-between px-5 pt-5" onTouchStart={handlePlayerTouchStart} onTouchMove={handlePlayerTouchMove} onTouchEnd={handlePlayerTouchEnd}>
+      <header className="flex items-center justify-between px-5 pt-5">
         <button type="button" aria-label="Minimize player" onClick={minimizePlayer} className="p-2 text-white">
           <ChevronDown size={25} />
         </button>
@@ -303,10 +272,7 @@ export default function MobilePlayerPage({ song }) {
       </header>
 
       <main
-        className="flex min-h-[calc(100dvh-7rem)] touch-none flex-col px-6 pb-5 pt-7"
-        onTouchStart={handlePlayerTouchStart}
-        onTouchMove={handlePlayerTouchMove}
-        onTouchEnd={handlePlayerTouchEnd}
+        className="flex min-h-[calc(100dvh-7rem)] flex-col px-6 pb-5 pt-7"
       >
         <div className="mx-auto aspect-square w-full max-w-80 overflow-hidden bg-[#171717] shadow-[0_18px_70px_rgba(255,255,255,0.08)]">
           {image ? <img src={image} alt={currentTrack.title} className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
@@ -365,8 +331,12 @@ export default function MobilePlayerPage({ song }) {
           className={`absolute inset-x-0 bottom-0 h-dvh overflow-hidden rounded-t-xl border-t border-white/10 bg-[#101010] shadow-[0_-20px_80px_rgba(0,0,0,0.65)] ${detailsDragOffset ? '' : 'transition-transform duration-500 ease-out'} ${isDetailsOpen ? 'translate-y-0' : 'translate-y-full'}`}
           style={{ transform: `translateY(${isDetailsOpen ? detailsDragOffset : window.innerHeight}px)` }}
         >
-          <button type="button" aria-label="Close player details" onClick={() => setIsDetailsOpen(false)} className="mx-auto mt-3 block h-1 w-12 rounded-full bg-white/30" />
-          <div className="mx-4 mt-4 flex items-center gap-3 border-b border-white/10 pb-2">
+          <div
+            className="mx-4 mt-4 flex touch-none items-center gap-3 border-b border-white/10 pb-2"
+            onTouchStart={handleSheetTouchStart}
+            onTouchMove={handleSheetTouchMove}
+            onTouchEnd={handleSheetTouchEnd}
+          >
             <div className="h-11 w-11 shrink-0 overflow-hidden bg-white/10">
               {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
             </div>
@@ -381,7 +351,21 @@ export default function MobilePlayerPage({ song }) {
                 {isPlaying ? <Pause size={25} fill="currentColor" /> : <Play size={25} fill="currentColor" />}
             </button>
           </div>
-          <div className="mt-3 flex border-b border-white/10 px-3">
+          <button
+            type="button"
+            aria-label="Close player details"
+            onClick={() => setIsDetailsOpen(false)}
+            onTouchStart={handleSheetTouchStart}
+            onTouchMove={handleSheetTouchMove}
+            onTouchEnd={handleSheetTouchEnd}
+            className="mx-auto mt-3 block h-1 w-12 touch-none rounded-full bg-white/30"
+          />
+          <div
+            className="mt-3 flex touch-none border-b border-white/10 px-3"
+            onTouchStart={handleSheetTouchStart}
+            onTouchMove={handleSheetTouchMove}
+            onTouchEnd={handleSheetTouchEnd}
+          >
             {tabs.map((tab) => (
               <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`relative flex-1 pb-4 text-[11px] font-bold ${activeTab === tab ? 'text-white' : 'text-white/45'}`}>
                 {tab}
