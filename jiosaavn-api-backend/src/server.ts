@@ -2,6 +2,8 @@ import { AlbumController, ArtistController, AuthController, SearchController, So
 import { PlaylistController } from '#modules/playlists/controllers'
 import { App } from './app'
 
+export const config = { runtime: 'edge' };
+
 const app = new App([
   new AuthController(),
   new SearchController(),
