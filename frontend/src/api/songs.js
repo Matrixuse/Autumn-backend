@@ -308,6 +308,11 @@ export const searchSongs = async (query, limit = 5, page = 0) => {
   return response.data?.data?.results || []
 }
 
+export const searchAll = async (query) => {
+  const response = await axiosInstance.get('/search', { params: { query } })
+  return response.data?.data || {}
+}
+
 const normalizeMoodSong = (song = {}) => ({
   id: song?.id || `${song?.name || song?.title || 'song'}-${Math.random().toString(36).slice(2, 9)}`,
   title: song?.name || song?.title || 'Untitled track',
@@ -631,8 +636,20 @@ export const getLongToListenSongs = async (history = [], limit = 24) => {
 }
 
 export const getSongById = async (id) => {
-  const response = await axiosInstance.get(`/songs/${id}`)
-  return response.data?.data || []
+  const response = await axiosInstance.get(`/songs/${encodeURIComponent(String(id))}`)
+  const data = response.data?.data
+  return Array.isArray(data) ? data[0] || null : data || null
+}
+
+export const getSongsByIds = async (ids = []) => {
+  const songs = await Promise.all((ids || []).map(async (id) => {
+    try {
+      return await getSongById(id)
+    } catch {
+      return null
+    }
+  }))
+  return songs.filter(Boolean)
 }
 
 export const streamUrl = async (id) => {

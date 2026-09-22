@@ -1,5 +1,6 @@
 import { usePlayer } from '../../context/PlayerContext'
 import { searchSongs } from '../../api/songs'
+import axiosInstance from '../../api/axiosInstance'
 import { getBestAudioUrl, getBestImageUrl } from '../../utils/mediaQuality'
 import SongActionsMenu from '../common/SongActionsMenu'
 import { Play } from 'lucide-react'
@@ -32,24 +33,36 @@ export default function Hollywood({ songs = [] }) {
     const columnCount = Math.max(1, Math.ceil(visibleSongs.length / 4))
 
     const handleSongClick = async (song) => {
-        if (song?.audio) {
-            playTrack(song, visibleSongs)
+        const audio = getBestAudioUrl(song?.audio || song?.downloadUrl || song?.more_info?.downloadUrl)
+        if (audio) {
+            playTrack({ ...song, audio }, visibleSongs)
             return
         }
 
         try {
             const artist = getArtistLabel(song?.artist)
-            const results = await searchSongs(`${song?.title || ''} ${artist}`, 5)
-            const playable = results.find((result) => getBestAudioUrl(result?.downloadUrl || result?.audio))
+            let playable = null
+
+            if (song?.id && !String(song.id).startsWith('hollywood-')) {
+                const detailsResponse = await axiosInstance.get(`/songs/${encodeURIComponent(String(song.id))}`)
+                const details = Array.isArray(detailsResponse.data?.data) ? detailsResponse.data.data[0] : detailsResponse.data?.data
+                if (getBestAudioUrl(details?.downloadUrl || details?.audio || details?.more_info?.downloadUrl)) playable = details
+            }
+
+            if (!playable) {
+                const results = await searchSongs(`${song?.title || ''} ${artist}`, 5)
+                playable = results.find((result) => getBestAudioUrl(result?.downloadUrl || result?.audio || result?.more_info?.downloadUrl))
+            }
+
             if (!playable) return
 
             const resolvedSong = {
                 ...song,
                 id: playable.id || song.id,
                 title: playable.name || playable.title || song.title,
-                artist: getArtistLabel(playable.artists?.all || playable.artists?.primary) || artist,
+                artist: getArtistLabel(playable.artists?.primary || playable.artists?.all || playable.artists?.featured) || artist,
                 image: getBestImageUrl(playable.image) || song.image,
-                audio: getBestAudioUrl(playable.downloadUrl || playable.audio),
+                audio: getBestAudioUrl(playable.downloadUrl || playable.audio || playable.more_info?.downloadUrl),
                 duration: Number(playable.duration || song.duration || 0) || 0,
             }
             const resolvedQueue = visibleSongs.map((entry) => entry.id === song.id ? resolvedSong : entry)

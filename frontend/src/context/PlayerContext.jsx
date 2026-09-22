@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from 'react'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import PlayerContext from './player-context'
-import { getBestImageUrl } from '../utils/mediaQuality'
+import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality'
 import { AutumnMedia } from '../nativeMedia'
 
 const HISTORY_LIMIT = 18
@@ -239,7 +239,20 @@ export const PlayerProvider = ({ children }) => {
     setQueue(tracks)
     setIsRecommendationQueue(true)
   }
-  const { audioRef } = useAudioPlayer({ src: currentTrack?.audio, isPlaying, volume, onTimeUpdate: handleTimeUpdate, onEnded: handleEnded })
+  const audioSource = currentTrack?.audio || getBestAudioUrl(currentTrack?.downloadUrl)
+  const { audioRef } = useAudioPlayer({ src: audioSource, isPlaying, volume, onTimeUpdate: handleTimeUpdate, onEnded: handleEnded })
+
+  useEffect(() => {
+    if (import.meta.env.DEV && currentTrack) {
+      console.log('[PLAYER] RECEIVED SONG', {
+        id: currentTrack.id,
+        name: currentTrack.name || currentTrack.title,
+        artists: currentTrack.artists?.primary?.map((artist) => artist?.name).filter(Boolean).join(', ') || currentTrack.artist,
+        downloadUrl: currentTrack.downloadUrl,
+        audioSource
+      })
+    }
+  }, [audioSource, currentTrack])
 
   useEffect(() => {
     if (currentTrack?.id) {
@@ -325,7 +338,7 @@ export const PlayerProvider = ({ children }) => {
   return (
     <PlayerContext.Provider value={{ currentTrack, queue, listenHistory, likedSongs, isLiked, toggleLike, addToQueue, addTracksToQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, isRecommendationQueue, playTrack, setPlaybackQueue, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue }}>
         {children}
-        <audio ref={audioRef} src={currentTrack?.audio || undefined} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onEnded={handleEnded} />
+        <audio ref={audioRef} src={audioSource || undefined} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onEnded={handleEnded} />
     </PlayerContext.Provider>
   )
 }

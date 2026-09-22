@@ -3,7 +3,11 @@ import { useOutletContext } from 'react-router-dom'
 import { getBestImageUrl } from '../utils/mediaQuality'
 
 const getLabel = (item) => item?.__type === 'artist' ? item?.name || item?.title : item?.title || item?.name || 'Unknown result'
-const getMeta = (item) => item?.__type === 'artist' ? 'Artist' : `${item?.artist || item?.subtitle || 'Song'}${item?.album ? ` • ${item.album}` : ''}`
+const getMeta = (item) => {
+  if (item?.__type === 'artist') return 'Artist'
+  const artist = item?.artists?.primary?.map((artist) => artist.name).join(', ') || item?.artist || item?.subtitle || 'Song'
+  return `${artist}${item?.album ? ` • ${item.album}` : ''}`
+}
 const getImage = (item) => {
   if (typeof item?.image === 'string') return item.image
   return getBestImageUrl(item?.image || item?.cover || item?.thumbnail || [])
@@ -47,8 +51,8 @@ export default function SearchPage() {
               </div>
             )) : loading ? (
               <p className="px-4 py-4 text-left text-sm text-white/50">Searching...</p>
-            ) : results.length > 0 ? results.map((item, index) => (
-              <button key={`${item.__type}-${item.id || index}`} type="button" onClick={() => dispatchCommand({ type: 'select-result', value: getLabel(item), item })} className="flex w-full items-center gap-3 border-b border-white/5 px-3 py-3 text-left last:border-b-0 hover:bg-white/5">
+            ) : results.length > 0 ? results.map((item) => (
+              <button key={item.id} type="button" onClick={() => dispatchCommand({ type: 'select-result', value: getLabel(item), item })} className="flex w-full items-center gap-3 border-b border-white/5 px-3 py-3 text-left last:border-b-0 hover:bg-white/5">
                 <span className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
                   {getImage(item) ? <img src={getImage(item)} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full w-full place-items-center text-white/60"><Search size={14} /></span>}
                 </span>

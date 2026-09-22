@@ -60,6 +60,7 @@ export default function PlayerBar() {
 
   if (!currentTrack) return null
   const image = getBestImageUrl(currentTrack.image)
+  const artist = currentTrack.artists?.primary?.map((item) => item.name).join(', ') || currentTrack.artist
   return (
     <footer
       className="player-bar fixed inset-x-0 bottom-0 z-40 h-17 border-t border-white/10 bg-[#202020] px-4 text-white shadow-2xl sm:px-5 md:h-19.5"
@@ -96,10 +97,10 @@ export default function PlayerBar() {
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-white">
-                {currentTrack.title}
+                {currentTrack.title || currentTrack.name}
             </p>
             <p className="truncate text-xs text-white/55">
-                {currentTrack.artist}
+                {artist}
             </p>
           </div>
         </button>

@@ -128,7 +128,7 @@ export default function ArtistPage() {
 
         const [songsResult, albumsResult] = await Promise.allSettled([
           axiosInstance.get(`/artists/${resolvedArtistId}/songs`, {
-            params: { page: 0, limit: 25, sortBy: 'popularity', sortOrder: 'desc' },
+            params: { page: 0, limit: 500, sortBy: 'popularity', sortOrder: 'desc' },
             signal: controller.signal
           }),
           axiosInstance.get(`/artists/${resolvedArtistId}/albums`, {

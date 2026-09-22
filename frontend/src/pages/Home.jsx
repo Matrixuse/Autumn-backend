@@ -14,10 +14,11 @@ import { useFetchSongs, useFetchQuickPicks, useFetchNewReleases, useFetchLongSon
 import { usePlayer } from '../context/PlayerContext'
 import axiosInstance from '../api/axiosInstance'
 import { getBestImageUrl } from '../utils/mediaQuality'
-import { getHollywoodSongs } from '../api/songs'
+import { getHollywoodSongs, getSongsByIds } from '../api/songs'
 import { getMixForYouPlaylists } from '../api/playlists'
 import { getAlbumsForYou } from '../api/albums'
 import { mapWithConcurrency } from '../api/requestQueue'
+import { HOLLYWOOD_CURATED_TRACKS, VERIFIED_CURATED_IDS } from '../config/curatedSongs'
 
 const getDailySeed = () => `${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`
 
@@ -117,6 +118,7 @@ export default function Home() {
   const [artists, setArtists] = useState([])
   const [mixPlaylists, setMixPlaylists] = useState([])
   const [albumsForYou, setAlbumsForYou] = useState([])
+  const [curatedHollywoodSongs, setCuratedHollywoodSongs] = useState([])
   const { songs, loading, error } = useFetchSongs()
   const { listenHistory, listenAgain } = usePlayer()
   const { songs: quickPickSongs, loading: quickLoading, error: quickError } = useFetchQuickPicks(listenHistory)
@@ -130,9 +132,9 @@ export default function Home() {
   ), [longSongs, newReleaseSongs, quickPickSongs, songs])
   const librarySongs = useMemo(() => getSuggestedLibrarySongs(discoverySongs, 24), [discoverySongs])
   const hollywoodSongs = useMemo(() => {
-    const pool = [...(songs || []), ...(newReleaseSongs || []), ...(quickPickSongs || [])]
+    const pool = [...curatedHollywoodSongs, ...(songs || []), ...(newReleaseSongs || []), ...(quickPickSongs || [])]
     return getHollywoodSongs(pool, 24)
-  }, [songs, newReleaseSongs, quickPickSongs])
+  }, [curatedHollywoodSongs, songs, newReleaseSongs, quickPickSongs])
   const listenAgainSongs = listenAgain.length ? listenAgain : (listenHistory.length ? listenHistory : librarySongs)
 
   useEffect(() => {
@@ -183,6 +185,20 @@ export default function Home() {
       isMounted = false
     }
   }, [listenHistory])
+
+  useEffect(() => {
+    let isMounted = true
+    const ids = VERIFIED_CURATED_IDS(HOLLYWOOD_CURATED_TRACKS)
+    if (!ids.length) return undefined
+
+    getSongsByIds(ids).then((songsById) => {
+      if (isMounted) setCuratedHollywoodSongs(songsById)
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   return (
     <div>

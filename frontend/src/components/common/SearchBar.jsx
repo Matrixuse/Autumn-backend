@@ -3,7 +3,8 @@ import { Search, SlidersHorizontal, Clock3, X, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import axiosInstance from '../../api/axiosInstance'
 import { usePlayer } from '../../context/PlayerContext'
-import { getBestAudioUrl, getBestImageUrl } from '../../utils/mediaQuality'
+import { getBestImageUrl } from '../../utils/mediaQuality'
+import { getSongArtists } from '../../utils/songSearch'
 
 const HISTORY_KEY = 'autumn_search_history'
 
@@ -36,7 +37,9 @@ const formatResultMeta = (item, type) => {
     return item?.subtitle || item?.description || 'Playlist'
   }
 
-  return `${item?.artist || item?.subtitle || 'Song'} • ${item?.album || 'Music'}`
+  const artist = getSongArtists(item) || 'Song'
+  const album = typeof item?.album === 'object' ? item.album?.name : item?.album
+  return `${artist} • ${album || 'Music'}`
 }
 
 const extractImageUrl = (value) => {
@@ -110,18 +113,39 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
       setLoading(true)
       try {
         const [songsResponse, artistsResponse, playlistsResponse] = await Promise.all([
-          axiosInstance.get('/search/songs', { params: { query: trimmed, page: 0, limit: 6 } }),
-          axiosInstance.get('/search/artists', { params: { query: trimmed, page: 0, limit: 2 } }),
+          axiosInstance.get('/search/songs', { params: { query: trimmed, page: 0, limit: 20 } }),
+          axiosInstance.get('/search/artists', { params: { query: trimmed, page: 0, limit: 3 } }),
           axiosInstance.get('/search/playlists', { params: { query: trimmed, page: 0, limit: 2 } })
         ])
 
         if (isCancelled) return
 
-        const songs = (songsResponse.data?.data?.results || []).map((item) => ({ ...item, __type: 'song' }))
-        const artists = (artistsResponse.data?.data?.results || []).map((item) => ({ ...item, __type: 'artist' }))
-        const playlists = (playlistsResponse.data?.data?.results || []).map((item) => ({ ...item, __type: 'playlist' }))
+        const rawSongResults = songsResponse.data?.data?.results || []
+        const songs = rawSongResults.slice(0, 20)
 
-        const combined = [...songs, ...artists, ...playlists].slice(0, 10)
+        if (import.meta.env.DEV) {
+          console.log('[SEARCH] RAW BACKEND RESPONSE', songsResponse.data)
+          console.table(rawSongResults.map((song, index) => ({
+            index,
+            id: song.id,
+            name: song.name,
+            artists: getSongArtists(song),
+            year: song.year,
+            language: song.language
+          })))
+          console.table(songs.map((song, index) => ({
+            index,
+            id: song.id,
+            name: song.name,
+            artists: getSongArtists(song),
+            year: song.year,
+            language: song.language
+          })))
+        }
+        const artists = (artistsResponse.data?.data?.results || []).slice(0, 3).map((item) => ({ ...item, __type: 'artist' }))
+        const playlists = (playlistsResponse.data?.data?.results || []).slice(0, 2).map((item) => ({ ...item, __type: 'playlist' }))
+
+        const combined = [...songs, ...artists, ...playlists]
         setResults(combined)
       } catch {
         if (!isCancelled) setResults([])
@@ -163,7 +187,7 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
     })
   }
 
-  const handleSelect = async (value, item) => {
+  const handleSelect = (value, item) => {
     const trimmed = String(value || '').trim()
     if (!trimmed) return
 
@@ -176,32 +200,18 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
       inputRef.current?.blur()
     }
 
-    if (item?.__type === 'song') {
-      try {
-        const songDetails = await axiosInstance.get(`/songs/${item.id}`)
-        const songData = Array.isArray(songDetails.data?.data) ? songDetails.data.data[0] : songDetails.data?.data || {}
-
-        const normalizedSong = {
-          id: songData?.id || item.id,
-          title: songData?.title || songData?.name || item.title || item.name || trimmed,
-          name: songData?.title || songData?.name || item.title || item.name || trimmed,
-          artist: songData?.artists?.all?.map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ') || item?.artist || item?.subtitle || 'Unknown Artist',
-          image: getResultImage(songData || item, 'song') || getBestImageUrl(songData?.image || item?.image || []),
-          audio: getBestAudioUrl(songData?.downloadUrl || item?.downloadUrl),
-          duration: Number(songData?.duration || item?.duration || 0) || null,
-          album: songData?.album || item?.album || null,
-          url: songData?.url || item?.url || null,
-          language: songData?.language || item?.language || 'hindi'
-        }
-
-        if (normalizedSong.audio) {
-          playTrack(normalizedSong, [normalizedSong])
-          clearSelection()
-          return
-        }
-      } catch {
-        // fall through to normal search behavior if the song cannot be resolved for playback
+    if (!item?.__type || item.__type === 'song') {
+      if (import.meta.env.DEV) {
+        console.log('[SEARCH] SELECTED SONG', {
+          id: item.id,
+          name: item.name,
+          artists: getSongArtists(item),
+          downloadUrl: item.downloadUrl
+        })
       }
+      playTrack(item, [item])
+      clearSelection()
+      return
     }
 
     if (item?.__type === 'artist' && item.id) {
@@ -287,13 +297,13 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
               {loading ? (
                 <div className="px-4 py-3 text-sm text-white/50">Searching…</div>
               ) : results.length > 0 ? (
-                results.map((item, index) => (
+                results.map((item) => (
                   <button
-                    key={`${item.__type}-${item.id || item.name || item.title || index}`}
+                    key={item.id}
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => handleSelect(formatResultLabel(item, item.__type), item)}
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/5"
+                    className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 ${item.__isBest ? 'bg-white/8 ring-1 ring-inset ring-[#d29a55]/35' : ''}`}
                   >
                     <span className="relative h-9 w-9 overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
                       {getResultImage(item, item.__type) ? (

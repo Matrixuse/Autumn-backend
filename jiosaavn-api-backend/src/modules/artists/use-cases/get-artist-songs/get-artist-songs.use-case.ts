@@ -48,7 +48,7 @@ export class GetArtistSongsUseCase implements IUseCase<GetArtistSongsArgs, z.inf
   constructor() {}
 
   async execute({ artistId, limit, sortOrder, sortBy }: GetArtistSongsArgs) {
-    const cacheKey = `${artistId}:${getDailySeed()}:${sortBy}:${sortOrder}`
+    const cacheKey = `${artistId}:${getDailySeed()}:${limit}:${sortBy}:${sortOrder}`
     let catalog = dailyCatalogCache.get(cacheKey)
 
     if (!catalog) {
