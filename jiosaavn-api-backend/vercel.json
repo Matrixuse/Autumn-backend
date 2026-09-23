@@ -1,28 +1,17 @@
 {
   "$schema": "https://vercel.sh",
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
+  "version": 2,
   "regions": ["bom1"],
-  "cleanUrls": true,
-  "headers": [
+  "builds": [
+    {
+      "src": "src/server.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
     {
       "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, OPTIONS"
-        }
-      ]
+      "destination": "src/server.ts"
     }
   ]
 }
-
-
-
