@@ -18,12 +18,12 @@
     "#modules/*": {
       "types": "./src/modules/*/index.d.ts",
       "production": "./dist/modules/*/index.js",
-      "default": "./src/modules/*/"
+      "default": "./src/modules/*/index.js"
     },
     "#common/*": {
       "types": "./src/common/*/index.d.ts",
       "production": "./dist/common/*/index.js",
-      "default": "./src/common/*/"
+      "default": "./src/common/*/index.js"
     }
   },
   "scripts": {

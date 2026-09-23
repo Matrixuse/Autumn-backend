@@ -1,6 +1,6 @@
 import { Endpoints } from '#common/constants'
 import { useFetch } from '#common/helpers'
-import { GetSongByIdUseCase } from '#modules/songs/use-cases/get-song-by-id'
+import { GetSongByIdUseCase } from '#modules/songs/use-cases'
 import { HTTPException } from 'hono/http-exception'
 
 export class GetSongLyricsUseCase {

@@ -3,7 +3,7 @@ import { apiReference } from '@scalar/hono-api-reference'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { prettyJSON } from 'hono/pretty-json'
-import { Home } from './pages/home'
+import { Home } from './pages/home.js'
 import type { Routes } from '#common/types'
 import type { HTTPException } from 'hono/http-exception'
 
