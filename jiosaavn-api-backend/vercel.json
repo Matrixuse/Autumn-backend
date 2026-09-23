@@ -1,8 +1,8 @@
 {
-  "$schema": "https://vercel.sh",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "bunVersion": "1.x",
   "regions": ["bom1"],
-  "builds": [{ "src": "api/index.ts", "use": "@vercel/node" }],
   "routes": [
     {
       "source": "/(.*)",
