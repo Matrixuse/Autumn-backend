@@ -2,16 +2,11 @@
   "$schema": "https://vercel.sh",
   "version": 2,
   "regions": ["bom1"],
-  "builds": [
-    {
-      "src": "src/server.ts",
-      "use": "@vercel/node"
-    }
-  ],
+  "builds": [{ "src": "api/index.ts", "use": "@vercel/node" }],
   "routes": [
     {
       "source": "/(.*)",
-      "destination": "src/server.ts"
+      "destination": "/api/index.ts"
     }
   ]
 }
