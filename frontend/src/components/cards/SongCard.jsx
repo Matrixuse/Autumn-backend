@@ -1,6 +1,8 @@
 import { Play } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { usePlayer } from '../../context/PlayerContext'
 import SongActionsMenu from '../common/SongActionsMenu'
+import { getBestImageUrl } from '../../utils/mediaQuality'
 
 const artwork = ['from-[#3d291f] via-[#b36e37] to-[#1c2830]', 'from-[#132f3b] via-[#2e7b95] to-[#d2bd8c]', 'from-[#c5d8d5] via-[#9ec2d1] to-[#e4d4af]', 'from-[#fafafa] via-[#db4b7a] to-[#a01c49]', 'from-[#151d28] via-[#1babc2] to-[#090b11]', 'from-[#242326] via-[#727078] to-[#d7d1bf]']
 
@@ -17,8 +19,11 @@ const getColorIndex = (value) => {
 
 export default function SongCard({ song, queue = [] }) {
     const { playTrack, isNotInterested, currentTrack, isPlaying } = usePlayer()
+    const imageSource = getBestImageUrl(song?.image || song?.cover || song?.thumbnail || song?.artwork || song?.images || song?.img)
+    const [imageFailed, setImageFailed] = useState(false)
+    useEffect(() => setImageFailed(false), [imageSource])
     if (isNotInterested(song)) return null
-    const image = song?.image || null
+    const image = imageFailed ? null : imageSource
     const color = artwork[getColorIndex(song?.id)]
     const title = song?.title || song?.name || 'Untitled track'
     const artist = song?.artist || song?.artists?.all?.[0]?.name || song?.subtitle || 'Unknown Artist'
@@ -27,7 +32,7 @@ export default function SongCard({ song, queue = [] }) {
         <article className="group relative min-w-35 flex-1 md:min-w-40 md:max-w-45">
             <div className="relative">
                 <button onClick={() => playTrack(song, queue)} className="relative block aspect-square w-full overflow-hidden rounded-lg bg-[#28251f] text-left shadow-lg transition duration-300 group-hover:scale-[1.02] group-hover:shadow-[0_16px_35px_rgba(0,0,0,.35)]">
-                    {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className={`relative h-full w-full overflow-hidden bg-linear-to-br ${color}`}>
+                    {image ? <img src={image} alt="" onError={() => setImageFailed(true)} className="h-full w-full object-cover" /> : <div className={`relative h-full w-full overflow-hidden bg-linear-to-br ${color}`}>
                         <div className="absolute left-1/2 top-[42%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white/30 bg-black/15" />
                             <div className="absolute inset-x-0 bottom-5 text-center text-xs font-bold tracking-[.25em] text-white/80">
                                 AUTUMN
