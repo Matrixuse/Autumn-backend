@@ -10,6 +10,7 @@ import { searchPlaylists } from '../api/playlists'
 import ArtistCard from '../components/cards/ArtistCard'
 import PlaylistCard from '../components/cards/PlaylistCard'
 import SongCard from '../components/cards/SongCard'
+import { getSongArtists } from '../utils/songSearch'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
@@ -47,6 +48,8 @@ export default function MobilePlayerPage({ song }) {
   const [playerDragOffset, setPlayerDragOffset] = useState(0)
 
   const image = getBestImageUrl(currentTrack?.image)
+  const currentTitle = currentTrack?.title || currentTrack?.name || 'Unknown Track'
+  const currentArtist = getSongArtists(currentTrack)
   const currentIndex = queue.findIndex((track) => String(track.id) === String(currentTrack?.id))
   const nextTracks = currentIndex >= 0 ? queue.slice(currentIndex + 1) : queue
 
@@ -299,13 +302,13 @@ export default function MobilePlayerPage({ song }) {
         style={{ transform: `translateY(${playerDragOffset}px)`, transition: playerDragOffset === 0 ? 'transform 220ms ease-out' : 'none' }}
       >
         <div className="mx-auto aspect-square w-full max-w-80 overflow-hidden bg-[#171717] shadow-[0_18px_70px_rgba(255,255,255,0.08)]">
-          {image ? <img src={image} alt={currentTrack.title} className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
+          {image ? <img src={image} alt={currentTitle} className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
         </div>
 
         <div className="mt-7 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="truncate text-[22px] font-bold tracking-tight">{currentTrack.title}</h1>
-            <p className="mt-1 truncate text-sm text-white/60">{currentTrack.artist}</p>
+            <h1 className="truncate text-[22px] font-bold tracking-tight">{currentTitle}</h1>
+            <p className="mt-1 truncate text-sm text-white/60">{currentArtist || 'Unknown Artist'}</p>
           </div>
           <button type="button" aria-label={isLiked(currentTrack.id) ? 'Unlike current song' : 'Like current song'} onClick={() => toggleLike(currentTrack)} className={`mt-1 p-2 hover:text-white ${isLiked(currentTrack.id) ? 'text-[#edeeee]' : 'text-white/70'}`}>
             <ThumbsUp size={21} fill={isLiked(currentTrack.id) ? 'currentColor' : 'none'} />
@@ -362,8 +365,8 @@ export default function MobilePlayerPage({ song }) {
               {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
             </div>
             <div className="min-w-0 flex-1 text-left">
-              <p className="truncate text-sm font-bold">{currentTrack.title}</p>
-              <p className="mt-0.5 truncate text-xs text-white/45">{currentTrack.artist}</p>
+              <p className="truncate text-sm font-bold">{currentTitle}</p>
+              <p className="mt-0.5 truncate text-xs text-white/45">{currentArtist || 'Unknown Artist'}</p>
             </div>
             <button onClick={toggleShuffle} aria-label={isShuffleEnabled ? 'Disable shuffle' : 'Enable shuffle'} className={`hover:text-white ${isShuffleEnabled ? 'text-[#5b7cff]' : ''}`}>
               <Shuffle size={20} />
