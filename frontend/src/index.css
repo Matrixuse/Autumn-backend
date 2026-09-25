@@ -3,6 +3,9 @@
 
 :root { font-family: 'DM Sans', sans-serif; color: #f7f4ee; background: #0d0e0c; font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
+html, body {
+  overscroll-behavior-y: contain;
+}
 body { margin: 0; min-width: 320px; background: #0d0e0c; }
 button, input { font: inherit; }
 .mobile-nav { height: calc(3.75rem + max(10px, env(safe-area-inset-bottom))); }

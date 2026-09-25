@@ -1,7 +1,10 @@
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import PlayerContext from './player-context'
 import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality'
+import { buildDiverseQueue, normalizeRecommendationSong, resolveQueueSelection } from '../utils/recommendationQueue'
+import { fetchRecommendationCandidates } from '../api/recommendations'
+import axiosInstance from '../api/axiosInstance'
 import { AutumnMedia } from '../nativeMedia'
 
 const HISTORY_LIMIT = 18
@@ -74,7 +77,8 @@ export const PlayerProvider = ({ children }) => {
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false)
   const [isRepeatEnabled, setIsRepeatEnabled] = useState(false)
   const [isQueueOpen, setIsQueueOpen] = useState(false)
-  const [isRecommendationQueue, setIsRecommendationQueue] = useState(false)
+  const [currentIndex, setCurrentIndex] = useState(-1)
+  const recommendationRequestRef = useRef(0)
 
   useEffect(() => {
     localStorage.setItem('autumn_listen_history', JSON.stringify(listenHistory))
@@ -96,18 +100,36 @@ export const PlayerProvider = ({ children }) => {
     localStorage.setItem('autumn_not_interested', JSON.stringify(notInterested))
   }, [notInterested])
 
-  const playTrack = (track, nextQueue) => {
+  const playTrack = (track) => {
     if (!track) return
 
-    const hasNewQueue = Array.isArray(nextQueue)
-    const isHistoryQueue = nextQueue === listenHistory || nextQueue === listenAgain
-    const sourceQueue = hasNewQueue && nextQueue.length && !isHistoryQueue ? nextQueue : [track]
-    setCurrentTrack(track)
-    setQueue(isShuffleEnabled ? shuffleQueue(sourceQueue, track) : sourceQueue)
-    setIsRecommendationQueue(hasNewQueue && !isHistoryQueue)
-    setListenHistory((history) => pushHistory(history, track))
+    const selection = resolveQueueSelection(queue, track)
+
+    if (!selection.shouldRegenerate) {
+      setCurrentIndex(selection.currentIndex)
+      setCurrentTrack(selection.track)
+      setListenHistory((history) => pushHistory(history, selection.track))
+      setProgress(0)
+      setIsPlaying(true)
+      return
+    }
+
+    recommendationRequestRef.current += 1
+    const requestId = recommendationRequestRef.current
+    const sourceTrack = normalizeRecommendationSong(selection.track)
+    setCurrentTrack(sourceTrack)
+    setQueue([sourceTrack])
+    setCurrentIndex(0)
+    setListenHistory((history) => pushHistory(history, sourceTrack))
     setProgress(0)
     setIsPlaying(true)
+
+    fetchRecommendationCandidates(sourceTrack, axiosInstance).then((candidates) => {
+      if (recommendationRequestRef.current !== requestId) return
+      const nextQueue = buildDiverseQueue(sourceTrack, candidates)
+      setQueue(isShuffleEnabled ? shuffleQueue(nextQueue, sourceTrack) : nextQueue)
+      setCurrentIndex(0)
+    }).catch(() => {})
   }
 
   const togglePlay = () => setIsPlaying((playing) => !playing)
@@ -121,9 +143,10 @@ export const PlayerProvider = ({ children }) => {
     setIsPlaying(false)
     setCurrentTrack(null)
     setQueue([])
+    setCurrentIndex(-1)
+    recommendationRequestRef.current += 1
     setProgress(0)
     setDuration(0)
-    setIsRecommendationQueue(false)
   }
   const isLiked = (trackId) => likedSongs.some((song) => String(song.id) === String(trackId))
   const toggleLike = (track) => {
@@ -140,31 +163,28 @@ export const PlayerProvider = ({ children }) => {
   const addToQueue = (track, playNext = false) => {
     if (!track?.id) return
 
-    setQueue((currentQueue) => {
-      const withoutTrack = currentQueue.filter((item) => String(item.id) !== String(track.id))
-      const currentIndex = withoutTrack.findIndex((item) => String(item.id) === String(currentTrack?.id))
-      const current = currentIndex >= 0 ? withoutTrack[currentIndex] : currentTrack
-      const remaining = currentIndex >= 0 ? withoutTrack.filter((_, index) => index !== currentIndex) : withoutTrack
-
-      if (!current) return playNext ? [track, ...remaining] : [...remaining, track]
-      if (playNext) return [current, track, ...remaining]
-      return [current, ...remaining, track]
-    })
+    const withoutTrack = queue.filter((item) => String(item.id) !== String(track.id))
+    const activeIndex = withoutTrack.findIndex((item) => String(item.id) === String(currentTrack?.id))
+    const insertionIndex = activeIndex < 0 ? (playNext ? 0 : withoutTrack.length) : playNext ? activeIndex + 1 : withoutTrack.length
+    const nextQueue = [...withoutTrack]
+    nextQueue.splice(insertionIndex, 0, track)
+    setQueue(nextQueue)
+    const nextIndex = nextQueue.findIndex((item) => String(item.id) === String(currentTrack?.id))
+    if (nextIndex >= 0) setCurrentIndex(nextIndex)
   }
   const addTracksToQueue = (tracks, playNext = false) => {
     const validTracks = (Array.isArray(tracks) ? tracks : []).filter((track) => track?.id)
     if (!validTracks.length) return
 
-    setQueue((currentQueue) => {
-      const additions = validTracks.filter((track) => !currentQueue.some((item) => String(item.id) === String(track.id)))
-      if (!additions.length) return currentQueue
-      const currentIndex = currentQueue.findIndex((item) => String(item.id) === String(currentTrack?.id))
-      if (currentIndex < 0) return playNext ? [...additions, ...currentQueue] : [...currentQueue, ...additions]
-      const current = currentQueue[currentIndex]
-      const before = currentQueue.slice(0, currentIndex)
-      const after = currentQueue.slice(currentIndex + 1)
-      return playNext ? [...before, current, ...additions, ...after] : [...before, current, ...after, ...additions]
-    })
+    const additions = validTracks.filter((track) => !queue.some((item) => String(item.id) === String(track.id)))
+    if (!additions.length) return
+    const activeIndex = queue.findIndex((item) => String(item.id) === String(currentTrack?.id))
+    const insertionIndex = activeIndex < 0 ? (playNext ? 0 : queue.length) : playNext ? activeIndex + 1 : queue.length
+    const nextQueue = [...queue]
+    nextQueue.splice(insertionIndex, 0, ...additions)
+    setQueue(nextQueue)
+    const nextIndex = nextQueue.findIndex((item) => String(item.id) === String(currentTrack?.id))
+    if (nextIndex >= 0) setCurrentIndex(nextIndex)
   }
   const addToListenAgain = (track) => {
     if (!track?.id) return
@@ -197,17 +217,26 @@ export const PlayerProvider = ({ children }) => {
     setUserPlaylists((items) => items.filter((playlist) => String(playlist.sourceId || playlist.id) !== String(item.id)))
   }
   const next = () => {
-    const index = queue.findIndex((track) => track.id === currentTrack?.id)
-    const nextTrack = queue[index + 1]
-    if (nextTrack) playTrack(nextTrack, queue)
-    else if (isShuffleEnabled && queue.length > 1) {
-      const shuffledQueue = shuffleQueue(queue, currentTrack)
-      playTrack(shuffledQueue[1], shuffledQueue)
-    }
+    const nextIndex = currentIndex + 1
+    const nextTrack = queue[nextIndex]
+    if (!nextTrack) return
+    recommendationRequestRef.current += 1
+    setCurrentIndex(nextIndex)
+    setCurrentTrack(nextTrack)
+    setListenHistory((history) => pushHistory(history, nextTrack))
+    setProgress(0)
+    setIsPlaying(true)
   }
   const previous = () => {
-    const index = queue.findIndex((track) => track.id === currentTrack?.id)
-    if (queue[index - 1]) playTrack(queue[index - 1], queue)
+    const previousIndex = currentIndex - 1
+    const previousTrack = queue[previousIndex]
+    if (!previousTrack) return
+    recommendationRequestRef.current += 1
+    setCurrentIndex(previousIndex)
+    setCurrentTrack(previousTrack)
+    setListenHistory((history) => pushHistory(history, previousTrack))
+    setProgress(0)
+    setIsPlaying(true)
   }
   const seek = (value) => { setProgress(Number(value)); if (audioRef.current) audioRef.current.currentTime = Number(value) }
   const handleTimeUpdate = (event) => setProgress(Number(event.currentTarget?.currentTime) || 0)
@@ -226,18 +255,17 @@ export const PlayerProvider = ({ children }) => {
   const toggleShuffle = () => {
     setIsShuffleEnabled((enabled) => {
       const nextEnabled = !enabled
-      if (nextEnabled && currentTrack && queue.length > 1) setQueue(shuffleQueue(queue, currentTrack))
+      if (nextEnabled && currentTrack && queue.length > 1) {
+        const shuffledQueue = shuffleQueue(queue, currentTrack)
+        setQueue(shuffledQueue)
+        setCurrentIndex(shuffledQueue.findIndex((track) => String(track.id) === String(currentTrack.id)))
+      }
       return nextEnabled
     })
   }
   const toggleRepeat = () => setIsRepeatEnabled((enabled) => !enabled)
   const toggleQueue = () => setIsQueueOpen((open) => !open)
   const closeQueue = () => setIsQueueOpen(false)
-  const setPlaybackQueue = (tracks) => {
-    if (!Array.isArray(tracks) || !tracks.length) return
-    setQueue(tracks)
-    setIsRecommendationQueue(true)
-  }
   const audioSource = currentTrack?.audio || getBestAudioUrl(currentTrack?.downloadUrl)
   const { audioRef } = useAudioPlayer({ src: audioSource, isPlaying, volume, onTimeUpdate: handleTimeUpdate, onEnded: handleEnded })
 
@@ -335,7 +363,7 @@ export const PlayerProvider = ({ children }) => {
   }, [currentTrack, duration, isPlaying, previous, progress])
 
   return (
-    <PlayerContext.Provider value={{ currentTrack, queue, listenHistory, likedSongs, isLiked, toggleLike, addToQueue, addTracksToQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, isRecommendationQueue, playTrack, setPlaybackQueue, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue }}>
+    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, listenHistory, likedSongs, isLiked, toggleLike, addToQueue, addTracksToQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue }}>
         {children}
         <audio ref={audioRef} src={audioSource || undefined} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onEnded={handleEnded} />
     </PlayerContext.Provider>

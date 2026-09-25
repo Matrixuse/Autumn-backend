@@ -187,7 +187,7 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
     })
   }
 
-  const handleSelect = (value, item) => {
+  const handleSelect = async (value, item) => {
     const trimmed = String(value || '').trim()
     if (!trimmed) return
 
@@ -198,6 +198,22 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
       setResults([])
       setFocused(false)
       inputRef.current?.blur()
+    }
+
+    if (item?.__type === 'history') {
+      try {
+        const response = await axiosInstance.get('/search/songs', {
+          params: { query: trimmed, page: 0, limit: 20 }
+        })
+        const songs = response.data?.data?.results || []
+        const normalizedValue = trimmed.toLowerCase()
+        const matchingSong = songs.find((song) => formatResultLabel(song, 'song').trim().toLowerCase() === normalizedValue)
+        const selectedSong = matchingSong || songs[0]
+
+        if (selectedSong) playTrack(selectedSong, songs)
+      } catch {}
+      clearSelection()
+      return
     }
 
     if (!item?.__type || item.__type === 'song') {

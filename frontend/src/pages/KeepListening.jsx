@@ -70,7 +70,7 @@ const rankRelatedSongs = (songs, currentTrack, isHollywood) => {
 }
 
 export default function KeepListening() {
-  const { currentTrack, queue, listenHistory, isPlaying, isRecommendationQueue, playTrack, setPlaybackQueue, togglePlay } = usePlayer()
+  const { currentTrack, queue, listenHistory, isPlaying, playTrack, togglePlay } = usePlayer()
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [relatedSongs, setRelatedSongs] = useState([])
   const [relatedLoading, setRelatedLoading] = useState(false)
@@ -170,36 +170,6 @@ export default function KeepListening() {
     loadRelatedSongs()
     return () => controller.abort()
   }, [currentTrack?.id, listenHistory])
-
-  useEffect(() => {
-    if (!currentTrack?.id || isRecommendationQueue || queue.length > 1) return undefined
-    const controller = new AbortController()
-    const fillQueue = async () => {
-      try {
-        const historyIds = new Set(listenHistory.map((song) => String(song.id)))
-        const isHollywood = isLikelyHollywoodSong(currentTrack)
-        const trackTitle = getTrackTitle(currentTrack)
-        const artist = String(getTrackArtist(currentTrack)).split(',')[0].trim()
-        const searchQueries = [
-          `${artist} songs`.trim(),
-          `${artist} latest songs`.trim(),
-          trackTitle,
-          `${trackTitle} ${artist}`.trim()
-        ].filter(Boolean)
-        const searchResults = await Promise.all(
-          searchQueries.flatMap((query) => [0, 1].map((page) => searchSongs(query, 10, page).catch(() => [])))
-        )
-        const candidates = searchResults.flat().map(normalizeSong).filter((song) => !historyIds.has(String(song.id)))
-        const suggestions = rankRelatedSongs(candidates, currentTrack, isHollywood)
-        const fillers = suggestions.slice(0, 40)
-        if (!controller.signal.aborted) setPlaybackQueue([currentTrack, ...fillers])
-      } catch {
-        // Keep the existing queue when suggestions are unavailable.
-      }
-    }
-    fillQueue()
-    return () => controller.abort()
-  }, [currentTrack?.id, isRecommendationQueue, listenHistory, queue.length])
 
   const renderSongRow = (song, index) => {
     const isActive = song.id === currentTrack?.id
@@ -329,7 +299,7 @@ export default function KeepListening() {
 
           <div className="flex items-center justify-between px-2 py-4">
             <div>
-              {activeTab === 'UP NEXT' && <><p className="text-xs text-white/55">Playing from</p><h2 className="mt-1 truncate text-base font-bold text-white">Keep Listening queue</h2></>}
+              {activeTab === 'UP NEXT' && <><p className="text-xs text-white/55">Playing from</p><h2 className="mt-1 truncate text-base font-bold text-white">Your queue</h2></>}
               {activeTab === 'LYRICS' && <h2 className="text-base font-bold text-white">Lyrics</h2>}
             </div>
           </div>

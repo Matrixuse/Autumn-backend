@@ -42,8 +42,8 @@ export default function AppRoutes() {
                 <Route path="/mood/:moodName" element={<MoodChipsPage />} />
                 <Route path="/feedback" element={<FeedbackPage />} />
                 <Route path="/equalizer" element={<EquilizerPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     )
 }
