@@ -66,7 +66,7 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
             </section>
         </div>
         )}
-        <div className={isHomePage || isExplorePage || isPlaylistsPage ? 'hidden lg:block' : 'flex-1'}>
+        <div className={`lg:w-[395px] lg:flex-none ${isHomePage || isExplorePage || isPlaylistsPage ? 'hidden lg:block' : 'flex-1'}`}>
             <SearchBar disabled={locked} onSearchStateChange={onSearchStateChange} />
         </div>
         <div className={`group relative ml-auto flex items-center gap-2 text-white/80 ${isSearchPage || isExplorePage ? 'hidden lg:flex' : ''} ${locked ? 'pointer-events-none' : ''}`}>
