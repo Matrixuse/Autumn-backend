@@ -100,12 +100,11 @@ export const PlayerProvider = ({ children }) => {
     if (!track) return
 
     const hasNewQueue = Array.isArray(nextQueue)
-    const sourceQueue = hasNewQueue && nextQueue.length ? nextQueue : [track]
+    const isHistoryQueue = nextQueue === listenHistory || nextQueue === listenAgain
+    const sourceQueue = hasNewQueue && nextQueue.length && !isHistoryQueue ? nextQueue : [track]
     setCurrentTrack(track)
-    if (hasNewQueue) {
-      setQueue(isShuffleEnabled ? shuffleQueue(sourceQueue, track) : sourceQueue)
-      setIsRecommendationQueue(false)
-    }
+    setQueue(isShuffleEnabled ? shuffleQueue(sourceQueue, track) : sourceQueue)
+    setIsRecommendationQueue(hasNewQueue && !isHistoryQueue)
     setListenHistory((history) => pushHistory(history, track))
     setProgress(0)
     setIsPlaying(true)
@@ -200,7 +199,7 @@ export const PlayerProvider = ({ children }) => {
   const next = () => {
     const index = queue.findIndex((track) => track.id === currentTrack?.id)
     const nextTrack = queue[index + 1]
-    if (nextTrack) playTrack(nextTrack)
+    if (nextTrack) playTrack(nextTrack, queue)
     else if (isShuffleEnabled && queue.length > 1) {
       const shuffledQueue = shuffleQueue(queue, currentTrack)
       playTrack(shuffledQueue[1], shuffledQueue)
@@ -208,7 +207,7 @@ export const PlayerProvider = ({ children }) => {
   }
   const previous = () => {
     const index = queue.findIndex((track) => track.id === currentTrack?.id)
-    if (queue[index - 1]) playTrack(queue[index - 1])
+    if (queue[index - 1]) playTrack(queue[index - 1], queue)
   }
   const seek = (value) => { setProgress(Number(value)); if (audioRef.current) audioRef.current.currentTime = Number(value) }
   const handleTimeUpdate = (event) => setProgress(Number(event.currentTarget?.currentTime) || 0)

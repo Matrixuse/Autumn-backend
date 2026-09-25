@@ -53,7 +53,14 @@ const englishTitleHints = [
   'without me', 'love me like you do', 'closer', 'sugar', 'bad liar', 'all too well', 'high hopes', 'havana'
 ]
 
-const indianLanguageKeys = ['hindi', 'punjabi', 'bhojpuri', 'gujarati', 'marathi', 'tamil', 'telugu', 'kannada', 'malayalam', 'urdu', 'bengali']
+const indianLanguageKeys = [
+  'angika', 'assamese', 'bengali', 'bhili', 'bodo', 'bojpuri', 'bhojpuri', 'bundeli', 'chhattisgarhi', 'dogri',
+  'garhwali', 'goan', 'goan konkani', 'gujarati', 'gujrati', 'haryanvi', 'hindi', 'himachali', 'kannada',
+  'kashmiri', 'khasi', 'kodava', 'konkani', 'kumaoni', 'ladakhi', 'lambadi', 'magahi', 'maithili', 'malayalam',
+  'manipuri', 'meitei', 'marathi', 'marwari', 'mewari', 'mizo', 'mising', 'mundari', 'nagamese', 'nepali', 'odia',
+  'oriya', 'pahadi', 'punjabi', 'rajasthani', 'sanskrit', 'santali', 'sindhi', 'tamil', 'telugu', 'tulu', 'urdu'
+]
+const indianLanguageCodes = new Set(['as', 'bn', 'brx', 'doi', 'gu', 'hi', 'kn', 'ks', 'kok', 'mai', 'ml', 'mni', 'mr', 'ne', 'or', 'pa', 'sa', 'sat', 'sd', 'ta', 'te', 'ur'])
 const indianNameHints = ['arijit', 'shreya', 'atif', 'neha', 'sonu', 'khan', 'singh', 'kaif', 'malhar', 'goswami', 'mangeshkar', 'chauhan', 'rashid', 'palak', 'vajpayee']
 const indicRegex = /[\u0900-\u09FF\u0980-\u09FF\u0A00-\u0A7F\u0B00-\u0B7F\u0C00-\u0C7F]/
 
@@ -63,21 +70,34 @@ const englishWordBlacklist = new Set([
 
 const hasIndicCharacters = (value = '') => indicRegex.test(value)
 
+export const getSongLanguage = (song = {}) => normalizeLanguage(
+  song.language || song.lang || song.more_info?.language
+)
+
+export const isIndianLanguage = (languageOrSong = '') => {
+  const language = typeof languageOrSong === 'object'
+    ? getSongLanguage(languageOrSong)
+    : normalizeLanguage(languageOrSong)
+
+  return indianLanguageKeys.some((key) => language.includes(key)) || indianLanguageCodes.has(language)
+}
+
 export const isLikelyHollywoodSong = (song = {}) => {
   if (!song || typeof song !== 'object') return false
 
   const title = normalizeText(song.title || song.name)
   const artist = normalizeText(song.artist || song.artists?.all?.[0]?.name || song.subtitle || '')
-  const language = normalizeText(song.language || song.lang)
+  const language = getSongLanguage(song)
   const haystack = `${title} ${artist} ${language}`
 
   if (!title && !artist) return false
 
-  if (indianLanguageKeys.some((key) => language.includes(key))) return false
+  if (isIndianLanguage(language)) return false
+  if (language !== 'unknown' && language) return true
   if (indianNameHints.some((hint) => artist.includes(hint) || title.includes(hint))) return false
   if (hasIndicCharacters(title) || hasIndicCharacters(artist)) return false
 
-  const explicitEnglish = language.includes('english') || language.includes('en')
+  const explicitEnglish = language === 'english' || language === 'en'
   const artistMatch = englishArtistHints.some((hint) => artist.includes(hint))
   const titleMatch = englishTitleHints.some((hint) => title.includes(hint))
 
@@ -108,7 +128,7 @@ const normalizeHollywoodSong = (song = {}) => {
     image: typeof image === 'string' ? image : (typeof song.image === 'string' ? song.image : (typeof song.cover === 'string' ? song.cover : null)),
     audio: audio || song.audio || null,
     duration: Number(song.duration || song.duration_ms || song.length || 0),
-    language: song.language || song.lang || 'english'
+    language: getSongLanguage(song)
   }
 }
 
@@ -176,7 +196,7 @@ export const getHollywoodSongs = (songs = [], limit = 24) => {
     if (!current || score > current.score) bestByTitle.set(titleKey, { song, score })
   }
 
-  const dedupedRealSongs = [...bestByTitle.values()].map(({ song }) => song).slice(0, limit)
+  const dedupedRealSongs = shuffleBySeed([...bestByTitle.values()].map(({ song }) => song)).slice(0, limit)
 
   const fallback = []
   const fallbackSeen = new Set()
@@ -419,7 +439,7 @@ export const getSongs = async (queries = recentGlobalQueries, limit = 5) => {
         url: song?.url || null,
         releaseDate: song?.releaseDate || null,
         year: song?.year || null,
-        language: song?.language || 'hindi'
+        language: getSongLanguage(song)
       }
 
       if (!cleaned.audio || !cleaned.image) continue
@@ -504,7 +524,7 @@ export const getNewReleaseSongs = async (history = [], limit = 8) => {
         url: song?.url || null,
         releaseDate: song?.releaseDate || null,
         year: song?.year || null,
-        language: song?.language || 'hindi'
+        language: getSongLanguage(song)
       }
 
       if (!cleaned.audio || !cleaned.image) continue
@@ -589,7 +609,7 @@ export const getLongToListenSongs = async (history = [], limit = 24) => {
         url: song?.url || null,
         releaseDate: song?.releaseDate || null,
         year: song?.year || null,
-        language: song?.language || 'hindi'
+        language: getSongLanguage(song)
       }
 
       if (!cleaned.audio || !cleaned.image) continue

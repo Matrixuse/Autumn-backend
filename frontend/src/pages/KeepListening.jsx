@@ -12,6 +12,7 @@ import SongActionsMenu from '../components/common/SongActionsMenu'
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
 const normalizeSong = (song = {}) => ({
+  ...song,
   id: song.id || song._id || `${song.name || song.title || 'song'}-${Math.random().toString(36).slice(2, 8)}`,
   title: song.name || song.title || 'Unknown Track',
   artist: Array.isArray(song.artists?.all)
@@ -20,6 +21,7 @@ const normalizeSong = (song = {}) => ({
   image: getBestImageUrl(song.image || song.cover || song.artwork || song.thumbnail || []) || null,
   audio: getBestAudioUrl(song.downloadUrl || song.audio) || null,
   duration: Number(song.duration || song.more_info?.duration || 0) || 0,
+  language: song.language || song.lang || song.more_info?.language || 'unknown',
 })
 
 const normalizeText = (value = '') => String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -68,7 +70,7 @@ const rankRelatedSongs = (songs, currentTrack, isHollywood) => {
 }
 
 export default function KeepListening() {
-  const { currentTrack, queue, listenHistory, isPlaying, isRecommendationQueue, playTrack, addTracksToQueue, togglePlay } = usePlayer()
+  const { currentTrack, queue, listenHistory, isPlaying, isRecommendationQueue, playTrack, setPlaybackQueue, togglePlay } = usePlayer()
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [relatedSongs, setRelatedSongs] = useState([])
   const [relatedLoading, setRelatedLoading] = useState(false)
@@ -170,7 +172,7 @@ export default function KeepListening() {
   }, [currentTrack?.id, listenHistory])
 
   useEffect(() => {
-    if (!currentTrack?.id || isRecommendationQueue) return undefined
+    if (!currentTrack?.id || isRecommendationQueue || queue.length > 1) return undefined
     const controller = new AbortController()
     const fillQueue = async () => {
       try {
@@ -189,9 +191,8 @@ export default function KeepListening() {
         )
         const candidates = searchResults.flat().map(normalizeSong).filter((song) => !historyIds.has(String(song.id)))
         const suggestions = rankRelatedSongs(candidates, currentTrack, isHollywood)
-        const remainingSlots = Math.max(0, 40 - queue.length)
-        const fillers = suggestions.slice(0, remainingSlots)
-        if (!controller.signal.aborted && fillers.length) addTracksToQueue(fillers)
+        const fillers = suggestions.slice(0, 40)
+        if (!controller.signal.aborted) setPlaybackQueue([currentTrack, ...fillers])
       } catch {
         // Keep the existing queue when suggestions are unavailable.
       }

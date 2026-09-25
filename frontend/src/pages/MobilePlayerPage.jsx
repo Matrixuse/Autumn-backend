@@ -316,7 +316,7 @@ export default function MobilePlayerPage({ song }) {
         </div>
 
         <div className="mt-5">
-          <input aria-label="Track progress" className="h-0.5 w-full cursor-pointer accent-white/25" type="range" min="0" max={duration || 1} value={progress} onChange={(event) => seek(event.target.value)} />
+          <input aria-label="Track progress" className="h-0.5 w-full cursor-pointer accent-indigo-600/25" type="range" min="0" max={duration || 1} value={progress} onChange={(event) => seek(event.target.value)} />
           <div className="mt-3 flex justify-between text-[11px] text-white/55">
             <span>{formatTime(progress)}</span>
             <span>{formatTime(duration)}</span>
