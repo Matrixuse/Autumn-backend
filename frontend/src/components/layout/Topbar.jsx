@@ -3,12 +3,14 @@ import SearchBar from '../common/SearchBar'
 import Avatar from '../common/Avatar'
 import { useAuth } from '../../context/AuthContext'
 import { Link, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function Topbar({ locked = false, onSearchStateChange }) {
     const { user, logout } = useAuth()
     const location = useLocation()
     const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+    const accountMenuRef = useRef(null)
     const isHomePage = location.pathname === '/'
     const isSearchPage = location.pathname === '/search'
     const isExplorePage = location.pathname === '/explore'
@@ -17,6 +19,17 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
     const isMobileHiddenPage = location.pathname === '/recently-played' || location.pathname === '/liked-songs' || location.pathname === '/keep-listening' || location.pathname.startsWith('/album/') || location.pathname.startsWith('/artist/') || location.pathname.startsWith('/mood/')
     const disabledState = locked ? 'pointer-events-none opacity-60' : ''
     const closeMenu = () => setIsMenuOpen(false)
+
+    useEffect(() => {
+        if (!isAccountMenuOpen) return undefined
+
+        const handleOutsideClick = (event) => {
+            if (!accountMenuRef.current?.contains(event.target)) setIsAccountMenuOpen(false)
+        }
+
+        document.addEventListener('mousedown', handleOutsideClick)
+        return () => document.removeEventListener('mousedown', handleOutsideClick)
+    }, [isAccountMenuOpen])
 
     return (
     <>
@@ -69,31 +82,39 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
         <div className={`lg:w-[395px] lg:flex-none ${isHomePage || isExplorePage || isPlaylistsPage ? 'hidden lg:block' : 'flex-1'}`}>
             <SearchBar disabled={locked} onSearchStateChange={onSearchStateChange} />
         </div>
-        <div className={`group relative ml-auto flex items-center gap-2 text-white/80 ${isSearchPage || isExplorePage ? 'hidden lg:flex' : ''} ${locked ? 'pointer-events-none' : ''}`}>
+        <div className={`relative ml-auto flex items-center gap-2 text-white/80 ${isSearchPage || isExplorePage ? 'hidden lg:flex' : ''} ${locked ? 'pointer-events-none' : ''}`}>
             <h4 className="hidden text-sm sm:block">Hi, {user?.username || 'there'}</h4>
-            <div className="relative">
-                <button disabled={locked} aria-label="Account menu" className={locked ? 'cursor-not-allowed' : ''}><Avatar label={user?.username || 'Hi'} /></button>
-                <div className="absolute right-0 top-11 w-44 translate-y-2 rounded-xl border border-white/10 bg-[#1a1b1a] p-2 opacity-0 shadow-xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+            <div ref={accountMenuRef} className="relative">
+                <button
+                    disabled={locked}
+                    onClick={() => setIsAccountMenuOpen((open) => !open)}
+                    aria-label="Account menu"
+                    aria-expanded={isAccountMenuOpen}
+                    className={locked ? 'cursor-not-allowed' : ''}
+                >
+                    <Avatar label={user?.username || 'Hi'} />
+                </button>
+                {isAccountMenuOpen && <div className="absolute right-0 top-11 z-30 w-44 rounded-xl border border-white/10 bg-[#1a1b1a] p-2 shadow-xl">
                     {user ? 
                     <div>
-                    <Link to="/profile" className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
-                        <UserRound size={15} />
-                        Profile
-                    </Link>
-                    <button disabled={locked} onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/10 hover:text-white">
-                        <LogOut size={15} />
-                        Log out
-                    </button>
-                    </div> :    <div>
-                                    <Link to="/login" className="block rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
-                                        Login
-                                    </Link>
-                                    <Link to="/signup" className="block rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
-                                        Sign Up
-                                    </Link>
-                                </div>
+                        <Link to="/profile" onClick={() => setIsAccountMenuOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
+                            <UserRound size={15} />
+                            Profile
+                        </Link>
+                        <button disabled={locked} onClick={() => { setIsAccountMenuOpen(false); logout() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/10 hover:text-white">
+                            <LogOut size={15} />
+                            Log out
+                        </button>
+                        </div> :    <div>
+                                        <Link to="/login" className="block rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
+                                            Login
+                                        </Link>
+                                        <Link to="/signup" className="block rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
+                                            Sign Up
+                                        </Link>
+                                    </div>
                     }
-                </div>
+                </div>}
             </div>
         </div>
     </header>
