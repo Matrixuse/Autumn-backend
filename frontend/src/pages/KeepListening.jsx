@@ -24,11 +24,19 @@ const normalizeSong = (song = {}) => ({
 
 const normalizeText = (value = '') => String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 const artistParts = (value = '') => normalizeText(value).split(' ').filter((part) => part.length > 2)
+const getTrackTitle = (track = {}) => track.title || track.name || ''
+const getTrackArtist = (track = {}) => (
+  track.artist
+  || (Array.isArray(track.artists?.all) ? track.artists.all.map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ') : '')
+  || (Array.isArray(track.artists?.primary) ? track.artists.primary.map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ') : '')
+  || track.subtitle
+  || ''
+)
 
 const rankRelatedSongs = (songs, currentTrack, isHollywood) => {
-  const currentTitle = normalizeText(currentTrack.title)
-  const currentArtist = normalizeText(currentTrack.artist)
-  const currentArtistParts = artistParts(currentTrack.artist)
+  const currentTitle = normalizeText(getTrackTitle(currentTrack))
+  const currentArtist = normalizeText(getTrackArtist(currentTrack))
+  const currentArtistParts = artistParts(getTrackArtist(currentTrack))
   const ranked = songs
     .map((song) => {
       const title = normalizeText(song.title)
@@ -80,12 +88,16 @@ export default function KeepListening() {
       setRelatedLoading(true)
       setLyricsLoading(true)
       try {
-        const artistQuery = String(currentTrack.artist || '').split(',')[0].trim() || currentTrack.title
-        const playlistQuery = `${currentTrack.title || ''} ${artistQuery} playlist`.trim()
+        const trackTitle = getTrackTitle(currentTrack)
+        const trackArtist = getTrackArtist(currentTrack)
+        const artistQuery = String(trackArtist).split(',')[0].trim() || trackTitle
+        const playlistQuery = `${trackTitle} ${artistQuery} playlist`.trim()
         const [lyricsResponse, artistsResponse, playlistsResponse] = await Promise.allSettled([
           axiosInstance.get(`/songs/${currentTrack.id}/lyrics`, { signal: controller.signal }),
-          axiosInstance.get('/search/artists', { params: { query: artistQuery, page: 0, limit: 6 }, signal: controller.signal }),
-          searchPlaylists(playlistQuery, 5, 0)
+          artistQuery
+            ? axiosInstance.get('/search/artists', { params: { query: artistQuery, page: 0, limit: 6 }, signal: controller.signal })
+            : Promise.resolve(null),
+          playlistQuery ? searchPlaylists(playlistQuery, 5, 0) : Promise.resolve([])
         ])
         const nextLyrics = lyricsResponse.status === 'fulfilled' ? String(lyricsResponse.value.data?.data?.lyrics || '') : ''
         const artists = artistsResponse.status === 'fulfilled'
@@ -129,12 +141,13 @@ export default function KeepListening() {
       try {
         const historyIds = new Set(listenHistory.map((song) => String(song.id)))
         const isHollywood = isLikelyHollywoodSong(currentTrack)
-        const artist = String(currentTrack.artist || '').split(',')[0].trim()
+        const trackTitle = getTrackTitle(currentTrack)
+        const artist = String(getTrackArtist(currentTrack)).split(',')[0].trim()
         const searchQueries = [
           `${artist} songs`.trim(),
           `${artist} latest songs`.trim(),
-          currentTrack.title,
-          `${currentTrack.title} ${artist}`.trim()
+          trackTitle,
+          `${trackTitle} ${artist}`.trim()
         ].filter(Boolean)
         const searchResults = await Promise.all(
           searchQueries.flatMap((query) => [0, 1].map((page) => searchSongs(query, 10, page).catch(() => [])))
@@ -163,12 +176,13 @@ export default function KeepListening() {
       try {
         const historyIds = new Set(listenHistory.map((song) => String(song.id)))
         const isHollywood = isLikelyHollywoodSong(currentTrack)
-        const artist = String(currentTrack.artist || '').split(',')[0].trim()
+        const trackTitle = getTrackTitle(currentTrack)
+        const artist = String(getTrackArtist(currentTrack)).split(',')[0].trim()
         const searchQueries = [
           `${artist} songs`.trim(),
           `${artist} latest songs`.trim(),
-          currentTrack.title,
-          `${currentTrack.title} ${artist}`.trim()
+          trackTitle,
+          `${trackTitle} ${artist}`.trim()
         ].filter(Boolean)
         const searchResults = await Promise.all(
           searchQueries.flatMap((query) => [0, 1].map((page) => searchSongs(query, 10, page).catch(() => [])))
@@ -290,7 +304,7 @@ export default function KeepListening() {
             <img 
               src={getBestImageUrl(currentTrack?.image)} 
               alt={currentTrack?.title || 'Current song'} 
-              className="mt-4 max-h-[calc(100vh-14rem)] lg:w-full rounded-lg object-contain object-top md:w-150 sm:w-110" 
+              className="mt-4 max-h-[calc(100vh-16rem)] lg:w-full rounded-lg object-contain object-top md:w-150 sm:w-110" 
             />
           </button>
         </div>
