@@ -1,4 +1,5 @@
 import { getBestAudioUrl, getBestImageUrl } from './mediaQuality.js'
+import { fetchRecommendationCandidates } from '../api/recommendations.js'
 
 export const normalizeTitle = (name = '') => String(name)
   .toLowerCase()
@@ -82,4 +83,9 @@ export const buildDiverseQueue = (sourceSong, candidates, { maxPerArtist = 2, ma
   }
 
   return queue
+}
+
+export const fetchDiverseRecommendationQueue = async (sourceSong, apiClient, options) => {
+  const candidates = await fetchRecommendationCandidates(sourceSong, apiClient)
+  return buildDiverseQueue(sourceSong, candidates, options)
 }

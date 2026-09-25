@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ListMusic, Pause, Play } from 'lucide-react'
 import { usePlayer } from '../context/PlayerContext'
+import { useUpNextQueue } from '../hooks/useUpNextQueue'
 import axiosInstance from '../api/axiosInstance'
 import { getBestImageUrl, getBestAudioUrl } from '../utils/mediaQuality'
 import { formatTime } from '../utils/formatTime'
@@ -70,7 +71,8 @@ const rankRelatedSongs = (songs, currentTrack, isHollywood) => {
 }
 
 export default function KeepListening() {
-  const { currentTrack, queue, listenHistory, isPlaying, playTrack, togglePlay } = usePlayer()
+  const { currentTrack, listenHistory, isPlaying, playTrack, togglePlay } = usePlayer()
+  const { queue, currentIndex, playQueuedTrack } = useUpNextQueue()
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [relatedSongs, setRelatedSongs] = useState([])
   const [relatedLoading, setRelatedLoading] = useState(false)
@@ -171,14 +173,14 @@ export default function KeepListening() {
     return () => controller.abort()
   }, [currentTrack?.id, listenHistory])
 
-  const renderSongRow = (song, index) => {
-    const isActive = song.id === currentTrack?.id
+  const renderSongRow = (song, index, onSelect = playTrack, activeIndex = -1) => {
+    const isActive = activeIndex >= 0 ? index === activeIndex : song.id === currentTrack?.id
     const image = getBestImageUrl(song.image)
     return (
       <button
         type="button"
         key={`${song.id}-${index}`}
-        onClick={() => playTrack(song)}
+        onClick={() => onSelect(song)}
         className="flex w-full items-center gap-3 border-b border-gray-800 px-1 py-1 text-left transition hover:bg-white/6"
       >
         <div className="relative h-11 w-11 shrink-0 overflow-hidden bg-white/10">
@@ -194,8 +196,8 @@ export default function KeepListening() {
     )
   }
 
-  const renderSongList = (songs, emptyText) => songs.length
-    ? <div className="space-y-1">{songs.map(renderSongRow)}</div>
+  const renderSongList = (songs, emptyText, onSelect = playTrack, activeIndex = -1) => songs.length
+    ? <div className="space-y-1">{songs.map((song, index) => renderSongRow(song, index, onSelect, activeIndex))}</div>
     : (
       <div className="grid min-h-56 place-items-center px-6 text-center text-sm text-white/45">
         <div><ListMusic className="mx-auto mb-3 text-white/30" size={30} /><p>{emptyText}</p></div>
@@ -305,7 +307,7 @@ export default function KeepListening() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thumb-gray-300">
-            {activeTab === 'UP NEXT' && renderSongList(queue, 'Your queue is empty.')}
+            {activeTab === 'UP NEXT' && renderSongList(queue, 'Your queue is empty.', playQueuedTrack, currentIndex)}
             {activeTab === 'RELATED' && (relatedLoading ? <div className="grid min-h-56 place-items-center"><Loader label="Loading related songs" /></div> : <>{relatedSongs.length ? renderRelatedGrid() : renderSongList([], 'No related songs available.')}{renderArtistRail()}{renderPlaylistRail()}</>)}
             {activeTab === 'LYRICS' && (lyricsLoading ? <div className="grid min-h-56 place-items-center"><Loader label="Loading lyrics" /></div> : <div className="whitespace-pre-wrap px-3 py-2 text-sm leading-7 text-white/80">{lyrics || 'Lyrics are not available for this song.'}</div>)}
           </div>

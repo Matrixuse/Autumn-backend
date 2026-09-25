@@ -2,8 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import PlayerContext from './player-context'
 import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality'
-import { buildDiverseQueue, normalizeRecommendationSong, resolveQueueSelection } from '../utils/recommendationQueue'
-import { fetchRecommendationCandidates } from '../api/recommendations'
+import { fetchDiverseRecommendationQueue, normalizeRecommendationSong, resolveQueueSelection } from '../utils/recommendationQueue'
 import axiosInstance from '../api/axiosInstance'
 import { AutumnMedia } from '../nativeMedia'
 
@@ -124,9 +123,8 @@ export const PlayerProvider = ({ children }) => {
     setProgress(0)
     setIsPlaying(true)
 
-    fetchRecommendationCandidates(sourceTrack, axiosInstance).then((candidates) => {
+    fetchDiverseRecommendationQueue(sourceTrack, axiosInstance).then((nextQueue) => {
       if (recommendationRequestRef.current !== requestId) return
-      const nextQueue = buildDiverseQueue(sourceTrack, candidates)
       setQueue(isShuffleEnabled ? shuffleQueue(nextQueue, sourceTrack) : nextQueue)
       setCurrentIndex(0)
     }).catch(() => {})

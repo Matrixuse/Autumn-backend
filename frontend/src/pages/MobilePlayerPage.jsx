@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ThumbsUp, EllipsisVertical, MessageCircle, Pause, Play, Repeat2, Shuffle, SkipBack, SkipForward } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
+import { useUpNextQueue } from '../hooks/useUpNextQueue'
 import axiosInstance from '../api/axiosInstance'
 import { getBestImageUrl } from '../utils/mediaQuality'
 import { formatTime } from '../utils/formatTime'
@@ -18,7 +19,6 @@ export default function MobilePlayerPage({ song }) {
   const navigate = useNavigate()
   const {
     currentTrack,
-    queue,
     listenHistory,
     listenAgain,
     likedSongs,
@@ -33,10 +33,10 @@ export default function MobilePlayerPage({ song }) {
     seek,
     toggleShuffle,
     toggleRepeat,
-    playTrack,
     isLiked,
     toggleLike
   } = usePlayer()
+  const { queue, currentIndex, playQueuedTrack } = useUpNextQueue()
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [detailsDragOffset, setDetailsDragOffset] = useState(0)
@@ -50,7 +50,6 @@ export default function MobilePlayerPage({ song }) {
   const image = getBestImageUrl(currentTrack?.image)
   const currentTitle = currentTrack?.title || currentTrack?.name || 'Unknown Track'
   const currentArtist = getSongArtists(currentTrack)
-  const currentIndex = queue.findIndex((track) => String(track.id) === String(currentTrack?.id))
   const nextTracks = currentIndex >= 0 ? queue.slice(currentIndex + 1) : queue
 
   const recommendedTracks = useMemo(() => {
@@ -247,13 +246,13 @@ export default function MobilePlayerPage({ song }) {
 
     return (
       <div className="space-y-3 px-5 py-5">
-        {recommendedTracks.length ? recommendedTracks.map((track) => (
-          <button key={track.id} type="button" onClick={() => playTrack(track)} className="flex w-full items-center gap-3 text-left">
+        {queue.length ? queue.map((track, index) => (
+          <button key={track.id} type="button" onClick={() => playQueuedTrack(track)} className="flex w-full items-center gap-3 text-left">
             <div className="h-12 w-12 shrink-0 overflow-hidden bg-white/10">
               {getBestImageUrl(track.image) ? <img src={getBestImageUrl(track.image)} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
             </div>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold">{track.title}</span>
+              <span className={`block truncate text-sm font-semibold ${index === currentIndex ? 'text-white' : 'text-white/75'}`}>{track.title || track.name}</span>
               <span className="mt-1 block truncate text-xs text-white/45">{track.artist}</span>
             </span>
             <span className="text-xs text-white/40">{formatTime(track.duration)}</span>
