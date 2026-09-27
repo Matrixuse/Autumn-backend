@@ -8,6 +8,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality';
 import SongActionsMenu from '../components/common/SongActionsMenu';
 import Loader from '../components/common/Loader';
+import NowPlayingOverlay from '../components/common/NowPlayingOverlay';
 
 const getSongArtists = (song = {}) => {
   const items = [];
@@ -73,7 +74,7 @@ export default function ArtistPage() {
   const navigate = useNavigate();
   const goBack = () => navigate(-1);
   const { artistId, artistName: routeArtistName } = useParams();
-  const { playTrack } = usePlayer();
+  const { playTrack, currentTrack, isPlaying } = usePlayer();
   const [songs, setSongs] = useState([]);
   const [albums, setAlbums] = useState([]);
   const [artistBio, setArtistBio] = useState('');
@@ -316,8 +317,9 @@ export default function ArtistPage() {
               {filteredSongs.map((song) => (
                 <div key={song.id} className="group relative cursor-pointer rounded bg-[#0f0f0f]/50 p-1 transition-colors hover:bg-[#282828]/80" onClick={() => playTrack(song, filteredSongs)}>
                   <div className="relative flex w-full min-w-0 items-start gap-2 ">
-                    <div className="shrink-0">
-                      <img src={song.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'} alt={song.title} className="h-11 w-11 rounded-md object-cover" />
+                    <div className="cover-container h-11 w-11 shrink-0 rounded-md">
+                      <img src={song.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'} alt={song.title} className="h-full w-full object-cover" />
+                      {isPlaying && String(currentTrack?.id) === String(song?.id) && <NowPlayingOverlay />}
                     </div>
                     <div className="min-w-0 flex-1 overflow-hidden mr-17 md:mr-0">
                       <h4 className="truncate text-sm font-semibold text-white">{song.title}</h4>
@@ -378,8 +380,9 @@ export default function ArtistPage() {
             <div className="space-y-1 md:space-y-1 scrollbar-none">
               {filteredSongs.map((song) => (
                 <div key={song.id} className="group relative flex cursor-pointer items-center gap-1 overflow-visible rounded border-b border-gray-800 bg-[#0f0f0f]/50 px-1 py-1 transition-colors hover:bg-[#282828]/80 md:gap-4 md:px-1 md:py-1 lg:pr-5" onClick={() => playTrack(song, filteredSongs)}>
-                  <div className="shrink-0">
-                    <img src={song.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'} alt={song.title} className="h-10 w-10 rounded object-cover md:h-10 md:w-10" />
+                  <div className="cover-container h-10 w-10 shrink-0 rounded">
+                    <img src={song.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'} alt={song.title} className="h-full w-full object-cover" />
+                    {isPlaying && String(currentTrack?.id) === String(song?.id) && <NowPlayingOverlay />}
                   </div>
 
                   <div className="flex min-w-0 flex-1 items-center justify-between gap-3 overflow-hidden">

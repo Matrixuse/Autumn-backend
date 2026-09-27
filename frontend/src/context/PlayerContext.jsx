@@ -184,6 +184,21 @@ export const PlayerProvider = ({ children }) => {
     const nextIndex = nextQueue.findIndex((item) => String(item.id) === String(currentTrack?.id))
     if (nextIndex >= 0) setCurrentIndex(nextIndex)
   }
+  const reorderQueue = (fromIndex, toIndex) => {
+    if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= queue.length || toIndex >= queue.length || fromIndex === toIndex) return
+
+    const playingTrackId = currentTrack?.id
+    const nextQueue = [...queue]
+    const [movedTrack] = nextQueue.splice(fromIndex, 1)
+    nextQueue.splice(toIndex, 0, movedTrack)
+    setQueue(nextQueue)
+
+    const nextCurrentIndex = playingTrackId == null
+      ? -1
+      : nextQueue.findIndex((track) => String(track.id) === String(playingTrackId))
+    setCurrentIndex(nextCurrentIndex)
+  }
   const addToListenAgain = (track) => {
     if (!track?.id) return
     setListenAgain((items) => [{ ...track }, ...items.filter((item) => String(item.id) !== String(track.id))].slice(0, HISTORY_LIMIT))
@@ -361,7 +376,7 @@ export const PlayerProvider = ({ children }) => {
   }, [currentTrack, duration, isPlaying, previous, progress])
 
   return (
-    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, listenHistory, likedSongs, isLiked, toggleLike, addToQueue, addTracksToQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue }}>
+    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, listenHistory, likedSongs, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue }}>
         {children}
         <audio ref={audioRef} src={audioSource || undefined} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onEnded={handleEnded} />
     </PlayerContext.Provider>

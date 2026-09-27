@@ -31,7 +31,7 @@ export default function SongCard({ song, queue = [] }) {
     return (
         <article className="group relative min-w-35 flex-1 md:min-w-40 md:max-w-45">
             <div className="relative">
-                <button onClick={() => playTrack(song, queue)} className="relative block aspect-square w-full overflow-hidden rounded-lg bg-[#28251f] text-left shadow-lg transition duration-300 group-hover:scale-[1.02] group-hover:shadow-[0_16px_35px_rgba(0,0,0,.35)]">
+                <button onClick={() => playTrack(song, queue)} className="cover-container relative block aspect-square w-full rounded-lg bg-[#28251f] text-left shadow-lg transition duration-300 group-hover:scale-[1.02] group-hover:shadow-[0_16px_35px_rgba(0,0,0,.35)]">
                     {image ? <img src={image} alt="" onError={() => setImageFailed(true)} className="h-full w-full object-cover" /> : <div className={`relative h-full w-full overflow-hidden bg-linear-to-br ${color}`}>
                         <div className="absolute left-1/2 top-[42%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white/30 bg-black/15" />
                             <div className="absolute inset-x-0 bottom-5 text-center text-xs font-bold tracking-[.25em] text-white/80">
@@ -44,11 +44,6 @@ export default function SongCard({ song, queue = [] }) {
                             <Play size={48} fill="currentColor" />
                         </span>
                     </span>
-                    {isPlaying && String(currentTrack?.id) === String(song?.id) && (
-                        <span className="absolute bottom-2 left-2 grid h-8 w-8 place-items-center rounded-full bg-transparent text-[#fffffe] shadow-lg">
-                            <Play size={30} fill="currentColor" />
-                        </span>
-                    )}
                 </button>
             </div>
             <h3 className="mt-3 truncate pr-8 text-sm font-bold text-white/90">

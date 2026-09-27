@@ -1,5 +1,6 @@
 import { usePlayer } from '../../context/PlayerContext'
 import SongActionsMenu from '../common/SongActionsMenu'
+import NowPlayingOverlay from '../common/NowPlayingOverlay'
 import { Play } from 'lucide-react'
 
 const formatDuration = (seconds) => {
@@ -50,7 +51,7 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                                 type="button"
                                 aria-label={`Play ${song.title || 'song'}`}
                                 onClick={() => playTrack(song, visibleSongs)}
-                                className="group relative aspect-square w-full overflow-hidden rounded-lg bg-[#28251f] text-left shadow-[0_8px_20px_rgba(0,0,0,0.28)]"
+                                className="group cover-container relative aspect-square w-full rounded-lg bg-[#28251f] text-left shadow-[0_8px_20px_rgba(0,0,0,0.28)]"
                             >
                                 {song.image ? (
                                     <img src={song.image} alt="" className="h-full w-full object-cover transition duration-300 group-active:scale-105" />
@@ -59,6 +60,7 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                                         {song.title?.slice(0, 2) || 'AU'}
                                     </div>
                                 )}
+                                {isPlaying && String(currentTrack?.id) === String(song?.id) && <NowPlayingOverlay />}
                                 <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/55 to-transparent px-2">
                                     <span className="block truncate text-xs font-bold text-white">{shortTitle(song.title, 22)}</span>
                                 </span>
@@ -84,7 +86,7 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                                     onClick={() => playTrack(song, visibleSongs)}
                                 >
                                     <div className="mr-1 flex items-center gap-3 rounded bg-transparent p-1 transition hover:bg-white/2 md:mr-3">
-                                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
+                                        <div className="cover-container relative h-12 w-12 shrink-0 rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
                                             {song.image ? (
                                                 <img src={song.image} alt={song.title} className="h-full w-full object-cover" />
                                             ) : (
@@ -95,7 +97,7 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                                             <button type="button" aria-label={`Play ${song.title || 'song'}`} onClick={(event) => { event.stopPropagation(); playTrack(song, visibleSongs) }} className="absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition group-hover:opacity-100">
                                                 <span className="grid h-7 w-7 place-items-center rounded-full bg-transparent text-white"><Play size={27} fill="currentColor" /></span>
                                             </button>
-                                            {isPlaying && String(currentTrack?.id) === String(song?.id) && <span className="absolute bottom-1 left-1 grid h-6 w-6 place-items-center rounded-full bg-[#d29a55] text-[#17130e]"><Play size={13} fill="currentColor" /></span>}
+                                            {isPlaying && String(currentTrack?.id) === String(song?.id) && <NowPlayingOverlay />}
                                         </div>
 
                                         <div className="flex min-w-0 flex-col justify-between gap-1">

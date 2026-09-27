@@ -7,6 +7,7 @@ import { searchPlaylists } from '../api/playlists';
 import { usePlayer } from '../context/PlayerContext';
 import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality';
 import SongActionsMenu from '../components/common/SongActionsMenu';
+import NowPlayingOverlay from '../components/common/NowPlayingOverlay';
 import Loader from '../components/common/Loader';
 
 const ImageWithFallback = ({ src, alt, className, fallback }) => (
@@ -433,7 +434,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
           {filteredSongs.length > 0 ? (
             <div className="grid grid-cols-1 gap-2">
               {filteredSongs.map((song) => {
-                const isActive = currentTrack?.id === song.id && isPlaying;
+                const isActive = String(currentTrack?.id) === String(song.id) && isPlaying;
                 return (
                   <div
                     key={song.id}
@@ -449,13 +450,14 @@ export default function PlaylistPage({ libraryOption = '' }) {
                     className="group relative cursor-pointer bg-[#0f0f0f]/50 p-1 transition-colors hover:bg-[#282828]/80"
                   >
                     <div className="relative flex gap-3 items-start min-w-0 w-full">
-                      <div onClick={() => handleSelectSong(song.id)} className="cursor-pointer shrink-0">
+                      <div onClick={() => handleSelectSong(song.id)} className="cover-container relative cursor-pointer shrink-0 overflow-hidden rounded-md">
                         <ImageWithFallback
                           src={song.image}
                           alt={song.title}
                           className="w-10 h-10 rounded-md object-cover"
                           fallback={'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'}
                         />
+                        {isActive && <NowPlayingOverlay />}
                       </div>
                       <div className="flex-1 min-w-0 overflow-hidden mr-6">
                         <h4 className={`text-sm font-semibold truncate ${isActive ? 'text-red-300' : 'text-white'}`}>{song.title}</h4>
@@ -602,7 +604,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
             {filteredSongs.length > 0 ? (
               <div className="space-y-1 md:space-y-1 mr-8">
                 {filteredSongs.map((song) => {
-                  const isActive = currentTrack?.id === song.id && isPlaying;
+                  const isActive = String(currentTrack?.id) === String(song.id) && isPlaying;
                   return (
                     <div
                       key={song.id}
@@ -617,13 +619,14 @@ export default function PlaylistPage({ libraryOption = '' }) {
                       }}
                       className="group relative z-0 flex cursor-pointer items-center gap-1 overflow-visible rounded border-b border-gray-800 bg-[#0f0f0f]/50 px-1 py-1 pr-12 transition-colors hover:bg-[#282828]/80 md:gap-4 md:px-1 md:py-1 md:pr-14"
                     >
-                      <div className="shrink-0">
+                      <div className="cover-container relative h-10 w-10 shrink-0 rounded overflow-hidden">
                         <ImageWithFallback
                           src={song.image}
                           alt={song.title}
                           className="h-10 w-10 rounded object-cover md:h-10 md:w-10"
                           fallback={'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'}
                         />
+                        {isActive && <NowPlayingOverlay />}
                       </div>
 
                       <div className="flex flex-1 items-center justify-between gap-3 overflow-hidden min-w-0">

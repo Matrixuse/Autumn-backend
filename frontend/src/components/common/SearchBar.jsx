@@ -5,6 +5,7 @@ import axiosInstance from '../../api/axiosInstance'
 import { usePlayer } from '../../context/PlayerContext'
 import { getBestImageUrl } from '../../utils/mediaQuality'
 import { getSongArtists } from '../../utils/songSearch'
+import NowPlayingOverlay from './NowPlayingOverlay'
 
 const HISTORY_KEY = 'autumn_search_history'
 
@@ -95,7 +96,7 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
   const [loading, setLoading] = useState(false)
   const inputRef = useRef(null)
   const navigate = useNavigate()
-  const { playTrack } = usePlayer()
+  const { playTrack, currentTrack, isPlaying } = usePlayer()
 
   const showHistory = focused && !query.trim()
   const showResults = focused && query.trim().length > 0
@@ -321,7 +322,7 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
                     onClick={() => handleSelect(formatResultLabel(item, item.__type), item)}
                     className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 ${item.__isBest ? 'bg-white/8 ring-1 ring-inset ring-[#d29a55]/35' : ''}`}
                   >
-                    <span className="relative h-9 w-9 overflow-hidden rounded-full bg-white/5 ring-1 ring-white/10">
+                    <span className="cover-container relative h-9 w-9 rounded-full bg-white/5 ring-1 ring-white/10">
                       {getResultImage(item, item.__type) ? (
                         <img
                           src={getResultImage(item, item.__type)}
@@ -333,6 +334,7 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
                           <Search size={12} />
                         </span>
                       )}
+                      {!item.__type && isPlaying && String(currentTrack?.id) === String(item?.id) && <NowPlayingOverlay />}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-white">{formatResultLabel(item, item.__type)}</span>

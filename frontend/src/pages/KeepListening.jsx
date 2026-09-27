@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ListMusic, Pause, Play } from 'lucide-react'
+import { ListMusic, Play } from 'lucide-react'
 import { usePlayer } from '../context/PlayerContext'
 import { useUpNextQueue } from '../hooks/useUpNextQueue'
+import { useLyrics } from '../hooks/useLyrics'
 import axiosInstance from '../api/axiosInstance'
 import { getBestImageUrl, getBestAudioUrl } from '../utils/mediaQuality'
 import { formatTime } from '../utils/formatTime'
@@ -9,6 +10,8 @@ import { isLikelyHollywoodSong, searchSongs } from '../api/songs'
 import { searchPlaylists } from '../api/playlists'
 import Loader from '../components/common/Loader'
 import SongActionsMenu from '../components/common/SongActionsMenu'
+import NowPlayingOverlay from '../components/common/NowPlayingOverlay'
+import SortableQueueList from '../components/player/SortableQueueList'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
@@ -72,14 +75,13 @@ const rankRelatedSongs = (songs, currentTrack, isHollywood) => {
 
 export default function KeepListening() {
   const { currentTrack, listenHistory, isPlaying, playTrack, togglePlay } = usePlayer()
-  const { queue, currentIndex, playQueuedTrack } = useUpNextQueue()
+  const { queue, currentIndex, playQueuedTrack, reorderQueue } = useUpNextQueue()
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [relatedSongs, setRelatedSongs] = useState([])
   const [relatedLoading, setRelatedLoading] = useState(false)
-  const [lyrics, setLyrics] = useState('')
-  const [lyricsLoading, setLyricsLoading] = useState(false)
   const [relatedArtists, setRelatedArtists] = useState([])
   const [relatedPlaylists, setRelatedPlaylists] = useState([])
+  const { lyrics, copyright: lyricsCopyright, loading: lyricsLoading } = useLyrics(currentTrack, activeTab === 'LYRICS')
 
   useEffect(() => {
     if (!currentTrack?.id) {
@@ -90,20 +92,17 @@ export default function KeepListening() {
     const controller = new AbortController()
     const loadTrackData = async () => {
       setRelatedLoading(true)
-      setLyricsLoading(true)
       try {
         const trackTitle = getTrackTitle(currentTrack)
         const trackArtist = getTrackArtist(currentTrack)
         const artistQuery = String(trackArtist).split(',')[0].trim() || trackTitle
         const playlistQuery = `${trackTitle} ${artistQuery} playlist`.trim()
-        const [lyricsResponse, artistsResponse, playlistsResponse] = await Promise.allSettled([
-          axiosInstance.get(`/songs/${currentTrack.id}/lyrics`, { signal: controller.signal }),
+        const [artistsResponse, playlistsResponse] = await Promise.allSettled([
           artistQuery
             ? axiosInstance.get('/search/artists', { params: { query: artistQuery, page: 0, limit: 6 }, signal: controller.signal })
             : Promise.resolve(null),
           playlistQuery ? searchPlaylists(playlistQuery, 5, 0) : Promise.resolve([])
         ])
-        const nextLyrics = lyricsResponse.status === 'fulfilled' ? String(lyricsResponse.value.data?.data?.lyrics || '') : ''
         const artists = artistsResponse.status === 'fulfilled'
           ? (artistsResponse.value.data?.data?.results || []).slice(0, 6).map((artist) => ({
             id: artist.id,
@@ -114,21 +113,18 @@ export default function KeepListening() {
         const playlists = playlistsResponse.status === 'fulfilled' ? playlistsResponse.value.slice(0, 5) : []
         if (!controller.signal.aborted) {
           setRelatedSongs([])
-          setLyrics(nextLyrics)
           setRelatedArtists(artists)
           setRelatedPlaylists(playlists)
         }
       } catch {
         if (!controller.signal.aborted) {
           setRelatedSongs([])
-          setLyrics('')
           setRelatedArtists([])
           setRelatedPlaylists([])
         }
       } finally {
         if (!controller.signal.aborted) {
           setRelatedLoading(false)
-          setLyricsLoading(false)
         }
       }
     }
@@ -173,26 +169,24 @@ export default function KeepListening() {
     return () => controller.abort()
   }, [currentTrack?.id, listenHistory])
 
-  const renderSongRow = (song, index, onSelect = playTrack, activeIndex = -1) => {
+  const renderSongRow = (song, index, onSelect = playTrack, activeIndex = -1, dragHandle = null) => {
     const isActive = activeIndex >= 0 ? index === activeIndex : song.id === currentTrack?.id
     const image = getBestImageUrl(song.image)
     return (
-      <button
-        type="button"
-        key={`${song.id}-${index}`}
-        onClick={() => onSelect(song)}
-        className="flex w-full items-center gap-3 border-b border-gray-800 px-1 py-1 text-left transition hover:bg-white/6"
-      >
-        <div className="relative h-11 w-11 shrink-0 overflow-hidden bg-white/10">
-          {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
-          {isActive && <span className="absolute inset-0 grid place-items-center bg-black/45 text-white">{isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</span>}
-        </div>
-        <span className="min-w-0 flex-1">
-          <span className={`block truncate text-sm font-semibold ${isActive ? 'text-[#7e9aff]' : 'text-white'}`}>{song.title}</span>
-          <span className="mt-0.5 block truncate text-xs text-white/45">{song.artist}</span>
-        </span>
-        <span className="text-xs text-white/40">{formatTime(song.duration)}</span>
-      </button>
+      <div key={`${song.id}-${index}`} className="flex min-w-0 items-center border-b border-gray-800 px-1 py-1">
+        {dragHandle}
+        <button type="button" onClick={() => onSelect(song)} className="flex min-w-0 flex-1 items-center gap-3 text-left transition hover:bg-white/6">
+          <div className="cover-container relative h-11 w-11 shrink-0 bg-white/10">
+            {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
+            {isActive && isPlaying ? <NowPlayingOverlay /> : isActive && <span className="absolute inset-0 grid place-items-center bg-black/45 text-white"><Play size={16} fill="currentColor" /></span>}
+          </div>
+          <span className="min-w-0 flex-1">
+            <span className={`block truncate text-sm font-semibold ${isActive ? 'text-[#7e9aff]' : 'text-white'}`}>{song.title}</span>
+            <span className="mt-0.5 block truncate text-xs text-white/45">{song.artist}</span>
+          </span>
+          <span className="shrink-0 text-xs text-white/40">{formatTime(song.duration)}</span>
+        </button>
+      </div>
     )
   }
 
@@ -213,8 +207,9 @@ export default function KeepListening() {
       <div className="scrollbar-none auto-cols-72 grid grid-flow-col grid-rows-4 gap-x-3 gap-y-2 overflow-x-auto px-1 pb-3">
         {relatedSongs.slice(0, 24).map((song, index) => (
           <div key={song.id || `${song.title}-${index}`} role="button" tabIndex={0} onClick={() => playTrack(song, relatedSongs)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); playTrack(song, relatedSongs) } }} className="group flex h-16 min-w-0 items-center gap-3 rounded-lg bg-white/5 px-2 text-left transition hover:bg-white/10">
-            <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-white/10">
+            <div className="cover-container h-12 w-12 shrink-0 rounded bg-white/10">
               {getBestImageUrl(song.image) ? <img src={getBestImageUrl(song.image)} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
+              {isPlaying && String(currentTrack?.id) === String(song?.id) && <NowPlayingOverlay />}
             </div>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-white">{song.title}</span>
@@ -307,9 +302,16 @@ export default function KeepListening() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thumb-gray-300">
-            {activeTab === 'UP NEXT' && renderSongList(queue, 'Your queue is empty.', playQueuedTrack, currentIndex)}
+            {activeTab === 'UP NEXT' && (queue.length
+              ? <SortableQueueList tracks={queue} reorderQueue={reorderQueue} className="space-y-1" renderItem={(song, index, dragHandle) => renderSongRow(song, index, playQueuedTrack, currentIndex, dragHandle)} />
+              : renderSongList([], 'Your queue is empty.'))}
             {activeTab === 'RELATED' && (relatedLoading ? <div className="grid min-h-56 place-items-center"><Loader label="Loading related songs" /></div> : <>{relatedSongs.length ? renderRelatedGrid() : renderSongList([], 'No related songs available.')}{renderArtistRail()}{renderPlaylistRail()}</>)}
-            {activeTab === 'LYRICS' && (lyricsLoading ? <div className="grid min-h-56 place-items-center"><Loader label="Loading lyrics" /></div> : <div className="whitespace-pre-wrap px-3 py-2 text-sm leading-7 text-white/80">{lyrics || 'Lyrics are not available for this song.'}</div>)}
+            {activeTab === 'LYRICS' && (lyricsLoading
+              ? <div className="grid min-h-56 place-items-center"><Loader label="Loading lyrics" /></div>
+              : <div className="px-3 py-2">
+                <p className="whitespace-pre-wrap text-sm leading-7 text-white/80">{lyrics || 'Lyrics are not available for this song.'}</p>
+                {lyrics && lyricsCopyright && <p className="mt-5 text-xs leading-5 text-white/40">{lyricsCopyright}</p>}
+              </div>)}
           </div>
         </div>
       </div>

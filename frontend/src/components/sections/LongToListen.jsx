@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import { usePlayer } from '../../context/PlayerContext'
 import SongActionsMenu from '../common/SongActionsMenu'
+import NowPlayingOverlay from '../common/NowPlayingOverlay'
 
 const formatDuration = (seconds) => {
     const totalSeconds = Number(seconds || 0)
@@ -56,7 +57,7 @@ export default function LongToListen({ songs }) {
                         onClick={() => playTrack(song, visibleSongs)}
                     >
                         <div className="mr-1 flex items-center gap-3 rounded bg-transparent p-1 transition hover:bg-white/2 md:mr-3">
-                            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
+                            <div className="cover-container relative h-12 w-12 shrink-0 rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
                                 {song.image ? (
                                     <img src={song.image} alt={song.title} className="h-full w-full object-cover" />
                                 ) : (
@@ -67,7 +68,7 @@ export default function LongToListen({ songs }) {
                                 <button type="button" aria-label={`Play ${song.title || 'song'}`} onClick={(event) => { event.stopPropagation(); playTrack(song, visibleSongs) }} className="absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition group-hover:opacity-100">
                                     <span className="grid h-7 w-7 place-items-center rounded-full bg-transparent text-white"><Play size={27} fill="currentColor" /></span>
                                 </button>
-                                {isPlaying && String(currentTrack?.id) === String(song?.id) && <span className="absolute bottom-1 left-1 grid h-6 w-6 place-items-center rounded-full bg-[#d29a55] text-[#17130e]"><Play size={13} fill="currentColor" /></span>}
+                                {isPlaying && String(currentTrack?.id) === String(song?.id) && <NowPlayingOverlay />}
                             </div>
 
 

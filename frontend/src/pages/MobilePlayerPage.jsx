@@ -3,7 +3,7 @@ import { ChevronDown, ThumbsUp, EllipsisVertical, MessageCircle, Pause, Play, Re
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
 import { useUpNextQueue } from '../hooks/useUpNextQueue'
-import axiosInstance from '../api/axiosInstance'
+import { useLyrics } from '../hooks/useLyrics'
 import { getBestImageUrl } from '../utils/mediaQuality'
 import { formatTime } from '../utils/formatTime'
 import SongActionsMenu from '../components/common/SongActionsMenu'
@@ -12,6 +12,9 @@ import ArtistCard from '../components/cards/ArtistCard'
 import PlaylistCard from '../components/cards/PlaylistCard'
 import SongCard from '../components/cards/SongCard'
 import { getSongArtists } from '../utils/songSearch'
+import NowPlayingOverlay from '../components/common/NowPlayingOverlay'
+import SortableQueueList from '../components/player/SortableQueueList'
+import MoodChips from '../components/sections/MoodChips'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
@@ -36,12 +39,10 @@ export default function MobilePlayerPage({ song }) {
     isLiked,
     toggleLike
   } = usePlayer()
-  const { queue, currentIndex, playQueuedTrack } = useUpNextQueue()
+  const { queue, currentIndex, playQueuedTrack, reorderQueue } = useUpNextQueue()
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [detailsDragOffset, setDetailsDragOffset] = useState(0)
-  const [lyrics, setLyrics] = useState('')
-  const [lyricsLoading, setLyricsLoading] = useState(false)
   const [recommendedPlaylists, setRecommendedPlaylists] = useState([])
   const [similarArtists, setSimilarArtists] = useState([])
   const gestureStartRef = useRef(null)
@@ -51,6 +52,7 @@ export default function MobilePlayerPage({ song }) {
   const currentTitle = currentTrack?.title || currentTrack?.name || 'Unknown Track'
   const currentArtist = getSongArtists(currentTrack)
   const nextTracks = currentIndex >= 0 ? queue.slice(currentIndex + 1) : queue
+  const { lyrics, copyright: lyricsCopyright, loading: lyricsLoading } = useLyrics(currentTrack, activeTab === 'LYRICS')
 
   const recommendedTracks = useMemo(() => {
     const normalize = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -180,7 +182,12 @@ export default function MobilePlayerPage({ song }) {
 
   const renderPanelContent = () => {
     if (activeTab === 'LYRICS') {
-      return <div className="whitespace-pre-wrap px-5 py-6 text-sm leading-7 text-white/75">{lyricsLoading ? 'Loading lyrics...' : lyrics || 'Lyrics are not available for this song.'}</div>
+      return lyricsLoading
+        ? <div className="px-5 py-6 text-sm text-white/55">Loading lyrics...</div>
+        : <div className="px-5 py-6">
+          <p className="whitespace-pre-wrap text-sm leading-7 text-white/75">{lyrics || 'Lyrics are not available for this song.'}</p>
+          {lyrics && lyricsCopyright && <p className="mt-5 text-xs leading-5 text-white/40">{lyricsCopyright}</p>}
+        </div>
     }
 
     if (activeTab === 'RELATED') {
@@ -195,8 +202,9 @@ export default function MobilePlayerPage({ song }) {
               <div className="scrollbar-none grid auto-cols-80 grid-flow-col grid-rows-4 gap-x-2 gap-y-1 overflow-x-auto pb-3">
                 {relatedTracks.map((track, index) => (
                   <div key={track.id || `${track.title}-${index}`} role="button" tabIndex={0} onClick={() => playTrack(track, relatedTracks)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); playTrack(track, relatedTracks) } }} className="group flex h-16 min-w-0 items-center gap-3 rounded-lg bg-black/5 px-2 text-left transition hover:bg-white/10">
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-white/10">
+                    <div className="cover-container h-12 w-12 shrink-0 rounded bg-white/10">
                       {getBestImageUrl(track.image) ? <img src={getBestImageUrl(track.image)} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
+                      {isPlaying && String(currentTrack?.id) === String(track?.id) && <NowPlayingOverlay />}
                     </div>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-white">{track.title}</span>
@@ -244,36 +252,30 @@ export default function MobilePlayerPage({ song }) {
       )
     }
 
-    return (
-      <div className="space-y-3 px-5 py-5">
-        {queue.length ? queue.map((track, index) => (
-          <button key={track.id} type="button" onClick={() => playQueuedTrack(track)} className="flex w-full items-center gap-3 text-left">
-            <div className="h-12 w-12 shrink-0 overflow-hidden bg-white/10">
-              {getBestImageUrl(track.image) ? <img src={getBestImageUrl(track.image)} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
-            </div>
-            <span className="min-w-0 flex-1">
-              <span className={`block truncate text-sm font-semibold ${index === currentIndex ? 'text-white' : 'text-white/75'}`}>{track.title || track.name}</span>
-              <span className="mt-1 block truncate text-xs text-white/45">{track.artist}</span>
-            </span>
-            <span className="text-xs text-white/40">{formatTime(track.duration)}</span>
-          </button>
-        )) : <p className="py-6 text-center text-sm text-white/45">Your queue is empty.</p>}
-      </div>
-    )
+    return queue.length ? (
+      <SortableQueueList
+        tracks={queue}
+        reorderQueue={reorderQueue}
+        className="space-y-3 px-3 py-5"
+        renderItem={(track, index, dragHandle) => (
+          <div className="flex min-w-0 items-center gap-3">
+            <button type="button" onClick={() => playQueuedTrack(track)} className="flex min-w-0 flex-1 items-center gap-3 py-1 text-left">
+              <div className="cover-container h-10 w-10 shrink-0 bg-white/10">
+                {getBestImageUrl(track.image) ? <img src={getBestImageUrl(track.image)} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
+                {isPlaying && String(currentTrack?.id) === String(track?.id) && <NowPlayingOverlay />}
+              </div>
+              <span className="min-w-0 flex-1">
+                <span className={`block truncate text-sm font-semibold ${index === currentIndex ? 'text-white' : 'text-white/75'}`}>{track.title || track.name}</span>
+                <span className="mt-1 block truncate text-xs text-white/45">{track.artist}</span>
+              </span>
+              <span className="shrink-0 text-xs text-white/40">{formatTime(track.duration)}</span>
+            </button>
+            {dragHandle}
+          </div>
+        )}
+      />
+    ) : <div className="px-5 py-5"><p className="py-6 text-center text-sm text-white/45">Your queue is empty.</p></div>
   }
-
-  useEffect(() => {
-    if (!currentTrack?.id) return undefined
-    const controller = new AbortController()
-    setLyricsLoading(true)
-    axiosInstance.get(`/songs/${currentTrack.id}/lyrics`, { signal: controller.signal })
-      .then((response) => setLyrics(String(response.data?.data?.lyrics || '')))
-      .catch(() => setLyrics(''))
-      .finally(() => {
-        if (!controller.signal.aborted) setLyricsLoading(false)
-      })
-    return () => controller.abort()
-  }, [currentTrack?.id])
 
   if (!currentTrack) {
     return (
@@ -355,13 +357,17 @@ export default function MobilePlayerPage({ song }) {
           style={{ transform: `translateY(${isDetailsOpen ? detailsDragOffset : window.innerHeight}px)` }}
         >
           <div
+            type="button"
+            aria-label="Close player details"
+            onClick={() => setIsDetailsOpen(false)}
             className="mx-4 mt-4 flex touch-none items-center gap-3 border-b border-white/10 pb-2"
             onTouchStart={handleSheetTouchStart}
             onTouchMove={handleSheetTouchMove}
             onTouchEnd={handleSheetTouchEnd}
           >
-            <div className="h-11 w-11 shrink-0 overflow-hidden bg-white/10">
+            <div className="cover-container h-11 w-11 shrink-0 bg-white/10">
               {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
+              {isPlaying && <NowPlayingOverlay />}
             </div>
             <div className="min-w-0 flex-1 text-left">
               <p className="truncate text-sm font-bold">{currentTitle}</p>
@@ -383,8 +389,11 @@ export default function MobilePlayerPage({ song }) {
             onTouchEnd={handleSheetTouchEnd}
             className="mx-auto mt-3 block h-1 w-12 touch-none rounded-full bg-white/30"
           />
+          <div className="mx-5 mt-5 items-center justify-between">
+            <MoodChips />
+          </div>
           <div
-            className="mt-3 flex touch-none border-b border-white/10 px-3"
+            className="mt-7 flex touch-none border-b border-white/10 px-3"
             onTouchStart={handleSheetTouchStart}
             onTouchMove={handleSheetTouchMove}
             onTouchEnd={handleSheetTouchEnd}

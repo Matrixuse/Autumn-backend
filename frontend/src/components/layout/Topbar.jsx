@@ -36,7 +36,7 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
     <header aria-disabled={locked} className={`${isMobileHiddenPage ? 'hidden md:flex' : isLibraryPage || isExplorePage ? 'hidden lg:flex' : isPlaylistsPage ? 'hidden md:flex' : 'flex'} sticky top-0 z-20 items-center gap-4 bg-[#080909]/80 px-5 py-3 backdrop-blur-xl lg:px-10 ${disabledState}`}>
         {isHomePage ? (
             <div className={`${isExplorePage ? 'flex md:hidden' : 'flex'} md:hidden`}>
-                <img src="/logo.png" alt="Autumn logo" className='h-7 w-7 gap-3' />
+                <img src="/logo2.png" alt="Autumn logo" className='h-7 w-7 gap-3' />
                 <h1 className="text-xl font-bold text-white">Autumn</h1>
             </div>
         ) : (

@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
 import { formatTime } from '../utils/formatTime'
 import SongActionsMenu from '../components/common/SongActionsMenu'
+import NowPlayingOverlay from '../components/common/NowPlayingOverlay'
 
 export default function LikedSongPage() {
   const navigate = useNavigate()
-  const { likedSongs, currentTrack, playTrack } = usePlayer()
+  const { likedSongs, currentTrack, isPlaying, playTrack } = usePlayer()
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showCompactHeader, setShowCompactHeader] = useState(false)
@@ -103,12 +104,15 @@ export default function LikedSongPage() {
         ) : (
           <div className="overflow-hidden rounded md:border border-white/10 md:bg-white/3">
             {filteredSongs.map((song, index) => {
-              const active = currentTrack?.id === song.id
+              const active = String(currentTrack?.id) === String(song.id) && isPlaying
               return (
                 <article key={song.id} className={`flex items-center gap-3 border-b border-white/6  px-2 md:px-4 py-2 md:py-3 last:border-b-0 ${active ? 'bg-[#c88d3b]/10' : 'hover:bg-white/4'}`}>
                     <span className="w-6 hidden sm:block text-center text-xs text-white/35">{index + 1}</span>
                     <button type="button" onClick={() => playTrack(song, likedSongs)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                        {song.image ? <img src={song.image} alt="" className="h-12 w-12 shrink-0 rounded object-cover" /> : <div className="grid h-12 w-12 shrink-0 place-items-center rounded bg-[#28251f] text-xs text-white/50">AU</div>}
+                        <span className="cover-container h-12 w-12 shrink-0 rounded bg-[#28251f]">
+                          {song.image ? <img src={song.image} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full w-full place-items-center text-xs text-white/50">AU</span>}
+                          {active && <NowPlayingOverlay />}
+                        </span>
                         <span className="min-w-0"><span className="block truncate text-sm font-semibold">{song.title || 'Untitled track'}</span><span className="block truncate text-xs text-white/45">{song.artist || 'Unknown Artist'}</span></span>
                     </button>
                     <SongActionsMenu song={song} queue={likedSongs} alwaysVisible />

@@ -11,8 +11,8 @@ export default function Sidebar({ locked = false }) {
 
     return <aside className={`fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-white/9 bg-[#050505] px-2 py-4 lg:flex ${disabledState}`} aria-disabled={locked}>
     <div className="mb-7 mt-3 flex items-center gap-2 px-4">
-        <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-white">
-            <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
+        <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-black/20 shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
+            <img src="/logo2.png" alt="Logo" className="h-full w-full object-cover" />
         </div>
         <span className="text-2xl font-['Bahnschrift_Condensed'] font-semibold tracking-tight">
             Autumn
