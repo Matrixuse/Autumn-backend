@@ -17,6 +17,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@tailwindcss/vite": "^4.3.3",
     "axios": "^1.20.0",
+    "capacitor-music-controls-plugin-new": "github:gokadzev/capacitor-music-controls-plugin-new",
     "lucide-react": "^1.44.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

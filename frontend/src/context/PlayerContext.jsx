@@ -1,4 +1,6 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { CapacitorMusicControls } from 'capacitor-music-controls-plugin-new'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import PlayerContext from './player-context'
 import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality'
@@ -79,6 +81,9 @@ export const PlayerProvider = ({ children }) => {
   const [isQueueOpen, setIsQueueOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(-1)
   const recommendationRequestRef = useRef(0)
+  const nativeControlsTrackIdRef = useRef(null)
+  const nativeControlsQueueRef = useRef(Promise.resolve())
+  const isNativePlatform = Capacitor.isNativePlatform()
 
   useEffect(() => {
     localStorage.setItem('autumn_listen_history', JSON.stringify(listenHistory))
@@ -264,6 +269,13 @@ export const PlayerProvider = ({ children }) => {
     setProgress(0)
     setIsPlaying(true)
   }
+  const getNativePlayerState = useEffectEvent(() => ({ isPlaying, progress }))
+  const handleNativeControlsNotification = useEffectEvent(({ message }) => {
+    if (message === 'music-controls-play' || message === 'music-controls-pause') togglePlay()
+    if (message === 'music-controls-next') next()
+    if (message === 'music-controls-previous') previous()
+    if (message === 'music-controls-destroy') stopPlayback()
+  })
   const seek = (value) => { setProgress(Number(value)); if (audioRef.current) audioRef.current.currentTime = Number(value) }
   const handleTimeUpdate = (event) => setProgress(Number(event.currentTarget?.currentTime) || 0)
   const handleLoadedMetadata = (event) => setDuration(Number(event.currentTarget?.duration) || 0)
@@ -294,6 +306,105 @@ export const PlayerProvider = ({ children }) => {
   const closeQueue = () => setIsQueueOpen(false)
   const audioSource = currentTrack?.audio || getBestAudioUrl(currentTrack?.downloadUrl)
   const { audioRef } = useAudioPlayer({ src: audioSource, isPlaying, volume, onTimeUpdate: handleTimeUpdate, onEnded: handleEnded })
+
+  useEffect(() => {
+    if (!isNativePlatform) return undefined
+
+    let active = true
+    const trackId = currentTrack?.id == null ? null : String(currentTrack.id)
+    nativeControlsQueueRef.current = nativeControlsQueueRef.current.catch(() => {}).then(async () => {
+      try {
+        if (!active) return
+        if (!trackId) {
+          if (nativeControlsTrackIdRef.current) await CapacitorMusicControls.destroy()
+          nativeControlsTrackIdRef.current = null
+          return
+        }
+
+        const permissions = await CapacitorMusicControls.checkPermissions()
+        if (permissions.notifications !== 'granted') {
+          await CapacitorMusicControls.requestPermissions()
+        }
+        if (!active) return
+
+        if (nativeControlsTrackIdRef.current) {
+          await CapacitorMusicControls.destroy()
+          nativeControlsTrackIdRef.current = null
+        }
+
+        const title = currentTrack.title || currentTrack.name || 'Autumn'
+        const artist = currentTrack.artist || currentTrack.subtitle || 'Autumn Player'
+        const album = currentTrack.album || 'Autumn'
+        const artwork = getBestImageUrl(currentTrack.image)
+        const playerState = getNativePlayerState()
+
+        await CapacitorMusicControls.create({
+          track: title,
+          artist,
+          album,
+          cover: artwork,
+          duration: duration || Number(currentTrack.duration) || 0,
+          elapsed: playerState.progress,
+          isPlaying: playerState.isPlaying,
+          hasPrev: true,
+          hasNext: true,
+          hasClose: true
+        })
+        nativeControlsTrackIdRef.current = trackId
+        if (!active) {
+          await CapacitorMusicControls.destroy()
+          nativeControlsTrackIdRef.current = null
+        }
+      } catch (error) {
+        console.warn('[PLAYER] Unable to update native music controls', error)
+      }
+    })
+
+    return () => {
+      active = false
+    }
+  }, [currentTrack, duration, isNativePlatform])
+
+  useEffect(() => {
+    if (!isNativePlatform || !currentTrack?.id) return
+    if (nativeControlsTrackIdRef.current !== String(currentTrack.id)) return
+
+    CapacitorMusicControls.updateIsPlaying({ isPlaying }).catch((error) => {
+      console.warn('[PLAYER] Unable to sync native playback state', error)
+    })
+  }, [currentTrack?.id, isNativePlatform, isPlaying])
+
+  useEffect(() => {
+    if (!isNativePlatform) return undefined
+
+    let active = true
+    let listener
+    CapacitorMusicControls.addListener('controlsNotification', (info) => {
+      if (active) handleNativeControlsNotification(info)
+    }).then((handle) => {
+      if (active) listener = handle
+      else handle.remove()
+    }).catch((error) => {
+      console.warn('[PLAYER] Unable to subscribe to native music controls', error)
+    })
+
+    return () => {
+      active = false
+      listener?.remove()
+    }
+  }, [isNativePlatform])
+
+  useEffect(() => {
+    if (!isNativePlatform) return undefined
+    return () => {
+      nativeControlsQueueRef.current = nativeControlsQueueRef.current.catch(() => {}).then(async () => {
+        if (nativeControlsTrackIdRef.current) await CapacitorMusicControls.destroy()
+        nativeControlsTrackIdRef.current = null
+      }).catch((error) => {
+        console.warn('[PLAYER] Unable to destroy native music controls', error)
+      })
+    }
+  }, [isNativePlatform])
 
   useEffect(() => {
     if (import.meta.env.DEV && currentTrack) {
