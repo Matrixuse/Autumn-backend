@@ -1,0 +1,17 @@
+{
+  "name": "Autumn - It's Listening",
+  "short_name": "Autumn",
+  "description": "A focused music player for your listening sessions.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "icons": [
+    {
+      "src": "/logo2.png",
+      "sizes": "1318x1193",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
