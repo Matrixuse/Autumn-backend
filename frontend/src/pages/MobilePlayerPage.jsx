@@ -15,6 +15,7 @@ import { getSongArtists } from '../utils/songSearch'
 import NowPlayingOverlay from '../components/common/NowPlayingOverlay'
 import SortableQueueList from '../components/player/SortableQueueList'
 import MoodChips from '../components/sections/MoodChips'
+import Loader from '../components/common/Loader'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
@@ -22,6 +23,7 @@ export default function MobilePlayerPage({ song }) {
   const navigate = useNavigate()
   const {
     currentTrack,
+    isQueueLoading,
     listenHistory,
     listenAgain,
     likedSongs,
@@ -252,8 +254,8 @@ export default function MobilePlayerPage({ song }) {
       )
     }
 
-    return queue.length ? (
-      <SortableQueueList
+    return <>
+      {queue.length ? <SortableQueueList
         tracks={queue}
         reorderQueue={reorderQueue}
         className="space-y-3 px-3 py-5"
@@ -273,8 +275,9 @@ export default function MobilePlayerPage({ song }) {
             {dragHandle}
           </div>
         )}
-      />
-    ) : <div className="px-5 py-5"><p className="py-6 text-center text-sm text-white/45">Your queue is empty.</p></div>
+      /> : <div className="px-5 py-5"><p className="py-6 text-center text-sm text-white/45">Your queue is empty.</p></div>}
+      {isQueueLoading && <div className="grid min-h-16 place-items-center"><Loader label={`Finding songs (${queue.length}/50)`} /></div>}
+    </>
   }
 
   if (!currentTrack) {

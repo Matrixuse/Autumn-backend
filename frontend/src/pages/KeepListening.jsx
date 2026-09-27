@@ -74,7 +74,7 @@ const rankRelatedSongs = (songs, currentTrack, isHollywood) => {
 }
 
 export default function KeepListening() {
-  const { currentTrack, listenHistory, isPlaying, playTrack, togglePlay } = usePlayer()
+  const { currentTrack, listenHistory, isPlaying, isQueueLoading, playTrack, togglePlay } = usePlayer()
   const { queue, currentIndex, playQueuedTrack, reorderQueue } = useUpNextQueue()
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [relatedSongs, setRelatedSongs] = useState([])
@@ -302,9 +302,12 @@ export default function KeepListening() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thumb-gray-300">
-            {activeTab === 'UP NEXT' && (queue.length
-              ? <SortableQueueList tracks={queue} reorderQueue={reorderQueue} className="space-y-1" renderItem={(song, index, dragHandle) => renderSongRow(song, index, playQueuedTrack, currentIndex, dragHandle)} />
-              : renderSongList([], 'Your queue is empty.'))}
+            {activeTab === 'UP NEXT' && <>
+              {queue.length
+                ? <SortableQueueList tracks={queue} reorderQueue={reorderQueue} className="space-y-1" renderItem={(song, index, dragHandle) => renderSongRow(song, index, playQueuedTrack, currentIndex, dragHandle)} />
+                : renderSongList([], 'Your queue is empty.')}
+              {isQueueLoading && <div className="grid min-h-16 place-items-center"><Loader label={`Finding songs (${queue.length}/50)`} /></div>}
+            </>}
             {activeTab === 'RELATED' && (relatedLoading ? <div className="grid min-h-56 place-items-center"><Loader label="Loading related songs" /></div> : <>{relatedSongs.length ? renderRelatedGrid() : renderSongList([], 'No related songs available.')}{renderArtistRail()}{renderPlaylistRail()}</>)}
             {activeTab === 'LYRICS' && (lyricsLoading
               ? <div className="grid min-h-56 place-items-center"><Loader label="Loading lyrics" /></div>

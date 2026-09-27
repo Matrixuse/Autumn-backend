@@ -2,10 +2,11 @@ const getResponseSongs = (response) => {
   if (Array.isArray(response.data)) return response.data
   const data = response.data?.data
   if (Array.isArray(data)) return data
-  return data?.results || response.data?.results || []
+  const results = data?.results || response.data?.results || []
+  return Array.isArray(results) ? results : []
 }
 
-export const fetchRecommendationCandidates = async (track, apiClient) => {
+export const fetchRecommendationCandidates = async (track, apiClient, onCandidates) => {
   let candidates = []
 
   try {
@@ -16,6 +17,7 @@ export const fetchRecommendationCandidates = async (track, apiClient) => {
   } catch {
     candidates = []
   }
+  if (onCandidates?.(candidates, 'suggestions')) return candidates
 
   if (candidates.length < 10) {
     const primaryArtist = track.artists?.primary?.[0]
@@ -26,7 +28,9 @@ export const fetchRecommendationCandidates = async (track, apiClient) => {
       const response = await apiClient.get('/search/songs', {
         params: { query: artist.trim(), page: 0, limit: 20 }
       })
-      candidates = [...candidates, ...getResponseSongs(response)]
+      const artistCandidates = getResponseSongs(response)
+      candidates = [...candidates, ...artistCandidates]
+      onCandidates?.(artistCandidates, 'artist search')
     } catch {
       if (!candidates.length) return []
     }

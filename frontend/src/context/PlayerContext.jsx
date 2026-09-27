@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import PlayerContext from './player-context'
 import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality'
-import { fetchDiverseRecommendationQueue, normalizeRecommendationSong, resolveQueueSelection } from '../utils/recommendationQueue'
+import { buildUpNextQueue, normalizeRecommendationSong, resolveQueueSelection } from '../utils/recommendationQueue'
 import axiosInstance from '../api/axiosInstance'
 import { AutumnMedia } from '../nativeMedia'
 
@@ -64,6 +64,7 @@ const shuffleQueue = (tracks, activeTrack) => {
 export const PlayerProvider = ({ children }) => {
   const [currentTrack, setCurrentTrack] = useState(null)
   const [queue, setQueue] = useState([])
+  const [isQueueLoading, setIsQueueLoading] = useState(false)
   const [listenHistory, setListenHistory] = useState(() => readHistory())
   const [likedSongs, setLikedSongs] = useState(() => readLikedSongs())
   const [userPlaylists, setUserPlaylists] = useState(() => readUserPlaylists())
@@ -119,15 +120,26 @@ export const PlayerProvider = ({ children }) => {
     setCurrentTrack(sourceTrack)
     setQueue([sourceTrack])
     setCurrentIndex(0)
+    setIsQueueLoading(true)
     setListenHistory((history) => pushHistory(history, sourceTrack))
     setProgress(0)
     setIsPlaying(true)
 
-    fetchDiverseRecommendationQueue(sourceTrack, axiosInstance).then((nextQueue) => {
+    buildUpNextQueue(sourceTrack, axiosInstance, {
+      targetLength: 50,
+      history: listenHistory,
+      onUpdate: (nextQueue) => {
+        if (recommendationRequestRef.current === requestId) setQueue(nextQueue)
+      }
+    }).then((nextQueue) => {
       if (recommendationRequestRef.current !== requestId) return
-      setQueue(isShuffleEnabled ? shuffleQueue(nextQueue, sourceTrack) : nextQueue)
+      setQueue(nextQueue)
       setCurrentIndex(0)
-    }).catch(() => {})
+    }).catch(() => {
+      if (recommendationRequestRef.current === requestId) setQueue([sourceTrack])
+    }).finally(() => {
+      if (recommendationRequestRef.current === requestId) setIsQueueLoading(false)
+    })
   }
 
   const togglePlay = () => setIsPlaying((playing) => !playing)
@@ -141,6 +153,7 @@ export const PlayerProvider = ({ children }) => {
     setIsPlaying(false)
     setCurrentTrack(null)
     setQueue([])
+    setIsQueueLoading(false)
     setCurrentIndex(-1)
     recommendationRequestRef.current += 1
     setProgress(0)
@@ -376,7 +389,7 @@ export const PlayerProvider = ({ children }) => {
   }, [currentTrack, duration, isPlaying, previous, progress])
 
   return (
-    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, listenHistory, likedSongs, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue }}>
+    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, isQueueLoading, listenHistory, likedSongs, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue }}>
         {children}
         <audio ref={audioRef} src={audioSource || undefined} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onEnded={handleEnded} />
     </PlayerContext.Provider>
