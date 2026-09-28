@@ -1,12 +1,9 @@
 import { useContext, useEffect, useEffectEvent, useRef, useState } from 'react'
-import { Capacitor } from '@capacitor/core'
-import { CapacitorMusicControls } from 'capacitor-music-controls-plugin-new'
 import { useAudioPlayer } from '../hooks/useAudioPlayer'
 import PlayerContext from './player-context'
 import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality'
 import { buildUpNextQueue, normalizeRecommendationSong, resolveQueueSelection } from '../utils/recommendationQueue'
 import axiosInstance from '../api/axiosInstance'
-import { AutumnMedia } from '../nativeMedia'
 
 const HISTORY_LIMIT = 18
 
@@ -75,15 +72,16 @@ export const PlayerProvider = ({ children }) => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [mediaPositionRequest, setMediaPositionRequest] = useState(0)
   const [volume, setVolume] = useState(1)
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false)
   const [isRepeatEnabled, setIsRepeatEnabled] = useState(false)
   const [isQueueOpen, setIsQueueOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(-1)
   const recommendationRequestRef = useRef(0)
-  const nativeControlsTrackIdRef = useRef(null)
-  const nativeControlsQueueRef = useRef(Promise.resolve())
-  const isNativePlatform = Capacitor.isNativePlatform()
+  const lastMediaPositionUpdateRef = useRef(0)
+  const forceMediaPositionUpdateRef = useRef(false)
+  const lastMediaTrackIdRef = useRef(null)
 
   useEffect(() => {
     localStorage.setItem('autumn_listen_history', JSON.stringify(listenHistory))
@@ -269,16 +267,23 @@ export const PlayerProvider = ({ children }) => {
     setProgress(0)
     setIsPlaying(true)
   }
-  const getNativePlayerState = useEffectEvent(() => ({ isPlaying, progress }))
-  const handleNativeControlsNotification = useEffectEvent(({ message }) => {
-    if (message === 'music-controls-play' || message === 'music-controls-pause') togglePlay()
-    if (message === 'music-controls-next') next()
-    if (message === 'music-controls-previous') previous()
-    if (message === 'music-controls-destroy') stopPlayback()
-  })
-  const seek = (value) => { setProgress(Number(value)); if (audioRef.current) audioRef.current.currentTime = Number(value) }
-  const handleTimeUpdate = (event) => setProgress(Number(event.currentTarget?.currentTime) || 0)
-  const handleLoadedMetadata = (event) => setDuration(Number(event.currentTarget?.duration) || 0)
+  const seek = (value) => {
+    const requestedPosition = Number(value)
+    if (!Number.isFinite(requestedPosition)) return
+    const position = Math.max(0, Number.isFinite(duration) && duration > 0 ? Math.min(requestedPosition, duration) : requestedPosition)
+    setProgress(position)
+    if (audioRef.current) audioRef.current.currentTime = position
+    forceMediaPositionUpdateRef.current = true
+    setMediaPositionRequest((request) => request + 1)
+  }
+  const handleTimeUpdate = (event) => {
+    setProgress(Number(event.currentTarget?.currentTime) || 0)
+  }
+  const handleLoadedMetadata = (event) => {
+    setDuration(Number(event.currentTarget?.duration) || 0)
+    forceMediaPositionUpdateRef.current = true
+    setMediaPositionRequest((request) => request + 1)
+  }
   const handleEnded = () => {
     if (isRepeatEnabled) {
       setProgress(0)
@@ -308,105 +313,6 @@ export const PlayerProvider = ({ children }) => {
   const { audioRef } = useAudioPlayer({ src: audioSource, isPlaying, volume, onTimeUpdate: handleTimeUpdate, onEnded: handleEnded })
 
   useEffect(() => {
-    if (!isNativePlatform) return undefined
-
-    let active = true
-    const trackId = currentTrack?.id == null ? null : String(currentTrack.id)
-    nativeControlsQueueRef.current = nativeControlsQueueRef.current.catch(() => {}).then(async () => {
-      try {
-        if (!active) return
-        if (!trackId) {
-          if (nativeControlsTrackIdRef.current) await CapacitorMusicControls.destroy()
-          nativeControlsTrackIdRef.current = null
-          return
-        }
-
-        const permissions = await CapacitorMusicControls.checkPermissions()
-        if (permissions.notifications !== 'granted') {
-          await CapacitorMusicControls.requestPermissions()
-        }
-        if (!active) return
-
-        if (nativeControlsTrackIdRef.current) {
-          await CapacitorMusicControls.destroy()
-          nativeControlsTrackIdRef.current = null
-        }
-
-        const title = currentTrack.title || currentTrack.name || 'Autumn'
-        const artist = currentTrack.artist || currentTrack.subtitle || 'Autumn Player'
-        const album = currentTrack.album || 'Autumn'
-        const artwork = getBestImageUrl(currentTrack.image)
-        const playerState = getNativePlayerState()
-
-        await CapacitorMusicControls.create({
-          track: title,
-          artist,
-          album,
-          cover: artwork,
-          duration: duration || Number(currentTrack.duration) || 0,
-          elapsed: playerState.progress,
-          isPlaying: playerState.isPlaying,
-          hasPrev: true,
-          hasNext: true,
-          hasClose: true
-        })
-        nativeControlsTrackIdRef.current = trackId
-        if (!active) {
-          await CapacitorMusicControls.destroy()
-          nativeControlsTrackIdRef.current = null
-        }
-      } catch (error) {
-        console.warn('[PLAYER] Unable to update native music controls', error)
-      }
-    })
-
-    return () => {
-      active = false
-    }
-  }, [currentTrack, duration, isNativePlatform])
-
-  useEffect(() => {
-    if (!isNativePlatform || !currentTrack?.id) return
-    if (nativeControlsTrackIdRef.current !== String(currentTrack.id)) return
-
-    CapacitorMusicControls.updateIsPlaying({ isPlaying }).catch((error) => {
-      console.warn('[PLAYER] Unable to sync native playback state', error)
-    })
-  }, [currentTrack?.id, isNativePlatform, isPlaying])
-
-  useEffect(() => {
-    if (!isNativePlatform) return undefined
-
-    let active = true
-    let listener
-    CapacitorMusicControls.addListener('controlsNotification', (info) => {
-      if (active) handleNativeControlsNotification(info)
-    }).then((handle) => {
-      if (active) listener = handle
-      else handle.remove()
-    }).catch((error) => {
-      console.warn('[PLAYER] Unable to subscribe to native music controls', error)
-    })
-
-    return () => {
-      active = false
-      listener?.remove()
-    }
-  }, [isNativePlatform])
-
-  useEffect(() => {
-    if (!isNativePlatform) return undefined
-    return () => {
-      nativeControlsQueueRef.current = nativeControlsQueueRef.current.catch(() => {}).then(async () => {
-        if (nativeControlsTrackIdRef.current) await CapacitorMusicControls.destroy()
-        nativeControlsTrackIdRef.current = null
-      }).catch((error) => {
-        console.warn('[PLAYER] Unable to destroy native music controls', error)
-      })
-    }
-  }, [isNativePlatform])
-
-  useEffect(() => {
     if (import.meta.env.DEV && currentTrack) {
       console.log('[PLAYER] RECEIVED SONG', {
         id: currentTrack.id,
@@ -418,62 +324,65 @@ export const PlayerProvider = ({ children }) => {
     }
   }, [audioSource, currentTrack])
 
-  useEffect(() => {
-    if (currentTrack?.id) {
-      AutumnMedia.updateTrack({
-        id: String(currentTrack.id),
-        title: currentTrack.title || currentTrack.name || 'Autumn',
-        artist: currentTrack.artist || currentTrack.subtitle || 'Autumn Player',
-        album: currentTrack.album || 'Autumn',
-        artwork: getBestImageUrl(currentTrack.image),
-        isPlaying
+  const syncMediaPositionState = useEffectEvent((force = false) => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || !currentTrack) return
+    const mediaSession = navigator.mediaSession
+    if (typeof mediaSession.setPositionState !== 'function') return
+
+    const now = Date.now()
+    if (!force && now - lastMediaPositionUpdateRef.current < 1000) return
+    const audio = audioRef.current
+    const mediaDuration = Number(audio?.duration)
+    const position = Number(audio?.currentTime)
+    if (!Number.isFinite(mediaDuration) || mediaDuration <= 0 || !Number.isFinite(position)) return
+
+    lastMediaPositionUpdateRef.current = now
+    try {
+      mediaSession.setPositionState({
+        duration: mediaDuration,
+        playbackRate: Number.isFinite(audio.playbackRate) && audio.playbackRate > 0 ? audio.playbackRate : 1,
+        position: Math.max(0, Math.min(position, mediaDuration)),
       })
-    } else {
-      AutumnMedia.stop()
+    } catch {
+      // Position state may be rejected while browser media metadata is changing.
     }
-  }, [currentTrack, isPlaying])
+  })
+
+  const handleMediaSessionAction = useEffectEvent(({ action, details }) => {
+    if (action === 'play' && !isPlaying) togglePlay()
+    if (action === 'pause' && isPlaying) togglePlay()
+    if (action === 'previoustrack') previous()
+    if (action === 'nexttrack') next()
+    if (action === 'seekbackward') seek(Math.max(0, progress - (details.seekOffset || 10)))
+    if (action === 'seekforward') seek(Math.min(duration || Infinity, progress + (details.seekOffset || 10)))
+    if (action === 'seekto' && Number.isFinite(details.seekTime)) seek(details.seekTime)
+  })
 
   useEffect(() => {
-    let listener
-    let active = true
-
-    AutumnMedia.addListener('mediaAction', ({ action }) => {
-      if (!active) return
-      if (action === 'com.autumn.player.PLAY') setIsPlaying(true)
-      if (action === 'com.autumn.player.PAUSE') setIsPlaying(false)
-      if (action === 'com.autumn.player.NEXT') next()
-      if (action === 'com.autumn.player.PREVIOUS') previous()
-      if (action === 'com.autumn.player.STOP') stopPlayback()
-    }).then((handle) => {
-      listener = handle
-    })
-
-    return () => {
-      active = false
-      listener?.remove()
-    }
-  }, [currentTrack, queue, isPlaying])
-
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || !currentTrack) return undefined
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return undefined
 
     const mediaSession = navigator.mediaSession
+    if (!currentTrack) {
+      mediaSession.metadata = null
+      return undefined
+    }
     const artwork = getBestImageUrl(currentTrack.image)
     mediaSession.metadata = new MediaMetadata({
       title: currentTrack.title || currentTrack.name || 'Autumn',
       artist: currentTrack.artist || currentTrack.subtitle || 'Autumn Player',
       album: currentTrack.album || 'Autumn',
-      artwork: artwork ? [{ src: artwork, sizes: '512x512', type: 'image/jpeg' }] : []
+      artwork: artwork ? [96, 128, 192, 256, 384, 512].map((size) => ({ src: artwork, sizes: `${size}x${size}`, type: 'image/jpeg' })) : [],
     })
-    mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
+    lastMediaPositionUpdateRef.current = 0
 
     const actions = {
-      play: () => setIsPlaying(true),
-      pause: () => setIsPlaying(false),
-      nexttrack: next,
-      previoustrack: previous,
-      seekbackward: () => seek(Math.max(0, progress - 10)),
-      seekforward: () => seek(Math.min(duration || Infinity, progress + 10))
+      play: () => handleMediaSessionAction({ action: 'play', details: {} }),
+      pause: () => handleMediaSessionAction({ action: 'pause', details: {} }),
+      previoustrack: () => handleMediaSessionAction({ action: 'previoustrack', details: {} }),
+      nexttrack: () => handleMediaSessionAction({ action: 'nexttrack', details: {} }),
+      seekbackward: (details) => handleMediaSessionAction({ action: 'seekbackward', details }),
+      seekforward: (details) => handleMediaSessionAction({ action: 'seekforward', details }),
+      seekto: (details) => handleMediaSessionAction({ action: 'seekto', details }),
     }
 
     Object.entries(actions).forEach(([action, handler]) => {
@@ -484,10 +393,6 @@ export const PlayerProvider = ({ children }) => {
       }
     })
 
-    if (duration > 0 && Number.isFinite(duration) && typeof mediaSession.setPositionState === 'function') {
-      mediaSession.setPositionState({ duration, playbackRate: 1, position: Math.min(progress, duration) })
-    }
-
     return () => {
       Object.keys(actions).forEach((action) => {
         try {
@@ -497,7 +402,21 @@ export const PlayerProvider = ({ children }) => {
         }
       })
     }
-  }, [currentTrack, duration, isPlaying, previous, progress])
+  }, [currentTrack])
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+    const trackId = currentTrack?.id ?? null
+    if (trackId !== lastMediaTrackIdRef.current) {
+      lastMediaTrackIdRef.current = trackId
+      lastMediaPositionUpdateRef.current = 0
+      forceMediaPositionUpdateRef.current = true
+    }
+    navigator.mediaSession.playbackState = isPlaying && currentTrack ? 'playing' : 'paused'
+    if (currentTrack && lastMediaPositionUpdateRef.current === 0) forceMediaPositionUpdateRef.current = true
+    syncMediaPositionState(forceMediaPositionUpdateRef.current)
+    forceMediaPositionUpdateRef.current = false
+  }, [currentTrack, duration, isPlaying, mediaPositionRequest, progress])
 
   return (
     <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, isQueueLoading, listenHistory, likedSongs, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue }}>

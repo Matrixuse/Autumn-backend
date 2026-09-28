@@ -1,4 +1,4 @@
-import { Info, LogOut, Menu, RefreshCw, SlidersHorizontal, UserRound, X } from 'lucide-react'
+import { Download, Info, LogOut, Menu, RefreshCw, SlidersHorizontal, UserRound, X } from 'lucide-react'
 import SearchBar from '../common/SearchBar'
 import Avatar from '../common/Avatar'
 import { useAuth } from '../../context/AuthContext'
@@ -10,6 +10,8 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
     const location = useLocation()
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+    const [installPrompt, setInstallPrompt] = useState(null)
+    const [isStandalone, setIsStandalone] = useState(() => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true)
     const accountMenuRef = useRef(null)
     const isHomePage = location.pathname === '/'
     const isSearchPage = location.pathname === '/search'
@@ -30,6 +32,38 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
         document.addEventListener('mousedown', handleOutsideClick)
         return () => document.removeEventListener('mousedown', handleOutsideClick)
     }, [isAccountMenuOpen])
+
+    useEffect(() => {
+        const displayMode = window.matchMedia('(display-mode: standalone)')
+        const handleBeforeInstallPrompt = (event) => {
+            event.preventDefault()
+            setInstallPrompt(event)
+        }
+        const handleInstalled = () => {
+            setIsStandalone(true)
+            setInstallPrompt(null)
+        }
+        const handleDisplayModeChange = (event) => {
+            if (event.matches) handleInstalled()
+        }
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+        window.addEventListener('appinstalled', handleInstalled)
+        displayMode.addEventListener('change', handleDisplayModeChange)
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+            window.removeEventListener('appinstalled', handleInstalled)
+            displayMode.removeEventListener('change', handleDisplayModeChange)
+        }
+    }, [])
+
+    const handleInstallApp = async () => {
+        if (!installPrompt) return
+        await installPrompt.prompt()
+        await installPrompt.userChoice
+        setInstallPrompt(null)
+    }
 
     return (
     <>
@@ -57,6 +91,10 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
                         <UserRound size={18} />
                         Profile
                     </Link>
+                    {installPrompt && !isStandalone && <button onClick={() => { closeMenu(); void handleInstallApp() }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10 hover:text-white">
+                        <Download size={18} />
+                        Install Autumn
+                    </button>}
                     <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10 hover:text-white">
                         <RefreshCw size={18} />
                         App Updates
@@ -101,6 +139,10 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
                             <UserRound size={15} />
                             Profile
                         </Link>
+                        {installPrompt && !isStandalone && <button onClick={() => { setIsAccountMenuOpen(false); void handleInstallApp() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/10 hover:text-white">
+                            <Download size={15} />
+                            Install Autumn
+                        </button>}
                         <button disabled={locked} onClick={() => { setIsAccountMenuOpen(false); logout() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/10 hover:text-white">
                             <LogOut size={15} />
                             Log out
