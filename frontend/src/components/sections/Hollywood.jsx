@@ -4,6 +4,7 @@ import axiosInstance from '../../api/axiosInstance'
 import { getBestAudioUrl, getBestImageUrl } from '../../utils/mediaQuality'
 import SongActionsMenu from '../common/SongActionsMenu'
 import NowPlayingOverlay from '../common/NowPlayingOverlay'
+import SectionPlayAllButton from '../common/SectionPlayAllButton'
 import { Play } from 'lucide-react'
 
 const formatDuration = (seconds) => {
@@ -75,8 +76,8 @@ export default function Hollywood({ songs = [] }) {
 
     return (
         <section>
-            <div className="mb-5 flex items-center justify-between gap-4">
-                <div>
+            <div className="mb-5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                     <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">
                         Feels like a foreigner
                     </p>
@@ -84,6 +85,7 @@ export default function Hollywood({ songs = [] }) {
                         Hollywood Vibes
                     </h2>
                 </div>
+                <SectionPlayAllButton songs={visibleSongs} onPlay={() => handleSongClick(visibleSongs[0])} />
             </div>
 
             <div className="scrollbar-none -mx-1 flex gap-3 overflow-x-auto px-1 pb-2">

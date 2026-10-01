@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import { usePlayer } from '../../context/PlayerContext'
 import SongActionsMenu from '../common/SongActionsMenu'
 import NowPlayingOverlay from '../common/NowPlayingOverlay'
+import SectionPlayAllButton from '../common/SectionPlayAllButton'
 
 const formatDuration = (seconds) => {
     const totalSeconds = Number(seconds || 0)
@@ -38,8 +39,8 @@ export default function LongToListen({ songs }) {
 
     return (
         <section>
-            <div className="mb-5 flex items-center justify-between gap-4">
-                <div>
+            <div className="mb-5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                     <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">
                         Trending Shorts
                     </p>
@@ -47,6 +48,7 @@ export default function LongToListen({ songs }) {
                         Listen to Shorts
                     </h2>
                 </div>
+                <SectionPlayAllButton songs={visibleSongs} />
             </div>
 
             <div className="scrollbar-none -mx-1 grid grid-rows-4 grid-flow-col gap-1 overflow-x-auto px-1 pb-2">

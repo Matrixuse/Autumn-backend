@@ -103,12 +103,17 @@ export const PlayerProvider = ({ children }) => {
     localStorage.setItem('autumn_not_interested', JSON.stringify(notInterested))
   }, [notInterested])
 
-  const playTrack = (track) => {
+  const playTrack = (track, selectedQueue) => {
     if (!track) return
 
-    const selection = resolveQueueSelection(queue, track)
+    const selection = resolveQueueSelection(Array.isArray(selectedQueue) ? selectedQueue : queue, track)
 
     if (!selection.shouldRegenerate) {
+      if (Array.isArray(selectedQueue)) {
+        recommendationRequestRef.current += 1
+        setIsQueueLoading(false)
+        setQueue(selection.queue)
+      }
       setCurrentIndex(selection.currentIndex)
       setCurrentTrack(selection.track)
       setListenHistory((history) => pushHistory(history, selection.track))

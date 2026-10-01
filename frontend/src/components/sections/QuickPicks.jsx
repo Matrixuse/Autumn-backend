@@ -1,6 +1,7 @@
 import { usePlayer } from '../../context/PlayerContext'
 import SongActionsMenu from '../common/SongActionsMenu'
 import NowPlayingOverlay from '../common/NowPlayingOverlay'
+import SectionPlayAllButton from '../common/SectionPlayAllButton'
 import { Play } from 'lucide-react'
 
 const formatDuration = (seconds) => {
@@ -32,8 +33,8 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
 
     return (
         <section>
-            <div className="mb-5 flex items-center justify-between gap-4">
-                <div>
+            <div className="mb-5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                     <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">
                         {eyebrow}
                     </p>
@@ -41,6 +42,7 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                         {title}
                     </h2>
                 </div>
+                <SectionPlayAllButton songs={visibleSongs} className="hidden md:flex" />
             </div>
 
             {homeMobileGrid && (
