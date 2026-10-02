@@ -360,9 +360,6 @@ export default function MobilePlayerPage({ song }) {
           style={{ transform: `translateY(${isDetailsOpen ? detailsDragOffset : window.innerHeight}px)` }}
         >
           <div
-            type="button"
-            aria-label="Close player details"
-            onClick={() => setIsDetailsOpen(false)}
             className="mx-4 mt-4 flex touch-none items-center gap-3 border-b border-white/10 pb-2"
             onTouchStart={handleSheetTouchStart}
             onTouchMove={handleSheetTouchMove}
@@ -372,7 +369,14 @@ export default function MobilePlayerPage({ song }) {
               {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
               {isPlaying && <NowPlayingOverlay />}
             </div>
-            <div className="min-w-0 flex-1 text-left">
+            <div 
+              type="button"
+              aria-label="Close player details"
+              onClick={() => setIsDetailsOpen(false)}
+              onTouchStart={handleSheetTouchStart}
+              onTouchMove={handleSheetTouchMove}
+              onTouchEnd={handleSheetTouchEnd}
+              className="min-w-0 flex-1 text-left">
               <p className="truncate text-sm font-bold">{currentTitle}</p>
               <p className="mt-0.5 truncate text-xs text-white/45">{currentArtist || 'Unknown Artist'}</p>
             </div>

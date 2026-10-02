@@ -50,6 +50,7 @@ public class AutumnMediaPlugin extends Plugin {
             .putExtra(AutumnMediaService.EXTRA_ARTIST, call.getString("artist", "Autumn Player"))
             .putExtra(AutumnMediaService.EXTRA_ALBUM, call.getString("album", "Autumn"))
             .putExtra(AutumnMediaService.EXTRA_ARTWORK, call.getString("artwork", ""))
+            .putExtra(AutumnMediaService.EXTRA_POSITION, Math.max(0L, call.getLong("position", 0L)))
             .putExtra(AutumnMediaService.EXTRA_PLAYING, call.getBoolean("isPlaying", false));
         ContextCompat.startForegroundService(getContext(), intent);
         call.resolve();

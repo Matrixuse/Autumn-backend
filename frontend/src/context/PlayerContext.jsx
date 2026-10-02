@@ -51,15 +51,6 @@ const pushHistory = (history, track) => {
   return merged
 }
 
-const shuffleQueue = (tracks, activeTrack) => {
-  const remaining = tracks.filter((track) => track?.id !== activeTrack?.id)
-  for (let index = remaining.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1))
-    ;[remaining[index], remaining[randomIndex]] = [remaining[randomIndex], remaining[index]]
-  }
-  return activeTrack ? [activeTrack, ...remaining] : remaining
-}
-
 export const PlayerProvider = ({ children }) => {
   const [currentTrack, setCurrentTrack] = useState(null)
   const [queue, setQueue] = useState([])
@@ -79,6 +70,7 @@ export const PlayerProvider = ({ children }) => {
   const [isQueueOpen, setIsQueueOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(-1)
   const recommendationRequestRef = useRef(0)
+  const shufflePlayedIdsRef = useRef(new Set())
   const lastMediaPositionUpdateRef = useRef(0)
   const forceMediaPositionUpdateRef = useRef(false)
   const lastMediaTrackIdRef = useRef(null)
@@ -114,6 +106,7 @@ export const PlayerProvider = ({ children }) => {
         setIsQueueLoading(false)
         setQueue(selection.queue)
       }
+      if (isShuffleEnabled) shufflePlayedIdsRef.current.add(String(selection.track.id))
       setCurrentIndex(selection.currentIndex)
       setCurrentTrack(selection.track)
       setListenHistory((history) => pushHistory(history, selection.track))
@@ -125,6 +118,7 @@ export const PlayerProvider = ({ children }) => {
     recommendationRequestRef.current += 1
     const requestId = recommendationRequestRef.current
     const sourceTrack = normalizeRecommendationSong(selection.track)
+    if (isShuffleEnabled) shufflePlayedIdsRef.current = new Set([String(sourceTrack.id)])
     setCurrentTrack(sourceTrack)
     setQueue([sourceTrack])
     setCurrentIndex(0)
@@ -251,8 +245,21 @@ export const PlayerProvider = ({ children }) => {
     setUserPlaylists((items) => items.filter((playlist) => String(playlist.sourceId || playlist.id) !== String(item.id)))
   }
   const next = () => {
-    const nextIndex = currentIndex + 1
-    const nextTrack = queue[nextIndex]
+    let nextIndex
+    let nextTrack
+    if (isShuffleEnabled) {
+      const candidates = queue
+        .map((track, index) => ({ track, index }))
+        .filter(({ track }) => track?.id && !shufflePlayedIdsRef.current.has(String(track.id)))
+      if (!candidates.length) return
+      const selection = candidates[Math.floor(Math.random() * candidates.length)]
+      nextIndex = selection.index
+      nextTrack = selection.track
+      shufflePlayedIdsRef.current.add(String(nextTrack.id))
+    } else {
+      nextIndex = currentIndex + 1
+      nextTrack = queue[nextIndex]
+    }
     if (!nextTrack) return
     recommendationRequestRef.current += 1
     setCurrentIndex(nextIndex)
@@ -301,15 +308,11 @@ export const PlayerProvider = ({ children }) => {
     next()
   }
   const toggleShuffle = () => {
-    setIsShuffleEnabled((enabled) => {
-      const nextEnabled = !enabled
-      if (nextEnabled && currentTrack && queue.length > 1) {
-        const shuffledQueue = shuffleQueue(queue, currentTrack)
-        setQueue(shuffledQueue)
-        setCurrentIndex(shuffledQueue.findIndex((track) => String(track.id) === String(currentTrack.id)))
-      }
-      return nextEnabled
-    })
+    const nextEnabled = !isShuffleEnabled
+    shufflePlayedIdsRef.current = nextEnabled && currentTrack?.id
+      ? new Set([String(currentTrack.id)])
+      : new Set()
+    setIsShuffleEnabled(nextEnabled)
   }
   const toggleRepeat = () => setIsRepeatEnabled((enabled) => !enabled)
   const toggleQueue = () => setIsQueueOpen((open) => !open)

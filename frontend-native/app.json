@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Autumn",
+    "slug": "autumn-player",
+    "scheme": "autumn",
+    "platforms": [
+      "android"
+    ],
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo-source.png",
+    "userInterfaceStyle": "dark",
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo-source.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#050505"
+        }
+      ],
+      "expo-image",
+      "expo-font",
+      "expo-audio"
+    ],
+    "android": {
+      "package": "com.autumn.player",
+      "adaptiveIcon": {
+        "backgroundColor": "#050505",
+        "foregroundImage": "./assets/logo-source.png"
+      }
+    }
+  }
+}

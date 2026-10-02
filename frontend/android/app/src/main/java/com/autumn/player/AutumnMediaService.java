@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.SystemClock;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -30,6 +31,7 @@ public class AutumnMediaService extends Service {
     public static final String EXTRA_ARTIST = "artist";
     public static final String EXTRA_ALBUM = "album";
     public static final String EXTRA_ARTWORK = "artwork";
+    public static final String EXTRA_POSITION = "position";
     public static final String EXTRA_PLAYING = "isPlaying";
     private static final String CHANNEL_ID = "autumn_playback";
     private static final int NOTIFICATION_ID = 701;
@@ -39,6 +41,7 @@ public class AutumnMediaService extends Service {
     private String artist = "Autumn Player";
     private String album = "Autumn";
     private boolean isPlaying;
+    private long positionMs;
 
     @Override
     public void onCreate() {
@@ -46,8 +49,8 @@ public class AutumnMediaService extends Service {
         createNotificationChannel();
         mediaSession = new MediaSessionCompat(this, "AutumnMedia");
         mediaSession.setCallback(new MediaSessionCompat.Callback() {
-            @Override public void onPlay() { sendControl(ACTION_PLAY); }
-            @Override public void onPause() { sendControl(ACTION_PAUSE); }
+            @Override public void onPlay() { setPlayingState(true); sendControl(ACTION_PLAY); }
+            @Override public void onPause() { setPlayingState(false); sendControl(ACTION_PAUSE); }
             @Override public void onSkipToNext() { sendControl(ACTION_NEXT); }
             @Override public void onSkipToPrevious() { sendControl(ACTION_PREVIOUS); }
             @Override public void onStop() { sendControl(ACTION_STOP); stopSelf(); }
@@ -60,12 +63,19 @@ public class AutumnMediaService extends Service {
         if (intent != null) {
             String action = intent.getAction();
             if (ACTION_UPDATE.equals(action)) {
-                title = intent.getStringExtra(EXTRA_TITLE, "Autumn");
-                artist = intent.getStringExtra(EXTRA_ARTIST, "Autumn Player");
-                album = intent.getStringExtra(EXTRA_ALBUM, "Autumn");
+                String t = intent.getStringExtra(EXTRA_TITLE);
+                title = t != null ? t : "Autumn";
+                String ar = intent.getStringExtra(EXTRA_ARTIST);
+                artist = ar != null ? ar : "Autumn Player";
+                String al = intent.getStringExtra(EXTRA_ALBUM);
+                album = al != null ? al : "Autumn";
+                positionMs = Math.max(0L, intent.getLongExtra(EXTRA_POSITION, positionMs));
                 isPlaying = intent.getBooleanExtra(EXTRA_PLAYING, false);
                 updatePlaybackState();
             } else if (ACTION_PLAY.equals(action) || ACTION_PAUSE.equals(action) || ACTION_NEXT.equals(action) || ACTION_PREVIOUS.equals(action)) {
+                if (ACTION_PLAY.equals(action) || ACTION_PAUSE.equals(action)) {
+                    setPlayingState(ACTION_PLAY.equals(action));
+                }
                 sendControl(action);
             } else if (ACTION_STOP.equals(action)) {
                 stopSelf();
@@ -76,6 +86,13 @@ public class AutumnMediaService extends Service {
         return START_STICKY;
     }
 
+    private void setPlayingState(boolean playing) {
+        isPlaying = playing;
+        updatePlaybackState();
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager != null) manager.notify(NOTIFICATION_ID, buildNotification());
+    }
+
     private void updatePlaybackState() {
         mediaSession.setMetadata(new MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
@@ -84,7 +101,7 @@ public class AutumnMediaService extends Service {
             .build());
         mediaSession.setPlaybackState(new PlaybackStateCompat.Builder()
             .setActions(PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE | PlaybackStateCompat.ACTION_SKIP_TO_NEXT | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS | PlaybackStateCompat.ACTION_STOP)
-            .setState(isPlaying ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1f)
+            .setState(isPlaying ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED, positionMs, isPlaying ? 1f : 0f, SystemClock.elapsedRealtime())
             .build());
     }
 

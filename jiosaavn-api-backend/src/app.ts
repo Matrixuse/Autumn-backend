@@ -36,6 +36,9 @@ export class App {
       'http://localhost:5173',
       'http://127.0.0.1:5173',
       'https://autumn-its-listening.onrender.com',
+      'https://localhost',
+      'capacitor://localhost',
+      'http://localhost',
       ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL.replace(/\/$/, '')] : [])
     ])
 
