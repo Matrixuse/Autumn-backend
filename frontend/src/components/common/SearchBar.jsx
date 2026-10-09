@@ -226,7 +226,7 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
           downloadUrl: item.downloadUrl
         })
       }
-      playTrack(item, [item])
+      playTrack(item)
       clearSelection()
       return
     }
