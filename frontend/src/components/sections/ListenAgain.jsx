@@ -13,7 +13,7 @@ export default function ListenAgain({ songs }) { return (
             </div>
         </div>
         <div className="scrollbar-none -mx-1 flex gap-6 overflow-x-auto px-1 pb-2">{songs.map((song) => 
-                <SongCard key={song.id} song={song} queue={songs} />
+                <SongCard key={song.id} song={song} queue={songs} playQueue={[song]} />
             )}
         </div>
     </section>
