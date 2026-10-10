@@ -3,6 +3,7 @@ import * as authApi from '../api/auth'
 import { usePlayer } from './PlayerContext'
 
 const AuthContext = createContext(null)
+const announceAuthChange = () => window.dispatchEvent(new Event('autumn-auth-changed'))
 
 export const AuthProvider = ({ children }) => {
   const [loading] = useState(false)
@@ -20,6 +21,7 @@ export const AuthProvider = ({ children }) => {
     const nextUser = response.data
     localStorage.setItem('autumn_user', JSON.stringify(nextUser))
     setUser(nextUser)
+    announceAuthChange()
     return nextUser
   }
 
@@ -28,6 +30,7 @@ export const AuthProvider = ({ children }) => {
     const nextUser = response.data
     localStorage.setItem('autumn_user', JSON.stringify(nextUser))
     setUser(nextUser)
+    announceAuthChange()
     return nextUser
   }
 
@@ -36,6 +39,7 @@ export const AuthProvider = ({ children }) => {
     const nextUser = response.data
     localStorage.setItem('autumn_user', JSON.stringify(nextUser))
     setUser(nextUser)
+    announceAuthChange()
     return nextUser
   }
 
@@ -44,6 +48,7 @@ export const AuthProvider = ({ children }) => {
     try { await authApi.logout() } finally {
       localStorage.removeItem('autumn_user')
       setUser(null)
+      announceAuthChange()
     }
   }
   const updateProfile = (updates) => {

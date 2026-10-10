@@ -78,9 +78,10 @@ const normalizeAlbum = (album) => {
   }
 }
 
-export const searchAlbums = async (query, limit = 10) => {
+export const searchAlbums = async (query, limit = 10, { signal } = {}) => {
   const response = await axiosInstance.get('/search/albums', {
-    params: { query, page: 0, limit }
+    params: { query, page: 0, limit },
+    signal
   })
 
   return (response.data?.data?.results || []).map(normalizeAlbum)

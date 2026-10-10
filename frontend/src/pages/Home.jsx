@@ -11,7 +11,9 @@ import Moods from '../components/sections/Moods'
 import Albums from '../components/sections/Albums'
 import Hollywood from '../components/sections/Hollywood'
 import { useFetchSongs, useFetchQuickPicks, useFetchNewReleases, useFetchLongSongs } from '../hooks/useFetchSongs'
+import { useDailyRotationDate } from '../hooks/useDailyRotationDate'
 import { usePlayer } from '../context/PlayerContext'
+import { useAuth } from '../context/AuthContext'
 import axiosInstance from '../api/axiosInstance'
 import { getBestImageUrl } from '../utils/mediaQuality'
 import { getHollywoodSongs, getSongsByIds } from '../api/songs'
@@ -19,35 +21,21 @@ import { getMixForYouPlaylists } from '../api/playlists'
 import { getAlbumsForYou } from '../api/albums'
 import { mapWithConcurrency } from '../api/requestQueue'
 import { HOLLYWOOD_CURATED_TRACKS, VERIFIED_CURATED_IDS } from '../config/curatedSongs'
+import { getDailyRotationKey, shuffleForDailyRotation } from '../utils/dailyRotation'
 
-const getDailySeed = () => `${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`
-
-const shuffleBySeed = (items = []) => {
-  const seed = getDailySeed()
-  const array = [...items]
-
-  for (let i = array.length - 1; i > 0; i -= 1) {
-    const charCode = seed.charCodeAt((i + seed.length) % seed.length)
-    const nextIndex = (charCode + i * 17) % (i + 1)
-    ;[array[i], array[nextIndex]] = [array[nextIndex], array[i]]
-  }
-
-  return array
-}
-
-const getSuggestedLibrarySongs = (fallbackSongs = [], limit = 24) => {
+const getSuggestedLibrarySongs = (fallbackSongs = [], limit = 24, userId = 'anonymous', date = new Date()) => {
   const basePool = Array.isArray(fallbackSongs) ? fallbackSongs.filter(Boolean) : []
 
   if (!basePool.length) return []
 
-  return shuffleBySeed(basePool).slice(0, limit)
+  return shuffleForDailyRotation(basePool, { userId, scope: 'library', date }).slice(0, limit)
 }
 
 const getDiscoveryPool = (...songLists) => {
   const songsById = new Map()
 
   songLists.flat().forEach((song) => {
-    if (!song?.id || !song?.audio || !song?.image) return
+    if (!song?.id || !song?.audio) return
     songsById.set(String(song.id), song)
   })
 
@@ -79,18 +67,21 @@ const fixedArtistNames = [
 
 const normalizeName = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 
-const readDailyCache = (key) => {
+const readDailyCache = (key, userId, date) => {
   try {
-    const cached = JSON.parse(localStorage.getItem(`autumn_home_${key}`) || 'null')
+    const rotationKey = getDailyRotationKey(userId, key, date)
+    const cacheKey = `autumn_home_${rotationKey}`
+    const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null')
     if (Array.isArray(cached)) return null
-    return cached?.date === getDailySeed() && Array.isArray(cached.items) ? cached.items : null
+    return cached?.key === rotationKey && Array.isArray(cached.items) ? cached.items : null
   } catch {
     return null
   }
 }
 
-const writeDailyCache = (key, value) => {
-  localStorage.setItem(`autumn_home_${key}`, JSON.stringify({ date: getDailySeed(), items: value }))
+const writeDailyCache = (key, value, userId, date) => {
+  const rotationKey = getDailyRotationKey(userId, key, date)
+  localStorage.setItem(`autumn_home_${rotationKey}`, JSON.stringify({ key: rotationKey, items: value }))
 }
 
 const fetchArtistDetails = async (name) => {
@@ -115,22 +106,35 @@ const fetchArtistDetails = async (name) => {
 const playlists = [1, 2, 3, 4].map((id) => ({ id, name: `Collection ${id}`, description: 'A fresh listening set', image: null }))
 
 export default function Home() {
+  const rotationDate = useDailyRotationDate()
   const [artists, setArtists] = useState([])
   const [mixPlaylists, setMixPlaylists] = useState([])
   const [albumsForYou, setAlbumsForYou] = useState([])
   const [curatedHollywoodSongs, setCuratedHollywoodSongs] = useState([])
   const { songs, loading, error } = useFetchSongs()
-  const { listenHistory, listenAgain } = usePlayer()
-  const { songs: quickPickSongs, loading: quickLoading, error: quickError } = useFetchQuickPicks(listenHistory)
+  const { listenHistory, listenAgain, likedSongs, recommendationEvents, currentTrack } = usePlayer()
+  const { user } = useAuth()
+  const userId = user?.id || 'anonymous'
   const { songs: newReleaseSongs, loading: releaseLoading, error: releaseError } = useFetchNewReleases(listenHistory)
   const { songs: longSongs, loading: longLoading, error: longError } = useFetchLongSongs(listenHistory)
   const discoverySongs = useMemo(() => getDiscoveryPool(
-    quickPickSongs,
     songs,
     newReleaseSongs,
-    longSongs
-  ), [longSongs, newReleaseSongs, quickPickSongs, songs])
-  const librarySongs = useMemo(() => getSuggestedLibrarySongs(discoverySongs, 24), [discoverySongs])
+    longSongs,
+    listenHistory
+  ), [listenHistory, longSongs, newReleaseSongs, songs])
+  const librarySongs = useMemo(() => getSuggestedLibrarySongs(discoverySongs, 48, userId, rotationDate), [discoverySongs, rotationDate, userId])
+  const moodSongs = useMemo(() => shuffleForDailyRotation(librarySongs, { userId, scope: 'your-moods', date: rotationDate }), [librarySongs, rotationDate, userId])
+  const { songs: quickPickSongs, loading: quickLoading, error: quickError } = useFetchQuickPicks({
+    history: listenHistory,
+    moodSongs,
+    likedSongs,
+    discoverySongs,
+    playbackEvents: recommendationEvents,
+    currentTrack,
+    userId,
+    enabled: !loading && !releaseLoading && !longLoading
+  })
   const hollywoodSongs = useMemo(() => {
     const pool = [...curatedHollywoodSongs, ...(songs || []), ...(newReleaseSongs || []), ...(quickPickSongs || [])]
     return getHollywoodSongs(pool, 24)
@@ -141,7 +145,7 @@ export default function Home() {
     let isMounted = true
 
     const loadArtists = async () => {
-      const cached = readDailyCache('artists')
+      const cached = readDailyCache('artists', userId, rotationDate)
       if (cached?.length) {
         setArtists(cached)
         return
@@ -149,31 +153,31 @@ export default function Home() {
 
       const results = await mapWithConcurrency(fixedArtistNames, fetchArtistDetails, 3)
       const validResults = results.filter((artist) => artist?.image)
-      writeDailyCache('artists', validResults)
+      writeDailyCache('artists', validResults, userId, rotationDate)
       if (isMounted) setArtists(validResults)
     }
 
     const loadMixPlaylists = async () => {
-      const cached = readDailyCache('mix')
+      const cached = readDailyCache('mix', userId, rotationDate)
       if (cached?.length) {
         setMixPlaylists(cached)
         return
       }
       const results = await getMixForYouPlaylists(listenHistory, 10)
-      const shuffled = shuffleBySeed(results)
-      writeDailyCache('mix', shuffled)
+      const shuffled = shuffleForDailyRotation(results, { userId, scope: 'mix-for-you', date: rotationDate })
+      writeDailyCache('mix', shuffled, userId, rotationDate)
       if (isMounted) setMixPlaylists(shuffled)
     }
 
     const loadAlbums = async () => {
-      const cached = readDailyCache('albums')
+      const cached = readDailyCache('albums', userId, rotationDate)
       if (cached?.length) {
         setAlbumsForYou(cached)
         return
       }
       const results = await getAlbumsForYou(listenHistory, 10)
-      const shuffled = shuffleBySeed(results)
-      writeDailyCache('albums', shuffled)
+      const shuffled = shuffleForDailyRotation(results, { userId, scope: 'albums-for-you', date: rotationDate })
+      writeDailyCache('albums', shuffled, userId, rotationDate)
       if (isMounted) setAlbumsForYou(shuffled)
     }
 
@@ -184,7 +188,7 @@ export default function Home() {
     return () => {
       isMounted = false
     }
-  }, [listenHistory])
+  }, [listenHistory, rotationDate, userId])
 
   useEffect(() => {
     let isMounted = true
@@ -210,7 +214,7 @@ export default function Home() {
             <div className="order-4 lg:order-6"><MixForYou playlists={mixPlaylists} /></div>
             <div className="order-5 lg:order-4"><PopularArtists artists={artists} /></div>
             <div className="order-6 lg:order-9"><Albums albums={albumsForYou} /></div>
-            <div className="order-7 lg:order-7"><Moods songs={librarySongs} /></div>
+            <div className="order-7 lg:order-7"><Moods songs={moodSongs} /></div>
             <div className="order-8 lg:order-8"><Hollywood songs={hollywoodSongs} /></div>
             <div className="order-9 lg:order-10"><LongToListen songs={longSongs} /></div>
             {error && !loading && <div className="py-4 text-sm text-red-400">Unable to load songs right now.</div>}

@@ -38,3 +38,7 @@ export const fetchRecommendationCandidates = async (track, apiClient, onCandidat
 
   return candidates
 }
+
+export const fetchRecommendationProfile = (apiClient) => apiClient.get('/recommendations/profile')
+
+export const persistRecommendationEvents = (events, apiClient) => apiClient.post('/recommendations/events', { events })

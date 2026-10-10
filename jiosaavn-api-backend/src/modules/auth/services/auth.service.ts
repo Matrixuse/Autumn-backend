@@ -1,7 +1,8 @@
 import bcrypt from 'bcryptjs'
 import { createHash, randomBytes } from 'node:crypto'
 import { OAuth2Client } from 'google-auth-library'
-import { MongoClient, ObjectId, type Db } from 'mongodb'
+import { ObjectId } from 'mongodb'
+import { getDatabase } from '#common/database'
 import type { User } from '#modules/auth/models'
 
 interface UserDocument {
@@ -32,30 +33,6 @@ export class AuthError extends Error {
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 365 * 10
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '36232842622-0cfa2jhn3fv20iq16ro2c05uhhrj9td0.apps.googleusercontent.com'
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID)
-
-let databasePromise: Promise<Db> | undefined
-
-const getDatabase = async () => {
-  if (!process.env.MONGO_URI) {
-    throw new AuthError('MONGO_URI is not configured', 500)
-  }
-
-  databasePromise ??= MongoClient.connect(process.env.MONGO_URI).then(async (client) => {
-    const database = client.db(process.env.MONGO_DB_NAME)
-    await Promise.all([
-      database.collection<UserDocument>('users').createIndex({ email: 1 }, { unique: true }),
-      database.collection<UserDocument>('users').createIndex({ username: 1 }, { unique: true }),
-      database.collection<SessionDocument>('sessions').createIndex({ tokenHash: 1 }, { unique: true }),
-      database.collection<SessionDocument>('sessions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
-    ])
-    return database
-  }).catch((error) => {
-    databasePromise = undefined
-    throw error
-  })
-
-  return databasePromise
-}
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase()
 

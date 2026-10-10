@@ -3,15 +3,17 @@ import { ListMusic, Play } from 'lucide-react'
 import { usePlayer } from '../context/PlayerContext'
 import { useUpNextQueue } from '../hooks/useUpNextQueue'
 import { useLyrics } from '../hooks/useLyrics'
-import axiosInstance from '../api/axiosInstance'
 import { getBestImageUrl, getBestAudioUrl } from '../utils/mediaQuality'
 import { formatTime } from '../utils/formatTime'
 import { isLikelyHollywoodSong, searchSongs } from '../api/songs'
 import { searchPlaylists } from '../api/playlists'
 import Loader from '../components/common/Loader'
 import SongActionsMenu from '../components/common/SongActionsMenu'
+import ArtistCard from '../components/cards/ArtistCard'
+import Albums from '../components/sections/Albums'
 import NowPlayingOverlay from '../components/common/NowPlayingOverlay'
 import SortableQueueList from '../components/player/SortableQueueList'
+import useRelatedTrackDetails from '../hooks/useRelatedTrackDetails'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
@@ -79,13 +81,19 @@ export default function KeepListening() {
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [relatedSongs, setRelatedSongs] = useState([])
   const [relatedLoading, setRelatedLoading] = useState(false)
-  const [relatedArtists, setRelatedArtists] = useState([])
   const [relatedPlaylists, setRelatedPlaylists] = useState([])
+  const {
+    artists: relatedArtists,
+    albums: relatedAlbums,
+    artistsLoading,
+    albumsLoading
+  } = useRelatedTrackDetails(currentTrack)
   const { lyrics, copyright: lyricsCopyright, loading: lyricsLoading } = useLyrics(currentTrack, activeTab === 'LYRICS')
 
   useEffect(() => {
     if (!currentTrack?.id) {
-      setRelatedSongs([])
+      setRelatedPlaylists([])
+      setRelatedLoading(false)
       return undefined
     }
 
@@ -97,29 +105,15 @@ export default function KeepListening() {
         const trackArtist = getTrackArtist(currentTrack)
         const artistQuery = String(trackArtist).split(',')[0].trim() || trackTitle
         const playlistQuery = `${trackTitle} ${artistQuery} playlist`.trim()
-        const [artistsResponse, playlistsResponse] = await Promise.allSettled([
-          artistQuery
-            ? axiosInstance.get('/search/artists', { params: { query: artistQuery, page: 0, limit: 6 }, signal: controller.signal })
-            : Promise.resolve(null),
+        const [playlistsResponse] = await Promise.allSettled([
           playlistQuery ? searchPlaylists(playlistQuery, 5, 0) : Promise.resolve([])
         ])
-        const artists = artistsResponse.status === 'fulfilled'
-          ? (artistsResponse.value.data?.data?.results || []).slice(0, 6).map((artist) => ({
-            id: artist.id,
-            name: artist.name || artist.title || 'Artist',
-            image: getBestImageUrl(artist.image)
-          }))
-          : []
         const playlists = playlistsResponse.status === 'fulfilled' ? playlistsResponse.value.slice(0, 5) : []
         if (!controller.signal.aborted) {
-          setRelatedSongs([])
-          setRelatedArtists(artists)
           setRelatedPlaylists(playlists)
         }
       } catch {
         if (!controller.signal.aborted) {
-          setRelatedSongs([])
-          setRelatedArtists([])
           setRelatedPlaylists([])
         }
       } finally {
@@ -225,20 +219,24 @@ export default function KeepListening() {
 
   const renderArtistRail = () => (
     <section className="mt-6 space-y-5">
-      <h3 className="px-1 text-2xl font-bold text-white">Related artists</h3>
-      {relatedArtists.length ? (
+      <h3 className="px-1 text-2xl font-bold text-white">Popular Artists</h3>
+      {artistsLoading
+        ? <div className="grid min-h-20 place-items-center"><Loader label="Loading popular artists" /></div>
+        : relatedArtists.length ? (
         <div className="scrollbar-none flex gap-3 overflow-x-auto pb-2">
-          {relatedArtists.map((artist) => (
-            <article key={artist.id || artist.name} className="w-35 min-w-35 text-center">
-              <div className="mx-auto h-35 w-35 overflow-hidden rounded-full bg-white/10">
-                {artist.image ? <img src={artist.image} alt={artist.name} className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
-              </div>
-              <p className="mt-2 truncate text-md font-semibold text-white">{artist.name}</p>
-              <p className="mt-1 text-sm text-white/40">Artist</p>
-            </article>
-          ))}
+          {relatedArtists.map((artist) => <ArtistCard key={artist.id || artist.name} artist={artist} compact />)}
         </div>
-      ) : <p className="px-1 text-sm text-white/40">No related artists available.</p>}
+        ) : <p className="px-1 text-sm text-white/40">No related artists available.</p>}
+    </section>
+  )
+
+  const renderRelatedAlbums = () => (
+    <section className="mt-6">
+      {albumsLoading
+        ? <><h3 className="mb-3 px-1 text-2xl font-bold text-white">Related Albums</h3><div className="grid min-h-20 place-items-center"><Loader label="Loading related albums" /></div></>
+        : relatedAlbums.length
+        ? <Albums albums={relatedAlbums} title="Related Albums" />
+        : <><h3 className="mb-3 px-1 text-2xl font-bold text-white">Related Albums</h3><p className="px-1 text-sm text-white/40">No related albums available.</p></>}
     </section>
   )
 
@@ -308,7 +306,16 @@ export default function KeepListening() {
                 : renderSongList([], 'Your queue is empty.')}
               {isQueueLoading && <div className="grid min-h-16 place-items-center"><Loader label={`Finding songs (${queue.length}/50)`} /></div>}
             </>}
-            {activeTab === 'RELATED' && (relatedLoading ? <div className="grid min-h-56 place-items-center"><Loader label="Loading related songs" /></div> : <>{relatedSongs.length ? renderRelatedGrid() : renderSongList([], 'No related songs available.')}{renderArtistRail()}{renderPlaylistRail()}</>)}
+            {activeTab === 'RELATED' && <>
+              {relatedLoading
+                ? <div className="grid min-h-36 place-items-center"><Loader label="Loading related songs" /></div>
+                : relatedSongs.length ? renderRelatedGrid() : renderSongList([], 'No related songs available.')}
+              {renderArtistRail()}
+              {renderRelatedAlbums()}
+              {relatedLoading
+                ? null
+                : renderPlaylistRail()}
+            </>}
             {activeTab === 'LYRICS' && (lyricsLoading
               ? <div className="grid min-h-56 place-items-center"><Loader label="Loading lyrics" /></div>
               : <div className="px-3 py-2">

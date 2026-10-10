@@ -1,5 +1,8 @@
 import axiosInstance from './axiosInstance'
 import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality'
+import { getDailyRotationKey, createDailyRandom } from '../utils/dailyRotation'
+import { collectAndSelectQuickPicks, getQuickPickIdentityKeys, normalizeQuickPickSong } from '../utils/quickPicksEngine'
+import { fetchRecommendationCandidates } from './recommendations'
 
 export const LIBRARY_ROTATION_MS = 6 * 60 * 60 * 1000
 export const NEW_RELEASE_MAX_DAYS = 15
@@ -334,7 +337,7 @@ export const searchAll = async (query) => {
 }
 
 const normalizeMoodSong = (song = {}) => ({
-  id: song?.id || `${song?.name || song?.title || 'song'}-${Math.random().toString(36).slice(2, 9)}`,
+  id: song?.id || song?._id || song?.musicId || song?.trackId || undefined,
   title: song?.name || song?.title || 'Untitled track',
   artist: (song?.artists?.all || song?.artists?.primary || []).map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ') || song?.subtitle || 'Unknown Artist',
   image: getBestImageUrl(song?.image || song?.cover || song?.artwork || song?.thumbnail),
@@ -379,7 +382,9 @@ export const getMoodQuickPicksSongs = async (mood, limit = 24) => {
     const song = normalizeMoodSong(rawSong)
     if (!song.audio || !song.image) return
 
-    const key = String(song.id)
+    const key = song.id
+      ? `id:${String(song.id)}`
+      : `metadata:${normalizeText(song.artist)}:${normalizeText(song.title)}:${Number(song.duration) || 0}`
     const text = `${song.title} ${song.artist} ${song.album || ''} ${song.language}`.toLowerCase()
     const score = terms.reduce((total, term) => {
       if (song.title.toLowerCase().includes(term)) return total + 8
@@ -428,8 +433,10 @@ export const getSongs = async (queries = recentGlobalQueries, limit = 5) => {
 
   for (const batch of results) {
     for (const song of batch) {
+      const songId = song?.id || song?._id || song?.musicId || song?.trackId
+      if (!songId) continue
       const cleaned = {
-        id: song?.id || `${song?.name || 'song'}-${Math.random().toString(36).slice(2, 9)}`,
+        id: String(songId),
         title: song?.name || song?.title || 'Untitled track',
         artist: (song?.artists?.all || song?.artists?.primary || []).map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ') || song?.subtitle || 'Unknown Artist',
         image: getBestImageUrl(song?.image),
@@ -460,39 +467,119 @@ export const getSongs = async (queries = recentGlobalQueries, limit = 5) => {
   return normalized.slice(0, targetCount)
 }
 
-export const getQuickPicksSongs = async (history = [], limit = 24) => {
-  const safeLimit = Math.max(24, Number(limit) || 24)
-  const basePool = await getSongs(recentGlobalQueries, 30)
+const getTrackArtistNames = (track = {}) => {
+  const artists = [
+    ...(Array.isArray(track.artists?.primary) ? track.artists.primary : []),
+    ...(Array.isArray(track.artists?.all) ? track.artists.all : [])
+  ].map((artist) => artist?.name || artist?.title).filter(Boolean)
+  if (artists.length) return [...new Set(artists.map(String))]
+  if (Array.isArray(track.artist)) return track.artist.map((artist) => String(artist?.name || artist?.title || artist)).filter(Boolean)
+  return track.artist || track.subtitle ? [String(track.artist || track.subtitle)] : []
+}
 
-  if (!basePool.length) {
+const getFrequentQuickPickTrackIds = (events = [], limit = 12) => {
+  const counts = new Map()
+  for (const event of Array.isArray(events) ? events : []) {
+    if (!['track_started', 'track_completed', 'track_replayed', 'track_liked', 'recommendation_selected'].includes(event?.type)) continue
+    const trackId = String(event.trackId || '')
+    if (trackId) counts.set(trackId, (counts.get(trackId) || 0) + (event.type === 'track_liked' ? 3 : 1))
+  }
+  return [...counts.entries()].sort((first, second) => second[1] - first[1]).slice(0, limit).map(([trackId]) => trackId)
+}
+
+const getQuickPickArtistQueries = ({ history = [], likedSongs = [], playbackEvents = [] } = {}) => {
+  const counts = new Map()
+  const addArtists = (track, weight) => {
+    for (const artist of getTrackArtistNames(track)) {
+      const key = artist.trim()
+      if (key && key.toLowerCase() !== 'unknown artist') counts.set(key, (counts.get(key) || 0) + weight)
+    }
+  }
+  history.forEach((track) => addArtists(track, 1))
+  likedSongs.forEach((track) => addArtists(track, 3))
+  playbackEvents.forEach((event) => {
+    if (['track_started', 'track_completed', 'track_replayed', 'track_liked'].includes(event?.type)) {
+      addArtists(event.track || {}, event.type === 'track_liked' ? 3 : 1)
+    }
+  })
+  return [...counts.entries()].sort((first, second) => second[1] - first[1]).slice(0, 4).map(([artist]) => artist)
+}
+
+const getPreferredQuickPickMetadataQueries = ({ history = [], likedSongs = [], playbackEvents = [] } = {}) => {
+  const tracks = [...history, ...likedSongs, ...playbackEvents.map((event) => event?.track).filter(Boolean)]
+  const frequencies = (selectValues) => {
+    const counts = new Map()
+    tracks.flatMap(selectValues).map((value) => String(value || '').trim().toLowerCase())
+      .filter((value) => value && value !== 'unknown')
+      .forEach((value) => counts.set(value, (counts.get(value) || 0) + 1))
+    return [...counts.entries()].sort((first, second) => second[1] - first[1]).slice(0, 3).map(([value]) => value)
+  }
+  const genres = frequencies((track) => [
+    ...(Array.isArray(track.genre) ? track.genre : [track.genre]),
+    ...(Array.isArray(track.genres) ? track.genres : [])
+  ])
+  const languages = frequencies((track) => [track.language || track.lang])
+  return [...new Set([
+    ...genres.map((genre) => `${genre} songs`),
+    ...languages.map((language) => `${language} songs`)
+  ])].slice(0, 5)
+}
+
+const searchQuickPickCandidates = async (query, limit = 12, page = 0) => {
+  try {
+    return await searchSongs(query, limit, page)
+  } catch {
     return []
   }
+}
 
-  if (!history.length) {
-    return shuffleBySeed(basePool).slice(0, safeLimit)
-  }
+export const getQuickPicksSongs = async ({
+  history = [],
+  moodSongs = [],
+  likedSongs = [],
+  discoverySongs = [],
+  playbackEvents = [],
+  currentTrack = null,
+  userId = 'anonymous',
+  rotationKey = getDailyRotationKey(userId, 'quick-picks', new Date())
+} = {}) => {
+  const target = 24
+  const artistQueries = getQuickPickArtistQueries({ history, likedSongs, playbackEvents })
+  const metadataQueries = getPreferredQuickPickMetadataQueries({ history, likedSongs, playbackEvents })
+  const frequentTrackIds = getFrequentQuickPickTrackIds(playbackEvents)
+  const sourceLoaders = [
+    () => getSongsByIds(frequentTrackIds),
+    () => Promise.all(artistQueries.map((artist) => searchQuickPickCandidates(artist, 10))).then((batches) => batches.flat()),
+    () => Promise.all(metadataQueries.map((query) => searchQuickPickCandidates(query, 10))).then((batches) => batches.flat()),
+    ...(currentTrack?.id ? [() => fetchRecommendationCandidates(currentTrack, axiosInstance)] : [])
+  ]
+  const globalQueryOffset = Math.floor(createDailyRandom(
+    `${rotationKey}:global-query-order`
+  )() * recentGlobalQueries.length)
+  const globalQueryOrder = [
+    ...recentGlobalQueries.slice(globalQueryOffset),
+    ...recentGlobalQueries.slice(0, globalQueryOffset)
+  ]
 
-  const preferredLanguages = getListeningLanguageProfile(history)
-  const preferredArtists = history
-    .map((track) => String(track?.artist || track?.artists?.all?.[0]?.name || '').toLowerCase())
-    .filter(Boolean)
-
-  const scored = basePool
-    .map((song) => {
-      const artistText = String(song?.artist || '').toLowerCase()
-      const language = normalizeLanguage(song?.language || 'hindi')
-      let score = 0
-
-      if (preferredLanguages.includes(language)) score += 35
-      if (preferredArtists.some((value) => artistText.includes(value))) score += 40
-      if (song?.album) score += 12
-
-      return { song, score }
-    })
-    .sort((a, b) => b.score - a.score)
-    .map(({ song }) => song)
-
-  return shuffleBySeed(scored).slice(0, safeLimit)
+  return collectAndSelectQuickPicks({
+    personalizedSources: [history, moodSongs, likedSongs, discoverySongs],
+    sourceLoaders,
+    limit: target,
+    maxGlobalBatches: 8,
+    random: createDailyRandom(`${rotationKey}:final-order`),
+    fetchGlobalCandidates: async ({ missingCount, excludeKeys, batchIndex }) => {
+      const start = (batchIndex * 3) % globalQueryOrder.length
+      const queries = Array.from({ length: Math.min(3, globalQueryOrder.length) }, (_, index) => (
+        globalQueryOrder[(start + index) % globalQueryOrder.length]
+      ))
+      const pageSize = Math.min(12, Math.max(4, Math.ceil(missingCount / queries.length) + 3))
+      const batches = await Promise.all(queries.map((query) => searchQuickPickCandidates(query, pageSize, batchIndex)))
+      return batches.flat().filter((candidate) => {
+        const normalized = normalizeQuickPickSong(candidate)
+        return normalized && !getQuickPickIdentityKeys(normalized).some((key) => excludeKeys.has(key))
+      })
+    }
+  })
 }
 
 export const getNewReleaseSongs = async (history = [], limit = 8) => {

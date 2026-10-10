@@ -1,8 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { getSongs, getQuickPicksSongs, getNewReleaseSongs, getLongToListenSongs, recentGlobalQueries, LIBRARY_ROTATION_MS } from '../api/songs'
+import { getRotationBucketKey } from '../utils/dailyRotation'
 
 const getLibraryBucketKey = () => Math.floor(Date.now() / LIBRARY_ROTATION_MS)
-const getDailyKey = (prefix) => `${prefix}_${new Date().toISOString().slice(0, 10)}`
+const quickPicksRequests = new Map()
+
+const getOrCreateQuickPicksRequest = (key, options) => {
+  const activeRequest = quickPicksRequests.get(key)
+  if (activeRequest) return activeRequest
+
+  const request = getQuickPicksSongs(options).finally(() => {
+    if (quickPicksRequests.get(key) === request) quickPicksRequests.delete(key)
+  })
+  quickPicksRequests.set(key, request)
+  return request
+}
 
 export const useFetchSongs = () => {
   const [songs, setSongs] = useState([])
@@ -46,47 +58,111 @@ export const useFetchSongs = () => {
   return { songs, setSongs, loading, error }
 }
 
-export const useFetchQuickPicks = (history = []) => {
+export const useFetchQuickPicks = ({
+  history = [],
+  moodSongs = [],
+  likedSongs = [],
+  discoverySongs = [],
+  playbackEvents = [],
+  currentTrack = null,
+  userId = 'anonymous',
+  enabled = true
+} = {}) => {
   const [songs, setSongs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [rotationTimestamp, setRotationTimestamp] = useState(() => Date.now())
+  const rotationKey = getRotationBucketKey(userId, 'quick-picks', rotationTimestamp, LIBRARY_ROTATION_MS)
 
   useEffect(() => {
+    let timeoutId
+    const scheduleNextBucket = () => {
+      const now = Date.now()
+      const current = new Date(now)
+      const minuteOfDay = current.getHours() * 60 + current.getMinutes()
+      const intervalMinutes = LIBRARY_ROTATION_MS / 60000
+      const nextBoundaryMinutes = (Math.floor(minuteOfDay / intervalMinutes) + 1) * intervalMinutes
+      const nextBoundary = new Date(current)
+      if (nextBoundaryMinutes >= 24 * 60) {
+        nextBoundary.setDate(nextBoundary.getDate() + 1)
+        nextBoundary.setHours(0, 0, 0, 0)
+      } else {
+        nextBoundary.setHours(Math.floor(nextBoundaryMinutes / 60), nextBoundaryMinutes % 60, 0, 0)
+      }
+      timeoutId = window.setTimeout(() => {
+        setRotationTimestamp(Date.now())
+        scheduleNextBucket()
+      }, nextBoundary.getTime() - now + 10)
+    }
+    scheduleNextBucket()
+    return () => window.clearTimeout(timeoutId)
+  }, [])
+
+  const generateQuickPicks = useEffectEvent(() => getOrCreateQuickPicksRequest(rotationKey, {
+    history,
+    moodSongs,
+    likedSongs,
+    discoverySongs,
+    playbackEvents,
+    currentTrack,
+    userId,
+    rotationKey
+  }))
+
+  useEffect(() => {
+    let active = true
     const loadSongs = async () => {
-      const bucketKey = getDailyKey('autumn_quick_picks')
-      const cached = localStorage.getItem(bucketKey)
+      if (!enabled) return
+      const bucketKey = `autumn_quick_picks_v5_${rotationKey}`
+      let cached = null
+      try {
+        cached = localStorage.getItem(bucketKey)
+      } catch {
+        cached = null
+      }
 
       if (cached) {
         try {
           const parsed = JSON.parse(cached)
-          if (Array.isArray(parsed) && parsed.length >= 24) {
-            setSongs(parsed)
-            setLoading(false)
+          if (Array.isArray(parsed)) {
+            if (active) {
+              setSongs(parsed.slice(0, 24))
+              setLoading(false)
+            }
             return
           }
-          localStorage.removeItem(bucketKey)
+          try { localStorage.removeItem(bucketKey) } catch {}
         } catch {
-          localStorage.removeItem(bucketKey)
+          try { localStorage.removeItem(bucketKey) } catch {}
         }
       }
 
-      setLoading(true)
-      setError(null)
+      if (active) {
+        setLoading(true)
+        setError(null)
+      }
 
       try {
-        const results = await getQuickPicksSongs(history, 24)
+        const results = (await generateQuickPicks()).slice(0, 24)
+        if (!active) return
         setSongs(results)
-        localStorage.setItem(bucketKey, JSON.stringify(results))
+        try {
+          localStorage.setItem(bucketKey, JSON.stringify(results))
+        } catch {
+          // A successful selection remains usable when browser storage is unavailable.
+        }
       } catch (err) {
+        if (!active) return
         setError(err)
         setSongs([])
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
 
     loadSongs()
-  }, [history])
+    return () => { active = false }
+  }, [enabled, rotationKey, userId])
 
   return { songs, loading, error }
 }

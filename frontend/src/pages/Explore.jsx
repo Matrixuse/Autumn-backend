@@ -6,9 +6,12 @@ import MixForYou from '../components/sections/MixForYou'
 import Hollywood from '../components/sections/Hollywood'
 import Loader from '../components/common/Loader'
 import { usePlayer } from '../context/PlayerContext'
-import { getHollywoodSongs, getQuickPicksSongs } from '../api/songs'
+import { useAuth } from '../context/AuthContext'
+import { useDailyRotationDate } from '../hooks/useDailyRotationDate'
+import { getHollywoodSongs, getSongs, recentGlobalQueries } from '../api/songs'
 import { getAlbumsForYou } from '../api/albums'
 import { getMixForYouPlaylists } from '../api/playlists'
+import { shuffleForDailyRotation } from '../utils/dailyRotation'
 
 const shuffleSongs = (songs) => {
     const shuffled = [...songs]
@@ -21,23 +24,11 @@ const shuffleSongs = (songs) => {
     return shuffled
 }
 
-const getDailySeed = () => `${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`
-
-const shuffleByDay = (items = []) => {
-    const seed = getDailySeed()
-    const shuffled = [...items]
-
-    for (let index = shuffled.length - 1; index > 0; index -= 1) {
-        const charCode = seed.charCodeAt((index + seed.length) % seed.length)
-        const nextIndex = (charCode + index * 17) % (index + 1)
-        ;[shuffled[index], shuffled[nextIndex]] = [shuffled[nextIndex], shuffled[index]]
-    }
-
-    return shuffled
-}
-
 export default function Explore() {
     const { listenHistory } = usePlayer()
+    const { user } = useAuth()
+    const rotationDate = useDailyRotationDate()
+    const userId = user?.id || 'anonymous'
     const [songs, setSongs] = useState([])
     const [albums, setAlbums] = useState([])
     const [playlists, setPlaylists] = useState([])
@@ -53,15 +44,15 @@ export default function Explore() {
 
             try {
                 const [results, albumResults, playlistResults] = await Promise.all([
-                    getQuickPicksSongs(listenHistory, 30),
+                    getSongs(recentGlobalQueries, 30),
                     getAlbumsForYou(listenHistory, 10),
                     getMixForYouPlaylists(listenHistory, 10),
                 ])
 
                 if (isMounted) {
                     setSongs(shuffleSongs(results).slice(0, 30))
-                    setAlbums(shuffleByDay(albumResults))
-                    setPlaylists(shuffleByDay(playlistResults))
+                    setAlbums(shuffleForDailyRotation(albumResults, { userId, scope: 'albums-for-you', date: rotationDate }))
+                    setPlaylists(shuffleForDailyRotation(playlistResults, { userId, scope: 'mix-for-you', date: rotationDate }))
                 }
             } catch {
                 if (isMounted) {
@@ -79,7 +70,7 @@ export default function Explore() {
         return () => {
             isMounted = false
         }
-    }, [listenHistory])
+    }, [listenHistory, rotationDate, userId])
 
     return (
     <div className="space-y-5 md:space-y-10">

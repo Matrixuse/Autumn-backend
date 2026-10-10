@@ -11,11 +11,13 @@ import { searchPlaylists } from '../api/playlists'
 import ArtistCard from '../components/cards/ArtistCard'
 import PlaylistCard from '../components/cards/PlaylistCard'
 import SongCard from '../components/cards/SongCard'
+import Albums from '../components/sections/Albums'
 import { getSongArtists } from '../utils/songSearch'
 import NowPlayingOverlay from '../components/common/NowPlayingOverlay'
 import SortableQueueList from '../components/player/SortableQueueList'
 import MoodChips from '../components/sections/MoodChips'
 import Loader from '../components/common/Loader'
+import useRelatedTrackDetails from '../hooks/useRelatedTrackDetails'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
@@ -46,7 +48,12 @@ export default function MobilePlayerPage({ song }) {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [detailsDragOffset, setDetailsDragOffset] = useState(0)
   const [recommendedPlaylists, setRecommendedPlaylists] = useState([])
-  const [similarArtists, setSimilarArtists] = useState([])
+  const {
+    artists: similarArtists,
+    albums: relatedAlbums,
+    artistsLoading,
+    albumsLoading
+  } = useRelatedTrackDetails(currentTrack)
   const gestureStartRef = useRef(null)
   const [playerDragOffset, setPlayerDragOffset] = useState(0)
 
@@ -105,7 +112,6 @@ export default function MobilePlayerPage({ song }) {
   useEffect(() => {
     if (!currentTrack?.id) {
       setRecommendedPlaylists([])
-      setSimilarArtists([])
       return undefined
     }
 
@@ -114,32 +120,18 @@ export default function MobilePlayerPage({ song }) {
     const playlistQuery = `${currentTrack.title || ''} ${artistName} playlist`.trim()
 
     const loadRelatedSections = async () => {
-      const [playlistResult, artistResult] = await Promise.allSettled([
-        searchPlaylists(playlistQuery, 8, 0),
-        axiosInstance.get('/search/artists', { params: { query: artistName || currentTrack.title, page: 0, limit: 8 }, signal: controller.signal })
-      ])
+      const [playlistResult] = await Promise.allSettled([searchPlaylists(playlistQuery, 8, 0)])
 
       if (controller.signal.aborted) return
 
       const playlists = playlistResult.status === 'fulfilled' ? playlistResult.value : []
-      const artists = artistResult.status === 'fulfilled' ? artistResult.value.data?.data?.results || [] : []
-      const currentArtistKey = artistName.toLowerCase()
 
       setRecommendedPlaylists(playlists.filter((playlist, index, items) => items.findIndex((item) => String(item.id) === String(playlist.id)) === index).slice(0, 8))
-      setSimilarArtists(artists
-        .filter((artist) => String(artist.name || artist.title || '').trim().toLowerCase() !== currentArtistKey)
-        .map((artist) => ({
-          id: artist.id,
-          name: artist.name || artist.title || 'Artist',
-          image: getBestImageUrl(artist.image || artist.images || artist.image_url || artist.thumbnail || artist.cover || [])
-        }))
-        .filter((artist) => artist.id)
-        .slice(0, 8))
     }
 
     loadRelatedSections()
     return () => controller.abort()
-  }, [currentTrack?.id, currentTrack?.title, currentTrack?.artist, currentTrack?.subtitle, listenHistory])
+  }, [currentTrack?.id, currentTrack?.title, currentTrack?.artist, currentTrack?.subtitle])
 
   const minimizePlayer = () => {
     navigate(-1)
@@ -195,8 +187,8 @@ export default function MobilePlayerPage({ song }) {
     if (activeTab === 'RELATED') {
       return (
         <div className="px-5 py-3">
-          {relatedTracks.length ? (
-            <section>
+          <section>
+            {relatedTracks.length ? <>
               <div className="mb-5">
                 <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Quick picks</p>
                 <h2 className="font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">For you</h2>
@@ -217,39 +209,44 @@ export default function MobilePlayerPage({ song }) {
                   </div>
                 ))}
               </div>
-              {recommendedPlaylists.length > 0 && (
-                <section className="mt-8">
-                  <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Recommended playlists</p>
-                  <h2 className="mb-4 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Playlists for you</h2>
-                  <div className="scrollbar-none flex gap-4 overflow-x-auto pb-2">
-                    {recommendedPlaylists.map((playlist) => <PlaylistCard key={playlist.id} playlist={playlist} />)}
+            </> : <p className="py-4 text-center text-sm text-white/45">No related songs available.</p>}
+            {recommendedTracks.length > 0 && (
+              <section className="mt-8">
+                <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Your moods</p>
+                <h2 className="mb-4 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Moods for you</h2>
+                <div className="scrollbar-none flex gap-4 overflow-x-auto pb-2">
+                  {recommendedTracks.slice(0, 8).map((track) => <SongCard key={track.id} song={track} queue={recommendedTracks} />)}
+                </div>
+              </section>
+            )}
+            <section className="mt-8">
+              <h2 className="mb-4 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Popular Artists</h2>
+              {artistsLoading
+                ? <div className="grid min-h-20 place-items-center"><Loader label="Loading popular artists" /></div>
+                : similarArtists.length
+                  ? <div className="scrollbar-none flex gap-4 overflow-x-auto pb-2">
+                    {similarArtists.slice(0, 5).map((artist) => <ArtistCard key={artist.id} artist={artist} compact />)}
                   </div>
-                </section>
-              )}
-              {similarArtists.length > 0 && (
-                <section className="mt-8">
-                  <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Similar artists</p>
-                  <h2 className="mb-4 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Artists you may like</h2>
-                  <div className="scrollbar-none flex gap-4 overflow-x-auto pb-2">
-                    {similarArtists.map((artist) => <ArtistCard key={artist.id} artist={artist} compact />)}
-                  </div>
-                </section>
-              )}
-              {recommendedTracks.length > 0 && (
-                <section className="mt-8 pb-8">
-                  <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Your moods</p>
-                  <h2 className="mb-4 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Moods for you</h2>
-                  <div className="scrollbar-none flex gap-4 overflow-x-auto pb-2">
-                    {recommendedTracks.slice(0, 8).map((track) => <SongCard key={track.id} song={track} queue={recommendedTracks} />)}
-                  </div>
-                </section>
-              )}
-              <br />
-              <br />
-              <br />
-              <br />
+                  : <p className="text-sm text-white/45">No related artists available.</p>}
             </section>
-          ) : <p className="py-6 text-center text-sm text-white/45">No related songs available.</p>}
+            <section className="mt-8">
+              {albumsLoading
+                ? <><h2 className="mb-4 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Related Albums</h2><div className="grid min-h-20 place-items-center"><Loader label="Loading related albums" /></div></>
+                : relatedAlbums.length
+                  ? <Albums albums={relatedAlbums} title="Related Albums" />
+                  : <><h2 className="mb-3 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Related Albums</h2><p className="text-sm text-white/45">No related albums available.</p></>}
+            </section>
+            {recommendedPlaylists.length > 0 && (
+              <section className="mt-8">
+                <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Recommended playlists</p>
+                <h2 className="mb-4 font-['Space_Grotesk'] text-2xl font-bold leading-none text-white">Playlists for you</h2>
+                <div className="scrollbar-none flex gap-4 overflow-x-auto pb-2">
+                  {recommendedPlaylists.map((playlist) => <PlaylistCard key={playlist.id} playlist={playlist} />)}
+                </div>
+              </section>
+            )}
+            <br /><br /><br /><br />
+          </section>
         </div>
       )
     }
