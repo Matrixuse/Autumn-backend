@@ -67,6 +67,13 @@ const fixedArtistNames = [
 
 const normalizeName = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 
+const isCompleteArtistSet = (artists) => Array.isArray(artists)
+  && artists.length === fixedArtistNames.length
+  && artists.every((artist, index) => (
+    normalizeName(artist?.name) === normalizeName(fixedArtistNames[index])
+    && Boolean(getBestImageUrl(artist?.image))
+  ))
+
 const readDailyCache = (key, userId, date) => {
   try {
     const rotationKey = getDailyRotationKey(userId, key, date)
@@ -91,12 +98,14 @@ const fetchArtistDetails = async (name) => {
     })
 
     const results = response.data?.data?.results || []
-    const match = results.find((artist) => normalizeName(artist?.name) === normalizeName(name)) || results[0]
+    const match = results.find((artist) => normalizeName(artist?.name) === normalizeName(name))
+
+    if (!match) return { id: name, name, image: null }
 
     return {
-      id: match?.id || name,
-      name: match?.name || name,
-      image: getBestImageUrl(match?.image) || null
+      id: match.id || name,
+      name,
+      image: getBestImageUrl(match.image || match.images) || null
     }
   } catch {
     return { id: name, name, image: null }
@@ -146,15 +155,14 @@ export default function Home() {
 
     const loadArtists = async () => {
       const cached = readDailyCache('artists', userId, rotationDate)
-      if (cached?.length) {
+      if (isCompleteArtistSet(cached)) {
         setArtists(cached)
         return
       }
 
       const results = await mapWithConcurrency(fixedArtistNames, fetchArtistDetails, 3)
-      const validResults = results.filter((artist) => artist?.image)
-      writeDailyCache('artists', validResults, userId, rotationDate)
-      if (isMounted) setArtists(validResults)
+      if (isCompleteArtistSet(results)) writeDailyCache('artists', results, userId, rotationDate)
+      if (isMounted) setArtists(results)
     }
 
     const loadMixPlaylists = async () => {

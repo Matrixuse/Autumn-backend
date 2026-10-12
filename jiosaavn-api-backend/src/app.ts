@@ -7,6 +7,30 @@ import { Home } from './pages/home.js'
 import type { Routes } from '#common/types'
 import type { HTTPException } from 'hono/http-exception'
 
+const allowedOrigins = new Set([
+  'http://localhost:3000',
+  'http://localhost:4173',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:4173',
+  'http://127.0.0.1:5173',
+  'https://localhost:3000',
+  'https://localhost:4173',
+  'https://localhost:5173',
+  'https://autumn-its-listening.onrender.com',
+  'capacitor://localhost'
+])
+
+const getAllowedOrigin = (origin?: string) => {
+  if (!origin) return undefined
+
+  const configuredOrigin = process.env.FRONTEND_URL?.replace(/\/$/, '')
+  if (allowedOrigins.has(origin) || origin === configuredOrigin) return origin
+
+  const isLocalDevelopmentOrigin = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)
+  return isLocalDevelopmentOrigin ? origin : undefined
+}
+
 export class App {
   private app: OpenAPIHono
 
@@ -32,29 +56,8 @@ export class App {
   private initializeGlobalMiddlewares() {
     this.app.use(logger())
     this.app.use(prettyJSON())
-    const allowedOrigins = new Set([
-      'http://localhost:3000',
-      'http://localhost:4173',
-      'http://localhost:5173',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:4173',
-      'http://127.0.0.1:5173',
-      'https://localhost:3000',
-      'https://localhost:4173',
-      'https://localhost:5173',
-      'https://autumn-its-listening.onrender.com',
-      'capacitor://localhost',
-      ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL.replace(/\/$/, '')] : [])
-    ])
-
     this.app.use(cors({
-      origin: (origin) => {
-        if (!origin) return undefined
-        if (allowedOrigins.has(origin)) return origin
-
-        const isLocalDevelopmentOrigin = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)
-        return isLocalDevelopmentOrigin ? origin : undefined
-      },
+      origin: getAllowedOrigin,
       credentials: true,
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -111,7 +114,16 @@ export class App {
   private initializeErrorHandler() {
     this.app.onError((err, ctx) => {
       const error = err as HTTPException
-      return ctx.json({ success: false, message: error.message }, error.status || 500)
+      const response = ctx.json({ success: false, message: error.message }, error.status || 500)
+      const origin = getAllowedOrigin(ctx.req.header('origin'))
+
+      if (origin) {
+        response.headers.set('Access-Control-Allow-Origin', origin)
+        response.headers.set('Access-Control-Allow-Credentials', 'true')
+        response.headers.set('Vary', 'Origin')
+      }
+
+      return response
     })
   }
 
