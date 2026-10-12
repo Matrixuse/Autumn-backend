@@ -8,7 +8,7 @@ const baseURL = apiOrigin
   ? (apiOrigin.endsWith('/api') ? apiOrigin : `${apiOrigin}/api`)
   : '/api'
 
-const axiosInstance = axios.create({ baseURL, withCredentials: true, headers: { 'Content-Type': 'application/json' } })
+const axiosInstance = axios.create({ baseURL })
 
 axiosInstance.interceptors.request.use((config) => {
   return config

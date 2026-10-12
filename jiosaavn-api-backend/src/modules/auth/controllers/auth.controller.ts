@@ -7,12 +7,16 @@ import { AuthError, AuthService } from '#modules/auth/services'
 
 const SESSION_COOKIE = 'jiosaavn_session'
 const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 400
-const sessionCookieOptions = {
-  httpOnly: true,
-  sameSite: 'Lax' as const,
-  secure: process.env.NODE_ENV === 'production',
-  path: '/',
-  maxAge: SESSION_COOKIE_MAX_AGE
+const getSessionCookieOptions = (requestUrl: string) => {
+  const isSecure = new URL(requestUrl).protocol === 'https:'
+
+  return {
+    httpOnly: true,
+    sameSite: isSecure ? 'None' as const : 'Lax' as const,
+    secure: isSecure,
+    path: '/',
+    maxAge: SESSION_COOKIE_MAX_AGE
+  }
 }
 
 const credentialsSchema = z.object({
@@ -51,7 +55,7 @@ export class AuthController implements Routes {
       async (ctx) => {
         const body = ctx.req.valid('json')
         const session = await this.authService.loginWithGoogle(body.idToken)
-        setCookie(ctx, SESSION_COOKIE, session.token, sessionCookieOptions)
+        setCookie(ctx, SESSION_COOKIE, session.token, getSessionCookieOptions(ctx.req.url))
         return ctx.json({ success: true as const, data: session.user }, 200)
       }
     )
@@ -73,7 +77,7 @@ export class AuthController implements Routes {
       async (ctx) => {
         const body = ctx.req.valid('json')
         const session = await this.authService.register(body.username, body.email, body.password)
-        setCookie(ctx, SESSION_COOKIE, session.token, sessionCookieOptions)
+        setCookie(ctx, SESSION_COOKIE, session.token, getSessionCookieOptions(ctx.req.url))
         return ctx.json({ success: true as const, data: session.user }, 201)
       }
     )
@@ -95,7 +99,7 @@ export class AuthController implements Routes {
       async (ctx) => {
         const body = ctx.req.valid('json')
         const session = await this.authService.login(body.email, body.password)
-        setCookie(ctx, SESSION_COOKIE, session.token, sessionCookieOptions)
+        setCookie(ctx, SESSION_COOKIE, session.token, getSessionCookieOptions(ctx.req.url))
         return ctx.json({ success: true as const, data: session.user }, 200)
       }
     )
@@ -137,7 +141,7 @@ export class AuthController implements Routes {
       async (ctx) => {
         const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
         const token = getCookie(ctx, SESSION_COOKIE)
-        if (token) setCookie(ctx, SESSION_COOKIE, token, sessionCookieOptions)
+        if (token) setCookie(ctx, SESSION_COOKIE, token, getSessionCookieOptions(ctx.req.url))
         return ctx.json({ success: true as const, data: user }, 200)
       }
     )
