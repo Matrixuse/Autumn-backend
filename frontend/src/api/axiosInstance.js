@@ -1,8 +1,10 @@
 import axios from 'axios'
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
-const productionApiOrigin = 'https://autumn-backend.namans2k04.workers.dev'
-const useProductionFallback = import.meta.env.PROD && (!configuredBaseUrl || configuredBaseUrl.includes('.run.app'))
+const productionApiOrigin = 'https://autumn-backend.getvoroa.com'
+const useProductionFallback = import.meta.env.PROD && (
+  !configuredBaseUrl || configuredBaseUrl.includes('.run.app') || configuredBaseUrl.includes('.workers.dev')
+)
 const apiOrigin = useProductionFallback ? productionApiOrigin : configuredBaseUrl
 const baseURL = apiOrigin
   ? (apiOrigin.endsWith('/api') ? apiOrigin : `${apiOrigin}/api`)
