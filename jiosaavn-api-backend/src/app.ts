@@ -33,18 +33,31 @@ export class App {
     this.app.use(logger())
     this.app.use(prettyJSON())
     const allowedOrigins = new Set([
+      'http://localhost:3000',
+      'http://localhost:4173',
       'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:4173',
       'http://127.0.0.1:5173',
+      'https://localhost:3000',
+      'https://localhost:4173',
+      'https://localhost:5173',
       'https://autumn-its-listening.onrender.com',
-      'https://localhost',
       'capacitor://localhost',
-      'http://localhost',
       ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL.replace(/\/$/, '')] : [])
     ])
 
     this.app.use(cors({
-      origin: (origin) => origin && allowedOrigins.has(origin) ? origin : undefined,
-      credentials: true
+      origin: (origin) => {
+        if (!origin) return undefined
+        if (allowedOrigins.has(origin)) return origin
+
+        const isLocalDevelopmentOrigin = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)
+        return isLocalDevelopmentOrigin ? origin : undefined
+      },
+      credentials: true,
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
     }))
   }
 
