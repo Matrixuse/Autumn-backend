@@ -19,8 +19,8 @@ import { fetchRecommendationProfile, persistRecommendationEvents } from '../api/
 
 const HISTORY_LIMIT = 18
 const RECOMMENDATION_EVENT_LIMIT = 500
-const UPCOMING_QUEUE_TARGET = 40
-const UPCOMING_QUEUE_REFILL_THRESHOLD = 39
+const UPCOMING_QUEUE_TARGET = 50
+const UPCOMING_QUEUE_REFILL_THRESHOLD = 49
 const RECOMMENDATION_CACHE_TTL_MS = 5 * 60 * 1000
 const recommendationEventSyncEnabled = import.meta.env.VITE_RECOMMENDATION_EVENTS_ENABLED === 'true'
 

@@ -8,6 +8,118 @@ const normalizeText = (value = '') => String(value ?? '')
   .replace(/\s+/g, ' ')
   .trim()
 
+const LANGUAGE_ALIASES = new Map([
+  ['english', 'english'], ['en', 'english'], ['eng', 'english'], ['england', 'english'], ['uk', 'english'],
+  ['hindi', 'hindi'], ['hi', 'hindi'], ['hin', 'hindi'], ['devanagari', 'hindi'],
+  ['japanese', 'japanese'], ['ja', 'japanese'], ['jpn', 'japanese'], ['jp', 'japanese'],
+  ['punjabi', 'punjabi'], ['pa', 'punjabi'], ['panjabi', 'punjabi'],
+  ['tamil', 'tamil'], ['ta', 'tamil'], ['telugu', 'telugu'], ['te', 'telugu'],
+  ['marathi', 'marathi'], ['mr', 'marathi'], ['bengali', 'bengali'], ['bn', 'bengali'],
+  ['gujarati', 'gujarati'], ['gu', 'gujarati'], ['kannada', 'kannada'], ['kn', 'kannada'],
+  ['malayalam', 'malayalam'], ['ml', 'malayalam'], ['odia', 'odia'], ['or', 'odia'], ['urdu', 'urdu'], ['ur', 'urdu']
+])
+
+const canonicalizeLanguage = (value = '') => {
+  const raw = String(value ?? '').trim().toLowerCase()
+  if (!raw || raw === 'unknown' || raw === 'null') return 'unknown'
+  const compact = raw.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!compact) return 'unknown'
+  const direct = compact.split(' ').filter(Boolean)
+  for (const token of direct) {
+    const mapped = LANGUAGE_ALIASES.get(token)
+    if (mapped) return mapped
+  }
+  for (const [alias, canonical] of LANGUAGE_ALIASES.entries()) {
+    if (compact.includes(alias)) return canonical
+  }
+  return compact.includes('english') ? 'english'
+    : compact.includes('hindi') ? 'hindi'
+      : compact.includes('japanese') ? 'japanese'
+        : compact.includes('punjabi') ? 'punjabi'
+          : compact.includes('tamil') ? 'tamil'
+            : compact.includes('telugu') ? 'telugu'
+              : 'unknown'
+}
+
+const createSeededRandom = (seed = '') => {
+  let state = 0
+  for (let index = 0; index < String(seed || 'autumn').length; index += 1) {
+    state = (state * 31 + String(seed || 'autumn').charCodeAt(index)) >>> 0
+  }
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+export const shuffleRecommendationList = (items = [], { rng = Math.random, seed = '' } = {}) => {
+  const list = Array.isArray(items) ? [...items] : []
+  if (list.length < 2) return list
+  const random = typeof rng === 'function' ? rng : createSeededRandom(seed || String(rng) || 'autumn')
+  for (let index = list.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1))
+    ;[list[index], list[swapIndex]] = [list[swapIndex], list[index]]
+  }
+  return list
+}
+
+const shouldRetainSongLanguage = (sourceSong = {}, candidateSong = {}) => {
+  const sourceLanguage = getSongLanguage(sourceSong)
+  const candidateLanguage = getSongLanguage(candidateSong)
+  if (sourceLanguage === 'unknown') return candidateLanguage !== 'unknown'
+  return candidateLanguage === sourceLanguage
+}
+
+export const validateGeneratedQueue = (queue = [], {
+  sourceSong = null,
+  targetLength = 50,
+  requireMinimum = true
+} = {}) => {
+  const list = Array.isArray(queue) ? queue : []
+  const seen = new Set()
+  const issues = []
+  const validSongs = []
+
+  for (const song of list) {
+    if (!song || !song.id || !song.audio) {
+      issues.push('missing playback data')
+      continue
+    }
+    const identity = getSongIdentity(song)
+    if (!identity || seen.has(identity)) {
+      issues.push('duplicate track')
+      continue
+    }
+    seen.add(identity)
+
+    if (sourceSong && !shouldRetainSongLanguage(sourceSong, song)) {
+      issues.push(`language mismatch:${getSongIdentity(song)}`)
+      continue
+    }
+
+    validSongs.push(song)
+  }
+
+  if (sourceSong) {
+    const sourceIdentity = getSongIdentity(sourceSong)
+    const hasSourceTrack = list.some((song) => getSongIdentity(song) === sourceIdentity)
+    if (!hasSourceTrack && list.length && list[0] && String(list[0].id || '') !== String(sourceSong.id || '')) {
+      // Candidate-only validation is allowed; actual queue generation will always include the source track.
+    }
+  }
+
+  const pass = !issues.length && (!requireMinimum || validSongs.length >= Math.max(0, targetLength))
+  return {
+    isValid: pass,
+    validSongs,
+    issues,
+    uniqueCount: validSongs.length
+  }
+}
+
 export const normalizeTitle = (name = '') => String(name)
   .toLowerCase()
   .replace(/\s*[([].*?[)\]]/g, ' ')
@@ -28,9 +140,21 @@ export const getArtistKey = (song = {}) => {
   return primaryArtist?.id ? `id:${primaryArtist.id}` : artistName ? `name:${artistName}` : `song:${song.id || song._id || 'unknown'}`
 }
 
-export const getSongLanguage = (song = {}) => String(song.language || song.lang || song.more_info?.language || '')
-  .trim()
-  .toLowerCase()
+export const getSongLanguage = (song = {}) => {
+  const explicit = canonicalizeLanguage(song?.language || song?.lang || song?.more_info?.language || song?.metadata?.language)
+  if (explicit !== 'unknown') return explicit
+  if (typeof song?.title === 'string' || typeof song?.name === 'string') {
+    const metadataText = `${song?.title || song?.name || ''} ${song?.artist || song?.subtitle || song?.primaryArtists || ''}`
+    if (typeof song?.title === 'string' && /[\u3040-\u30ff]/u.test(song.title)) return 'japanese'
+    if (typeof song?.artist === 'string' && /[\u3040-\u30ff]/u.test(song.artist)) return 'japanese'
+    if (typeof metadataText === 'string' && /[\u3040-\u30ff]/u.test(metadataText)) return 'japanese'
+    if (typeof song?.title === 'string' && song.title && /[A-Za-z]/.test(song.title) && !/[\u0900-\u09FF]/u.test(song.title)) {
+      const likelyEnglish = Number((song.title.match(/[A-Za-z]{4,}/g) || []).length) >= 2 || /\b(?:the|and|for|with|you|love|night|time|day|dream|summer|winter)\b/i.test(song.title)
+      if (likelyEnglish) return 'english'
+    }
+  }
+  return 'unknown'
+}
 
 const getSongVersionToken = (song = {}) => {
   const title = String(song.title || song.name || '')
@@ -216,9 +340,14 @@ const getSkipPenalty = (candidate, skipEvents = []) => {
 }
 
 export const scoreRecommendationCandidate = ({ candidate, sourceSong, history = [], likedSongs = [], notInterested = [], recentIds = new Set(), skipEvents = [] }) => {
-  const source = normalizeRecommendationSong(sourceSong || {})
-  const song = normalizeRecommendationSong(candidate || {})
+  const rawSource = sourceSong || {}
+  const rawCandidate = candidate || {}
+  const source = normalizeRecommendationSong(rawSource)
+  const song = normalizeRecommendationSong(rawCandidate)
   if (!song.title || song.title === 'Unknown Track') return -Infinity
+  const sourceHasMeaningfulMetadata = !!(rawSource.title || rawSource.name || rawSource.artist || rawSource.primaryArtists || rawSource.subtitle || rawSource.album || rawSource.language || rawSource.lang || rawSource.more_info?.language || rawSource.genre || rawSource.genres)
+  const candidateHasMeaningfulMetadata = !!(rawCandidate.title || rawCandidate.name || rawCandidate.artist || rawCandidate.primaryArtists || rawCandidate.subtitle || rawCandidate.album || rawCandidate.language || rawCandidate.lang || rawCandidate.more_info?.language || rawCandidate.genre || rawCandidate.genres)
+  if (!sourceHasMeaningfulMetadata || !candidateHasMeaningfulMetadata) return 0.15
   const recentIdSet = recentIds instanceof Set ? recentIds : new Set(Array.isArray(recentIds) ? recentIds.map((value) => String(value)) : [])
   const songId = String(song.id || '')
   const sourceId = String(source.id || '')
@@ -265,7 +394,7 @@ export const getActiveDislikedTrackIds = (events = []) => {
 }
 
 export const shouldRefillRecommendations = (queue, currentIndex, {
-  targetUpcomingCount = 40,
+  targetUpcomingCount = 50,
   refillThreshold = targetUpcomingCount - 1,
   autoplayEnabled = true
 } = {}) => {
@@ -284,7 +413,7 @@ export const claimRecommendationEventKey = (seenKeys, key) => {
   return true
 }
 
-export const mergeRecommendationTracks = (queue = [], currentIndex = -1, candidates = [], targetUpcomingCount = 40) => {
+export const mergeRecommendationTracks = (queue = [], currentIndex = -1, candidates = [], targetUpcomingCount = 50) => {
   const nextQueue = Array.isArray(queue) ? [...queue] : []
   const target = Math.max(0, Number(targetUpcomingCount) || 0)
   let slots = Math.max(0, target - getUpcomingTrackCount(nextQueue, currentIndex))
@@ -388,6 +517,7 @@ export const diversifyRecommendationCandidates = (rankedCandidates = [], limit =
 
 const rankCandidates = ({ candidates, sourceSong, history, likedSongs, notInterested, recentIds, skipEvents }) => dedupeSongs(candidates)
   .filter((candidate) => candidate.id && candidate.audio && getSongIdentity(candidate) !== getSongIdentity(sourceSong))
+  .filter((candidate) => shouldRetainSongLanguage(sourceSong, candidate))
   .map((candidate) => ({
     ...candidate,
     score: scoreRecommendationCandidate({ candidate, sourceSong, history, likedSongs, notInterested, recentIds, skipEvents })
@@ -396,7 +526,7 @@ const rankCandidates = ({ candidates, sourceSong, history, likedSongs, notIntere
   .sort((first, second) => second.score - first.score || getSongIdentity(first).localeCompare(getSongIdentity(second)))
 
 export const buildUpNextQueue = async (sourceSong, apiClient, {
-  targetUpcomingCount = 40,
+  targetUpcomingCount = 50,
   history = [],
   likedSongs = [],
   notInterested = [],
@@ -405,7 +535,9 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
   onUpdate = () => {},
   maxConsecutiveArtist = 2,
   maxPerArtist = 4,
-  refreshSeed = ''
+  refreshSeed = '',
+  shuffleSeed = '',
+  rng
 } = {}) => {
   if (!sourceSong) return []
 
@@ -429,10 +561,13 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
       recentIds,
       skipEvents
     })
-    const diversified = diversifyRecommendationCandidates(ranked, target, { maxConsecutiveArtist, maxPerArtist, refreshSeed })
-    const queue = [normalizedSource, ...diversified]
+    const diversified = diversifyRecommendationCandidates(ranked, Math.max(target, ranked.length), { maxConsecutiveArtist, maxPerArtist, refreshSeed })
+    const seededRng = typeof rng === 'function' ? rng : createSeededRandom(`${refreshSeed || shuffleSeed || 'autumn'}:${stage}`)
+    const firstPass = shuffleRecommendationList(diversified, { rng: seededRng, seed: `${refreshSeed || shuffleSeed || 'autumn'}:${stage}:pass-1` })
+    const secondPass = shuffleRecommendationList(firstPass, { rng: seededRng, seed: `${refreshSeed || shuffleSeed || 'autumn'}:${stage}:pass-2` })
+    const queue = [normalizedSource, ...secondPass.slice(0, target)]
     try {
-      onUpdate(queue, { stage, count: diversified.length, target, consideredBySource, acceptedBySource })
+      onUpdate(queue, { stage, count: secondPass.length, target, consideredBySource, acceptedBySource })
     } catch {
       // UI updates must not interrupt candidate collection.
     }
@@ -448,6 +583,7 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
       const identity = getSongIdentity(song)
       if (!song.id || !song.audio || !identity || seen.has(identity)) continue
       if (getNotInterestedIds(notInterested).has(String(song.id))) continue
+      if (!shouldRetainSongLanguage(normalizedSource, song)) continue
 
       candidatePool.push({ ...song, recommendationSource: stage })
       seen.add(identity)
@@ -506,8 +642,47 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
     recentIds,
     skipEvents
   })
-  const recommendations = diversifyRecommendationCandidates(rankedCandidates, target, { maxConsecutiveArtist, maxPerArtist, refreshSeed })
+  const diversifiedCandidates = diversifyRecommendationCandidates(rankedCandidates, Math.max(target, rankedCandidates.length), {
+    maxConsecutiveArtist,
+    maxPerArtist,
+    refreshSeed
+  })
+  const firstShuffle = shuffleRecommendationList(diversifiedCandidates, {
+    rng: typeof rng === 'function' ? rng : createSeededRandom(`${refreshSeed || shuffleSeed || 'autumn'}:complete:pass-1`),
+    seed: `${refreshSeed || shuffleSeed || 'autumn'}:complete:pass-1`
+  })
+  const secondShuffle = shuffleRecommendationList(firstShuffle, {
+    rng: typeof rng === 'function' ? rng : createSeededRandom(`${refreshSeed || shuffleSeed || 'autumn'}:complete:pass-2`),
+    seed: `${refreshSeed || shuffleSeed || 'autumn'}:complete:pass-2`
+  })
+  const recommendations = secondShuffle.slice(0, target)
   const queue = [normalizedSource, ...recommendations]
+  const validation = validateGeneratedQueue(queue, { sourceSong: normalizedSource, targetLength: target, requireMinimum: false })
+
+  if (recommendations.length < target || !validation.isValid) {
+    const fallbackCandidates = rankedCandidates.filter((candidate) => shouldRetainSongLanguage(normalizedSource, candidate))
+      .slice(0, target)
+    const fallbackQueue = [normalizedSource, ...fallbackCandidates]
+    const resetValidation = validateGeneratedQueue(fallbackQueue, { sourceSong: normalizedSource, targetLength: target, requireMinimum: false })
+    if (resetValidation.isValid) {
+      const candidatesForShuffle = resetValidation.validSongs.filter((song) => getSongIdentity(song) !== getSongIdentity(normalizedSource))
+      const shuffledFallback = shuffleRecommendationList(candidatesForShuffle.slice(0, target), {
+        rng: typeof rng === 'function' ? rng : createSeededRandom(`${refreshSeed || shuffleSeed || 'autumn'}:fallback:pass-1`),
+        seed: `${refreshSeed || shuffleSeed || 'autumn'}:fallback:pass-1`
+      })
+      const finalRecommendations = shuffleRecommendationList(shuffledFallback, {
+        rng: typeof rng === 'function' ? rng : createSeededRandom(`${refreshSeed || shuffleSeed || 'autumn'}:fallback:pass-2`),
+        seed: `${refreshSeed || shuffleSeed || 'autumn'}:fallback:pass-2`
+      })
+      const finalQueue = [normalizedSource, ...finalRecommendations]
+      try {
+        onUpdate(finalQueue, { stage: 'fallback', count: finalQueue.length - 1, target, acceptedBySource })
+      } catch {
+        // Safety queue must not interrupt playback.
+      }
+      return finalQueue
+    }
+  }
 
   if (recommendations.length < target) {
     console.info(`[Up Next] Built ${recommendations.length}/${target} upcoming songs; valid candidate sources were exhausted.`, {

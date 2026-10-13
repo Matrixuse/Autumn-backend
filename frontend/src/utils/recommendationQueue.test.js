@@ -10,7 +10,9 @@ import {
   scoreRecommendationCandidate,
   shouldRefillRecommendations,
   diversifyRecommendationCandidates,
-  buildUpNextQueue
+  buildUpNextQueue,
+  shuffleRecommendationList,
+  validateGeneratedQueue
 } from './recommendationQueue.js'
 
 const source = {
@@ -163,4 +165,41 @@ test('candidate builder returns only real playable history tracks when providers
   })
 
   assert.deepEqual(queue.map((song) => song.id), ['seed', 'known-history'])
+})
+
+test('english seed yields a 50-song english-only queue when enough eligible tracks exist', async () => {
+  const englishTracks = Array.from({ length: 60 }, (_, index) => ({
+    ...track(`english-${index}`, { language: 'english', artist: `English Artist ${index % 8}` }),
+    audio: `https://audio.example/english-${index}.mp3`
+  }))
+  const nonEnglishTracks = Array.from({ length: 12 }, (_, index) => ({
+    ...track(`hindi-${index}`, { language: 'hindi', artist: `Hindi Artist ${index % 4}` }),
+    audio: `https://audio.example/hindi-${index}.mp3`
+  }))
+  const apiClient = {
+    get: async (path) => {
+      if (path.includes('/suggestions')) return { data: { data: [...englishTracks, ...nonEnglishTracks] } }
+      return { data: { data: { results: [] } } }
+    }
+  }
+
+  const queue = await buildUpNextQueue({ ...source, id: 'seed-english', language: 'english' }, apiClient, {
+    targetUpcomingCount: 50,
+    refreshSeed: 'english-test'
+  })
+
+  assert.ok(queue.length >= 51)
+  assert.ok(queue.slice(1).every((song) => String(song.language || song.lang || '').toLowerCase() === 'english'))
+  assert.equal(new Set(queue.map((song) => song.id)).size, queue.length)
+})
+
+test('two-pass shuffle preserves identities and count while permuting order deterministically', () => {
+  const base = Array.from({ length: 12 }, (_, index) => ({ id: `track-${index}`, title: `Song ${index}`, artist: `Artist ${index % 3}`, language: 'english', audio: `https://audio.example/${index}.mp3` }))
+  const shuffled = shuffleRecommendationList(base, { rng: () => 0.75, seed: 'shuffle-1' })
+  const final = shuffleRecommendationList(shuffled, { rng: () => 0.25, seed: 'shuffle-2' })
+
+  assert.equal(final.length, base.length)
+  assert.equal(new Set(final.map((song) => song.id)).size, base.length)
+  assert.deepEqual(new Set(final.map((song) => song.id)), new Set(base.map((song) => song.id)))
+  assert.ok(validateGeneratedQueue(final, { sourceSong: base[0], targetLength: 12 }).isValid)
 })
