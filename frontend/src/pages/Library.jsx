@@ -42,7 +42,7 @@ export default function Library({locked = false}) {
                     </button>
                     <div className="block sm:hidden">
                         <div className="relative">
-                            <button disabled={locked} aria-label="Account menu" className={locked ? 'cursor-not-allowed' : ''}><Avatar label={user?.username || 'Hi'} /></button>
+                            <button disabled={locked} aria-label="Account menu" className={locked ? 'cursor-not-allowed' : ''}><Avatar label={user?.username || 'Hi'} image={user?.avatar || user?.image} /></button>
                             <div className="absolute right-0 top-11 w-44 translate-y-2 rounded-xl border border-white/10 bg-[#1a1b1a] p-2 opacity-0 shadow-xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
                                 {user ? 
                                     <div>

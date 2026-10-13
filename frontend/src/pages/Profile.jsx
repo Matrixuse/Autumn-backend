@@ -34,7 +34,7 @@ export default function Profile() {
 
       <form onSubmit={handleSubmit} className="rounded-2xl border border-white/10 bg-white/4 p-6 shadow-xl sm:p-8">
         <div className="mb-8 flex items-center gap-4">
-          <Avatar label={username || 'User'} image={user?.image || user?.avatar} size="lg" />
+          <Avatar label={username || 'User'} image={user?.avatar || user?.image} size="lg" />
           <div><p className="font-semibold">Manage your profile</p><p className="mt-1 text-sm text-white/45">Update the details shown around Autumn.</p></div>
         </div>
         <label className="block text-sm font-semibold text-white/75">Username<input required value={username} onChange={(event) => setUsername(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-[#c88d3b]" /></label>

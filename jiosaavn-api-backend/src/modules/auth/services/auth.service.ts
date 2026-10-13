@@ -11,6 +11,8 @@ interface UserDocument {
   email: string
   passwordHash: string
   googleId?: string
+  avatar?: string
+  image?: string
   createdAt: Date
 }
 
@@ -34,6 +36,17 @@ const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 365 * 10
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '36232842622-0cfa2jhn3fv20iq16ro2c05uhhrj9td0.apps.googleusercontent.com'
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID)
 
+const getGoogleAvatar = (picture: unknown) => {
+  if (typeof picture !== 'string' || !picture.trim()) return undefined
+
+  try {
+    const url = new URL(picture)
+    return url.protocol === 'https:' ? url.toString() : undefined
+  } catch {
+    return undefined
+  }
+}
+
 const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex')
@@ -42,6 +55,7 @@ const toUser = (user: UserDocument): User => ({
   id: user._id.toHexString(),
   username: user.username,
   email: user.email,
+  avatar: user.avatar || user.image || undefined,
   createdAt: user.createdAt.toISOString()
 })
 
@@ -91,6 +105,7 @@ export class AuthService {
     if (!payload?.sub || !payload.email || payload.email_verified !== true) {
       throw new AuthError('Google account email is not verified', 401)
     }
+    const googleAvatar = getGoogleAvatar(payload.picture)
 
     const database = await getDatabase()
     const users = database.collection<UserDocument>('users')
@@ -101,8 +116,11 @@ export class AuthService {
     }
 
     if (user) {
-      await users.updateOne({ _id: user._id }, { $set: { googleId: payload.sub } })
+      const updates: { googleId: string; avatar?: string } = { googleId: payload.sub }
+      if (!user.avatar && !user.image && googleAvatar) updates.avatar = googleAvatar
+      await users.updateOne({ _id: user._id }, { $set: updates })
       user.googleId = payload.sub
+      if (updates.avatar) user.avatar = updates.avatar
     } else {
       const baseUsername = (payload.name || payload.email.split('@')[0]).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 24) || 'autumn_user'
       const username = await this.getAvailableUsername(baseUsername)
@@ -112,6 +130,7 @@ export class AuthService {
         email: normalizeEmail(payload.email),
         passwordHash: '',
         googleId: payload.sub,
+        avatar: googleAvatar,
         createdAt: new Date()
       }
       await users.insertOne(user)

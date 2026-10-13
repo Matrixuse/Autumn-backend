@@ -90,7 +90,7 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
                             aria-expanded={isAccountMenuOpen}
                             className={locked ? 'cursor-not-allowed' : ''}
                         >
-                            <Avatar label={user?.username || 'Hi'} />
+                            <Avatar label={user?.username || 'Hi'} image={user?.avatar || user?.image} />
                         </button>
                         {isAccountMenuOpen && <div className="absolute right-0 top-11 z-30 w-44 rounded-xl border border-white/10 bg-[#1a1b1a] p-2 shadow-xl">
                             {user ? 
@@ -193,7 +193,7 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
                             aria-expanded={isAccountMenuOpen}
                             className={locked ? 'cursor-not-allowed' : ''}
                         >
-                            <Avatar label={user?.username || 'Hi'} />
+                            <Avatar label={user?.username || 'Hi'} image={user?.avatar || user?.image} />
                         </button>
                         {isAccountMenuOpen && <div className="absolute right-0 top-11 z-30 w-44 rounded-xl border border-white/10 bg-[#1a1b1a] p-2 shadow-xl">
                             {user ? 
