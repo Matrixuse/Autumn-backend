@@ -18,6 +18,7 @@ import NewPlaylist from '../pages/NewPlaylist'
 import Profile from '../pages/Profile'
 import SearchPage from '../pages/SearchPage'
 import MobilePlayerPage from '../pages/MobilePlayerPage'
+import NotificationsPage from '../pages/NotificationsPage'
 
 export default function AppRoutes() {
     return (
@@ -42,6 +43,7 @@ export default function AppRoutes() {
                 <Route path="/mood/:moodName" element={<MoodChipsPage />} />
                 <Route path="/feedback" element={<FeedbackPage />} />
                 <Route path="/equalizer" element={<EquilizerPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

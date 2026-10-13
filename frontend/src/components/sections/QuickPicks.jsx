@@ -53,7 +53,11 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                                 type="button"
                                 aria-label={`Play ${song.title || 'song'}`}
                                 onClick={() => playTrack(song, visibleSongs)}
-                                className="group cover-container relative aspect-square w-full rounded-lg bg-[#28251f] text-left shadow-[0_8px_20px_rgba(0,0,0,0.28)]"
+                                className={`group cover-container relative aspect-square w-full rounded-lg bg-[#28251f] text-left transition ${
+                                   isPlaying && String(currentTrack?.id) === String(song?.id) 
+                                   ? 'border-4 border-white/90 shadow-md' // Replace with your desired light color highlight
+                                   : 'border border-transparent'
+                                }`}    
                             >
                                 {song.image ? (
                                     <img src={song.image} alt="" className="h-full w-full object-cover transition duration-300 group-active:scale-105" />
@@ -62,7 +66,7 @@ export default function QuickPicks({ songs = [], title = 'Quick picks', eyebrow 
                                         {song.title?.slice(0, 2) || 'AU'}
                                     </div>
                                 )}
-                                {isPlaying && String(currentTrack?.id) === String(song?.id) && <NowPlayingOverlay />}
+                                
                                 <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/55 to-transparent px-2">
                                     <span className="block truncate text-xs font-bold text-white">{shortTitle(song.title, 22)}</span>
                                 </span>

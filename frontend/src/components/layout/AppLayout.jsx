@@ -21,7 +21,7 @@ export default function AppLayout() {
             <Sidebar locked={locked} />
             <main className="min-h-screen lg:pl-60">
                 <div className={isNowPlayingRoute ? 'hidden lg:block' : ''}><Topbar locked={locked} onSearchStateChange={setSearchState} /></div>
-                <div className={`relative mx-auto min-h-100vh w-full ${isNowPlayingRoute ? 'px-0 pb-0 pt-0 lg:px-20 lg:pb-24 lg:pt-9' : 'px-4 pb-44 pt-5 sm:px-8 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9'}`}>
+                <div className={`relative mx-auto min-h-100vh w-full ${isNowPlayingRoute ? 'px-0 pb-0 pt-0 lg:px-20 lg:pb-24 lg:pt-9' : 'px-4 pb-44 pt-5 sm:px-4 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9'}`}>
                     <Outlet context={{ searchState }} />
                     {locked && (
                         <div className="absolute inset-0 z-10 flex items-start justify-center bg-[#050505]/80 px-4 pt-24 backdrop-blur-[3px] sm:pt-32">
