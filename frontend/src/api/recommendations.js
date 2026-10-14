@@ -41,4 +41,13 @@ export const fetchRecommendationCandidates = async (track, apiClient, onCandidat
 
 export const fetchRecommendationProfile = (apiClient) => apiClient.get('/recommendations/profile')
 
+export const fetchPastPlaysSnapshot = async (history = [], events = [], apiClient = axiosInstance) => {
+  const payloadHistory = Array.isArray(history) ? history.slice(0, 200) : []
+  const payloadEvents = Array.isArray(events) ? events.slice(0, 500) : []
+  return apiClient.post('/recommendations/past-plays', {
+    history: payloadHistory,
+    events: payloadEvents
+  }, { withCredentials: true })
+}
+
 export const persistRecommendationEvents = (events, apiClient) => apiClient.post('/recommendations/events', { events })

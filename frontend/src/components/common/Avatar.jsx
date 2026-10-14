@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 export default function Avatar({ label = 'A', image, size = 'md' }) {
   const [failedImage, setFailedImage] = useState(null)
-  const dimensions = size === 'lg' ? 'h-20 w-20 text-2xl' : 'h-9 w-9 text-xs'
+  const dimensions = size === 'lg' ? 'h-20 w-20 text-2xl' : 'h-7 w-7 text-xs'
   const hasImage = typeof image === 'string' && image.length > 0 && image !== failedImage
 
   return (

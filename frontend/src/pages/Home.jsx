@@ -10,6 +10,7 @@ import MixForYou from '../components/sections/MixForYou'
 import Moods from '../components/sections/Moods'
 import Albums from '../components/sections/Albums'
 import Hollywood from '../components/sections/Hollywood'
+import PastPlays from '../components/sections/PastPlays'
 import { useFetchSongs, useFetchQuickPicks, useFetchNewReleases, useFetchLongSongs } from '../hooks/useFetchSongs'
 import { useDailyRotationDate } from '../hooks/useDailyRotationDate'
 import { usePlayer } from '../context/PlayerContext'
@@ -22,6 +23,7 @@ import { getAlbumsForYou } from '../api/albums'
 import { mapWithConcurrency } from '../api/requestQueue'
 import { HOLLYWOOD_CURATED_TRACKS, VERIFIED_CURATED_IDS } from '../config/curatedSongs'
 import { getDailyRotationKey, shuffleForDailyRotation } from '../utils/dailyRotation'
+import { fetchPastPlaysSnapshot } from '../api/recommendations'
 
 const getSuggestedLibrarySongs = (fallbackSongs = [], limit = 24, userId = 'anonymous', date = new Date()) => {
   const basePool = Array.isArray(fallbackSongs) ? fallbackSongs.filter(Boolean) : []
@@ -124,6 +126,11 @@ export default function Home() {
   const { listenHistory, listenAgain, likedSongs, recommendationEvents, currentTrack } = usePlayer()
   const { user } = useAuth()
   const userId = user?.id || 'anonymous'
+  const [pastPlaysSongs, setPastPlaysSongs] = useState([])
+  const userCreatedAt = user?.createdAt ? new Date(user.createdAt) : null
+  const isPastPlaysEligible = !userCreatedAt || Number.isNaN(userCreatedAt.getTime())
+    ? false
+    : Date.now() - userCreatedAt.getTime() >= 20 * 24 * 60 * 60 * 1000
   const { songs: newReleaseSongs, loading: releaseLoading, error: releaseError } = useFetchNewReleases(listenHistory)
   const { songs: longSongs, loading: longLoading, error: longError } = useFetchLongSongs(listenHistory)
   const discoverySongs = useMemo(() => getDiscoveryPool(
@@ -149,6 +156,28 @@ export default function Home() {
     return getHollywoodSongs(pool, 24)
   }, [curatedHollywoodSongs, songs, newReleaseSongs, quickPickSongs])
   const listenAgainSongs = listenAgain.length ? listenAgain : (listenHistory.length ? listenHistory : librarySongs)
+
+  useEffect(() => {
+    if (!isPastPlaysEligible || !user?.id) {
+      setPastPlaysSongs([])
+      return undefined
+    }
+
+    let isMounted = true
+    fetchPastPlaysSnapshot(listenHistory, recommendationEvents, axiosInstance)
+      .then((response) => {
+        if (!isMounted) return
+        const nextSongs = Array.isArray(response?.data?.data?.songs) ? response.data.data.songs : []
+        setPastPlaysSongs(nextSongs)
+      })
+      .catch(() => {
+        if (isMounted) setPastPlaysSongs([])
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [isPastPlaysEligible, listenHistory, recommendationEvents, user?.id])
 
   useEffect(() => {
     let isMounted = true
@@ -224,7 +253,8 @@ export default function Home() {
             <div className="order-6 lg:order-9"><Albums albums={albumsForYou} /></div>
             <div className="order-7 lg:order-7"><Moods songs={moodSongs} /></div>
             <div className="order-8 lg:order-8"><Hollywood songs={hollywoodSongs} /></div>
-            <div className="order-9 lg:order-10"><LongToListen songs={longSongs} /></div>
+            {isPastPlaysEligible && <div className="order-9 lg:order-10"><PastPlays songs={pastPlaysSongs} /></div>}
+            <div className="order-10 lg:order-11"><LongToListen songs={longSongs} /></div>
             {error && !loading && <div className="py-4 text-sm text-red-400">Unable to load songs right now.</div>}
             {quickError && !quickLoading && <div className="py-4 text-sm text-red-400">Unable to load quick picks right now.</div>}
             {releaseError && !releaseLoading && <div className="py-4 text-sm text-red-400">Unable to load release picks right now.</div>}

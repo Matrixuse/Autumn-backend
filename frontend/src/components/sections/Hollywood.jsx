@@ -104,7 +104,7 @@ export default function Hollywood({ songs = [] }) {
                                     onClick={() => handleSongClick(song)}
                                 >
                                     <div className="mr-1 md:mr-3 flex items-center gap-3 rounded bg-transparent p-1 transition hover:bg-white/[0.02]">
-                                        <div className="cover-container relative h-12 w-12 shrink-0 rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
+                                        <div className="cover-container relative h-13 w-13 shrink-0 rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
                                             {song.image ? (
                                                 <img src={song.image} alt={song.title} className="h-full w-full object-cover" />
                                             ) : (
@@ -118,8 +118,8 @@ export default function Hollywood({ songs = [] }) {
                                             {isPlaying && String(currentTrack?.id) === String(song?.id) && <NowPlayingOverlay />}
                                         </div>
 
-                                        <div className="flex min-w-0 flex-col justify-between gap-1">
-                                            <h3 className="truncate text-[1.05rem] font-bold text-white">
+                                        <div className="flex min-w-0 flex-col justify-between md:gap-1">
+                                            <h3 className="truncate text-[1.05rem] font-semibold text-white">
                                                 {shortTitle(song.title, 26)}
                                             </h3>
                                             <div className="flex min-w-0 items-center gap-2 truncate text-[15px] text-white/55">

@@ -59,7 +59,7 @@ export default function LongToListen({ songs }) {
                         onClick={() => playTrack(song, visibleSongs)}
                     >
                         <div className="mr-1 flex items-center gap-3 rounded bg-transparent p-1 transition hover:bg-white/2 md:mr-3">
-                            <div className="cover-container relative h-12 w-12 shrink-0 rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
+                            <div className="cover-container relative h-13 w-13 shrink-0 rounded bg-[#28251f] shadow-[0_8px_25px_rgba(0,0,0,0.35)]">
                                 {song.image ? (
                                     <img src={song.image} alt={song.title} className="h-full w-full object-cover" />
                                 ) : (
@@ -74,8 +74,8 @@ export default function LongToListen({ songs }) {
                             </div>
 
 
-                            <div className="flex flex-col justify-between gap-1 min-w-0">
-                                <h3 className="truncate text-[1.05rem] font-bold text-white">
+                            <div className="flex flex-col justify-between md:gap-1 min-w-0">
+                                <h3 className="truncate text-[1.05rem] font-semibold text-white">
                                     {shortTitle(song.title, 26)}
                                 </h3>
                                 <div className="truncate flex items-center gap-2 text-[11px] uppercase tracking-[.14em] text-white/35 min-w-0">
