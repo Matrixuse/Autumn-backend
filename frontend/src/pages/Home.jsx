@@ -128,9 +128,9 @@ export default function Home() {
   const userId = user?.id || 'anonymous'
   const [pastPlaysSongs, setPastPlaysSongs] = useState([])
   const userCreatedAt = user?.createdAt ? new Date(user.createdAt) : null
-  const isPastPlaysEligible = !userCreatedAt || Number.isNaN(userCreatedAt.getTime())
-    ? false
-    : Date.now() - userCreatedAt.getTime() >= 20 * 24 * 60 * 60 * 1000
+  const isPastPlaysEligible = Boolean(userCreatedAt && !Number.isNaN(userCreatedAt.getTime()))
+    && Date.now() - userCreatedAt.getTime() >= 20 * 24 * 60 * 60 * 1000
+  const shouldShowPastPlays = isPastPlaysEligible && pastPlaysSongs.length > 0
   const { songs: newReleaseSongs, loading: releaseLoading, error: releaseError } = useFetchNewReleases(listenHistory)
   const { songs: longSongs, loading: longLoading, error: longError } = useFetchLongSongs(listenHistory)
   const discoverySongs = useMemo(() => getDiscoveryPool(
@@ -253,7 +253,7 @@ export default function Home() {
             <div className="order-6 lg:order-9"><Albums albums={albumsForYou} /></div>
             <div className="order-7 lg:order-7"><Moods songs={moodSongs} /></div>
             <div className="order-8 lg:order-8"><Hollywood songs={hollywoodSongs} /></div>
-            {isPastPlaysEligible && <div className="order-9 lg:order-10"><PastPlays songs={pastPlaysSongs} /></div>}
+            {shouldShowPastPlays && <div className="order-9 lg:order-10"><PastPlays songs={pastPlaysSongs} /></div>}
             <div className="order-10 lg:order-11"><LongToListen songs={longSongs} /></div>
             {error && !loading && <div className="py-4 text-sm text-red-400">Unable to load songs right now.</div>}
             {quickError && !quickLoading && <div className="py-4 text-sm text-red-400">Unable to load quick picks right now.</div>}
