@@ -195,6 +195,7 @@ export default function SongActionsMenu({ song, queue = [], itemType = 'song', i
         type="button"
         aria-label={`More options for ${title}`}
         aria-expanded={open}
+        onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen((value) => !value)}
         className={`grid h-8 w-8 place-items-center rounded-full bg-transparent text-white transition focus-visible:opacity-100 ${alwaysVisible ? 'opacity-100' : mobileAlwaysVisible ? 'opacity-100 md:opacity-0 md:group-hover:opacity-100' : tabletAlwaysVisible ? 'opacity-0 group-hover:opacity-100 md:opacity-100 lg:opacity-0 lg:group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
       >

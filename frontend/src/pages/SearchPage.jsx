@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { getBestImageUrl } from '../utils/mediaQuality'
 import { usePlayer } from '../context/PlayerContext'
 import NowPlayingOverlay from '../components/common/NowPlayingOverlay'
+import SongActionsMenu from '../components/common/SongActionsMenu'
 
 const getLabel = (item) => item?.__type === 'artist' ? item?.name || item?.title : item?.title || item?.name || 'Unknown result'
 const getMeta = (item) => {
@@ -55,16 +56,19 @@ export default function SearchPage() {
             )) : loading ? (
               <p className="px-4 py-4 text-left text-sm text-white/50">Searching...</p>
             ) : results.length > 0 ? results.map((item) => (
-              <button key={item.id} type="button" onClick={() => dispatchCommand({ type: 'select-result', value: getLabel(item), item })} className="flex w-full items-center gap-3 border-b border-white/5 px-3 py-3 text-left last:border-b-0 hover:bg-white/5">
-                <span className="cover-container h-10 w-10 shrink-0 rounded-full bg-white/5 ring-1 ring-white/10">
-                  {getImage(item) ? <img src={getImage(item)} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full w-full place-items-center text-white/60"><Search size={14} /></span>}
-                  {!item.__type && isPlaying && String(currentTrack?.id) === String(item?.id) && <NowPlayingOverlay />}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-white">{getLabel(item)}</span>
-                  <span className="mt-0.5 block truncate text-xs text-white/45">{getMeta(item)}</span>
-                </span>
-              </button>
+              <div key={item.id} className="flex items-center gap-2 border-b border-white/5 px-3 py-1 last:border-b-0">
+                <button type="button" onClick={() => dispatchCommand({ type: 'select-result', value: getLabel(item), item })} className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left hover:bg-white/5">
+                  <span className="cover-container h-10 w-10 shrink-0 rounded-full bg-white/5 ring-1 ring-white/10">
+                    {getImage(item) ? <img src={getImage(item)} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full w-full place-items-center text-white/60"><Search size={14} /></span>}
+                    {(!item.__type || item.__type === 'song') && isPlaying && String(currentTrack?.id) === String(item?.id) && <NowPlayingOverlay />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-white">{getLabel(item)}</span>
+                    <span className="mt-0.5 block truncate text-xs text-white/45">{getMeta(item)}</span>
+                  </span>
+                </button>
+                {(!item.__type || item.__type === 'song') && <SongActionsMenu song={item} queue={results.filter((result) => !result.__type || result.__type === 'song')} alwaysVisible />}
+              </div>
             )) : (
               <p className="px-4 py-4 text-left text-sm text-white/50">No results found</p>
             )}

@@ -7,6 +7,7 @@ import { getBestImageUrl } from '../../utils/mediaQuality'
 import { getSongArtists } from '../../utils/songSearch'
 import NowPlayingOverlay from './NowPlayingOverlay'
 import PlaylistCover from './PlaylistCover'
+import SongActionsMenu from './SongActionsMenu'
 
 const HISTORY_KEY = 'autumn_search_history'
 
@@ -316,34 +317,36 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
                 <div className="px-4 py-3 text-sm text-white/50">Searching…</div>
               ) : results.length > 0 ? (
                 results.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => handleSelect(formatResultLabel(item, item.__type), item)}
-                    className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 ${item.__isBest ? 'bg-white/8 ring-1 ring-inset ring-[#d29a55]/35' : ''}`}
-                  >
-                    <span className="cover-container relative h-9 w-9 rounded-full bg-white/5 ring-1 ring-white/10">
-                      {item.__type === 'playlist' ? (
-                        <PlaylistCover playlist={item} alt={formatResultLabel(item, item.__type)} className="h-full w-full rounded-full" />
-                      ) : getResultImage(item, item.__type) ? (
-                        <img
-                          src={getResultImage(item, item.__type)}
-                          alt={formatResultLabel(item, item.__type)}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="grid h-full w-full place-items-center text-white/70">
-                          <Search size={12} />
-                        </span>
-                      )}
-                      {!item.__type && isPlaying && String(currentTrack?.id) === String(item?.id) && <NowPlayingOverlay />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-white">{formatResultLabel(item, item.__type)}</span>
-                      <span className="mt-0.5 block truncate text-[11px] text-white/45">{formatResultMeta(item, item.__type)}</span>
-                    </span>
-                  </button>
+                  <div key={item.id} className={`flex items-center gap-2 pr-2 transition hover:bg-white/5 ${item.__isBest ? 'bg-white/8 ring-1 ring-inset ring-[#d29a55]/35' : ''}`}>
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => handleSelect(formatResultLabel(item, item.__type), item)}
+                      className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
+                    >
+                      <span className="cover-container relative h-9 w-9 shrink-0 rounded-full bg-white/5 ring-1 ring-white/10">
+                        {item.__type === 'playlist' ? (
+                          <PlaylistCover playlist={item} alt={formatResultLabel(item, item.__type)} className="h-full w-full rounded-full" />
+                        ) : getResultImage(item, item.__type) ? (
+                          <img
+                            src={getResultImage(item, item.__type)}
+                            alt={formatResultLabel(item, item.__type)}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="grid h-full w-full place-items-center text-white/70">
+                            <Search size={12} />
+                          </span>
+                        )}
+                        {!item.__type && isPlaying && String(currentTrack?.id) === String(item?.id) && <NowPlayingOverlay />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-white">{formatResultLabel(item, item.__type)}</span>
+                        <span className="mt-0.5 block truncate text-[11px] text-white/45">{formatResultMeta(item, item.__type)}</span>
+                      </span>
+                    </button>
+                    {(!item.__type || item.__type === 'song') && <SongActionsMenu song={item} queue={results.filter((result) => !result.__type || result.__type === 'song')} alwaysVisible />}
+                  </div>
                 ))
               ) : (
                 <div className="px-4 py-3 text-sm text-white/50">No results found</div>
