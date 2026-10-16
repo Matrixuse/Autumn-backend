@@ -14,6 +14,7 @@ import Albums from '../components/sections/Albums'
 import NowPlayingOverlay from '../components/common/NowPlayingOverlay'
 import SortableQueueList from '../components/player/SortableQueueList'
 import useRelatedTrackDetails from '../hooks/useRelatedTrackDetails'
+import PlaylistCover from '../components/common/PlaylistCover'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
@@ -76,7 +77,7 @@ const rankRelatedSongs = (songs, currentTrack, isHollywood) => {
 }
 
 export default function KeepListening() {
-  const { currentTrack, listenHistory, isPlaying, isQueueLoading, playTrack, togglePlay } = usePlayer()
+  const { currentTrack, listenHistory, isPlaying, isQueueLoading, isAutoplayEnabled, setIsAutoplayEnabled, playTrack, togglePlay } = usePlayer()
   const { queue, currentIndex, playQueuedTrack, reorderQueue } = useUpNextQueue()
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [relatedSongs, setRelatedSongs] = useState([])
@@ -247,9 +248,7 @@ export default function KeepListening() {
         <div className="scrollbar-none flex gap-3 overflow-x-auto pb-2">
           {relatedPlaylists.map((playlist) => (
             <article key={playlist.id} className="w-35 min-w-35">
-              <div className="aspect-square overflow-hidden rounded bg-white/10">
-                {getBestImageUrl(playlist.image) ? <img src={getBestImageUrl(playlist.image)} alt={playlist.name} className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
-              </div>
+              <PlaylistCover playlist={playlist} alt={playlist.name || 'Playlist'} className="rounded" />
               <p className="mt-2 truncate text-md font-semibold text-white">{playlist.name}</p>
               <p className="mt-1 truncate text-sm text-white/40">{playlist.description || 'Playlist'}</p>
             </article>
@@ -264,13 +263,13 @@ export default function KeepListening() {
   return (
     <div className="flex h-[calc(100vh-11rem)] animate-[queue-reveal_.45s_ease-out] flex-col gap-2 overflow-hidden rounded bg-linear-to-br from-[#0f0f0f] to-[#080a0c] shadow-2xl sm:flex-row">
       <div className="min-h-0 w-3/5 overflow-hidden md:w-1/2 sm:w-3/5">
-        <div className="items-center justify-center">
-          <h1 className="text-2xl font-bold">Keep Listening</h1>
-          <button type="button" aria-label="Toggle current song" onClick={togglePlay}>
+        <div className="flex h-full min-h-0 flex-col items-center">
+          <h1 className="mb-4 w-full text-2xl font-bold">Keep Listening</h1>
+          <button type="button" aria-label="Toggle current song" onClick={togglePlay} className="flex min-h-0 w-full flex-1 items-start justify-center overflow-hidden">
             <img 
               src={getBestImageUrl(currentTrack?.image)} 
               alt={currentTrack?.title || 'Current song'} 
-              className="mt-4 max-h-[calc(100vh-16rem)] lg:w-full rounded-lg object-contain object-top md:w-150 sm:w-110" 
+              className="h-full max-h-[calc(100vh-16rem)] w-full max-w-[32rem] rounded-lg object-contain object-top"
             />
           </button>
         </div>
@@ -292,11 +291,22 @@ export default function KeepListening() {
             ))}
           </div>
 
-          <div className="flex items-center justify-between px-2 py-4">
+          <div className="flex flex-col gap-3 px-2 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               {activeTab === 'UP NEXT' && <><p className="text-xs text-white/55">Playing from</p><h2 className="mt-1 truncate text-base font-bold text-white">Your queue</h2></>}
               {activeTab === 'LYRICS' && <h2 className="text-base font-bold text-white">Lyrics</h2>}
             </div>
+            {activeTab === 'UP NEXT' && <label className="flex w-fit cursor-pointer items-center gap-2 text-xs font-medium text-white/70 transition hover:text-white">
+              <span>Autoplay</span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Autoplay"
+                checked={isAutoplayEnabled}
+                onChange={(event) => setIsAutoplayEnabled(event.target.checked)}
+                className="autoplay-switch"
+              />
+            </label>}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thumb-gray-300">

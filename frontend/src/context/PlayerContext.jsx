@@ -499,6 +499,10 @@ export const PlayerProvider = ({ children }) => {
       }
       return
     }
+    if (isAutoplayEnabled === false) {
+      setIsPlaying(false);
+      return;
+    }
     next(false)
   }
   const toggleShuffle = () => {

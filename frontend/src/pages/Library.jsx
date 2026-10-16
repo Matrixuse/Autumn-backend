@@ -5,11 +5,13 @@ import { usePlayer } from '../context/PlayerContext'
 import MoodChips from '../components/sections/MoodChips'
 import { useAuth } from '../context/AuthContext'
 import Avatar from '../components/common/Avatar'
+import SongActionsMenu from '../components/common/SongActionsMenu'
+import PlaylistCover from '../components/common/PlaylistCover'
 
 export default function Library({locked = false}) {
     const navigate = useNavigate()
     const { user, logout } = useAuth()
-    const { userPlaylists } = usePlayer()
+    const { userPlaylists, setUserPlaylists, playTrack } = usePlayer()
     const [searchOpen, setSearchOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
 
@@ -24,7 +26,7 @@ export default function Library({locked = false}) {
     }, [searchTerm, userPlaylists])
 
     return (
-    <div className="space-y-5 md:space-y-10">
+    <div className="space-y-5 md:space-y-5">
         <div>
             <p className="mb-1 md:mb-2 text-xs font-bold uppercase tracking-[.2em] text-[#d29a55]">
                 Your space
@@ -110,13 +112,56 @@ export default function Library({locked = false}) {
             <h2 className="mb-3 text-xl font-bold">
                 Your playlists
             </h2>
-            <div className="grid grid-cols-1 space-y-2 md:grid-cols-3">
+            <div className="grid grid-cols-1 space-y-2 md:grid-cols-4 md:gap-5 md:space-y-0 lg:grid-cols-6 lg:gap-5 lg:space-y-0">
                 {filteredPlaylists.length ? filteredPlaylists.map((playlist) => (
-                    <button key={playlist.id} type="button" onClick={() => navigate(`/playlist/${encodeURIComponent(String(playlist.id))}/${encodeURIComponent(playlist.name || 'playlist')}`)} className="flex w-full items-center gap-3 rounded border border-white/10 bg-white/1 p-1 pr-4 text-left transition hover:bg-white/8">
-                        {playlist.image ? <img src={playlist.image} alt="" className="h-12 w-12 rounded-lg object-cover" /> : <div className="grid h-12 w-12 place-items-center rounded bg-[#28251f] text-white/60"><ListMusic size={20} /></div>}
-                        <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{playlist.name || 'Untitled playlist'}</span><span className="block truncate text-xs text-white/45">{playlist.description || `${playlist.songs?.length || 0} songs`}</span></span>
-                        <Play size={17} className="text-white/50" />
-                    </button>
+                    <div key={playlist.id} className="group relative md:max-w-[180px]">
+                        <button type="button" onClick={() => navigate(`/playlist/${encodeURIComponent(String(playlist.id))}/${encodeURIComponent(playlist.name || 'playlist')}`)}
+                            className="relative flex w-full items-center gap-3 rounded border border-white/10 bg-white/1 p-1 pr-12 text-left transition hover:bg-white/8 md:aspect-square md:flex-col md:items-stretch md:justify-end md:overflow-hidden md:rounded-lg md:p-0 md:pr-0"
+                        >
+                            <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[#28251f] text-white/60 md:absolute md:inset-0 md:h-full md:w-full md:rounded-none">
+                                <PlaylistCover playlist={playlist} alt={playlist.name || 'Untitled playlist'} className="h-full w-full" />
+                            </span>
+                            <span
+                                className="min-w-0 flex-1 md:absolute md:inset-x-0 md:bottom-0 md:z-10 md:bg-gradient-to-t md:from-black/90 md:via-black/45 md:to-transparent md:px-4 md:pb-4 md:pt-12"
+                            >
+                                <span className="block truncate font-semibold">
+                                    {playlist.name || 'Untitled playlist'}
+                                </span>
+                                <span className="block truncate text-xs text-white/45">
+                                    {playlist.description || `${playlist.songs?.length || 0} songs`}
+                                </span>
+                            </span>
+                            <Play size={17} className="hidden text-white/50 md:block lg:hidden" />
+                        </button>
+                        <div className="absolute right-2 top-1/2 z-20 -translate-y-1/2 md:hidden">
+                            <SongActionsMenu
+                                song={playlist}
+                                itemType="playlist"
+                                items={playlist.songs || []}
+                                mobileAlwaysVisible
+                                onDelete={() => {
+                                    if (!window.confirm(`Delete "${playlist.name || 'Untitled playlist'}"?`)) return
+                                    setUserPlaylists((items) => items.filter((item) => String(item.id) !== String(playlist.id)))
+                                }}
+                            />
+                        </div>
+                        <div className="pointer-events-none absolute inset-0 z-20 hidden opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 lg:block">
+                            <button type="button" disabled={!playlist.songs?.length} aria-label={`Play all from ${playlist.name || 'playlist'}`} title="Play all" onClick={(event) => { event.stopPropagation(); if (playlist.songs?.length) playTrack(playlist.songs[0], playlist.songs) }} className="pointer-events-auto absolute left-1/2 top-1/2 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-blue-100 text-black shadow-lg transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50">
+                                <Play size={20} fill="currentColor" />
+                            </button>
+                            <div className="pointer-events-auto absolute right-2 top-2">
+                                <SongActionsMenu
+                                    song={playlist}
+                                    itemType="playlist"
+                                    items={playlist.songs || []}
+                                    onDelete={() => {
+                                        if (!window.confirm(`Delete "${playlist.name || 'Untitled playlist'}"?`)) return
+                                        setUserPlaylists((items) => items.filter((item) => String(item.id) !== String(playlist.id)))
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
                 )) : <p className="rounded-xl border border-dashed border-white/10 p-5 text-sm text-white/45">{searchTerm.trim() ? 'No playlists match your search.' : 'Your playlist will appear here.'}</p>}
             </div>
         </section>

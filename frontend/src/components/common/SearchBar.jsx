@@ -6,6 +6,7 @@ import { usePlayer } from '../../context/PlayerContext'
 import { getBestImageUrl } from '../../utils/mediaQuality'
 import { getSongArtists } from '../../utils/songSearch'
 import NowPlayingOverlay from './NowPlayingOverlay'
+import PlaylistCover from './PlaylistCover'
 
 const HISTORY_KEY = 'autumn_search_history'
 
@@ -323,7 +324,9 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
                     className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/5 ${item.__isBest ? 'bg-white/8 ring-1 ring-inset ring-[#d29a55]/35' : ''}`}
                   >
                     <span className="cover-container relative h-9 w-9 rounded-full bg-white/5 ring-1 ring-white/10">
-                      {getResultImage(item, item.__type) ? (
+                      {item.__type === 'playlist' ? (
+                        <PlaylistCover playlist={item} alt={formatResultLabel(item, item.__type)} className="h-full w-full rounded-full" />
+                      ) : getResultImage(item, item.__type) ? (
                         <img
                           src={getResultImage(item, item.__type)}
                           alt={formatResultLabel(item, item.__type)}

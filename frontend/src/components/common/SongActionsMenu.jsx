@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
-import { Ban, ListEnd, ListPlus, MoreVertical, Pin, ThumbsUp, UserRound, Share2, Radio, X, Bookmark } from 'lucide-react'
+import { Ban, ListEnd, ListPlus, MoreVertical, Pin, ThumbsUp, UserRound, Share2, Radio, X, Bookmark, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../../context/PlayerContext'
 import axiosInstance from '../../api/axiosInstance'
@@ -9,7 +9,7 @@ import { getBestAudioUrl, getBestImageUrl } from '../../utils/mediaQuality'
 const getArtistId = (song) => song?.artists?.primary?.[0]?.id || song?.artists?.all?.[0]?.id || song?.artistId
 const getArtistName = (song) => song?.artists?.primary?.[0]?.name || song?.artists?.all?.[0]?.name || String(song?.artist || '').split(',')[0].trim()
 
-export default function SongActionsMenu({ song, queue = [], itemType = 'song', items = [], alwaysVisible = false, mobileAlwaysVisible = false }) {
+export default function SongActionsMenu({ song, queue = [], itemType = 'song', items = [], alwaysVisible = false, mobileAlwaysVisible = false, tabletAlwaysVisible = false, onDelete }) {
   const [open, setOpen] = useState(false)
   const menuRef = useRef(null)
   const triggerRef = useRef(null)
@@ -171,11 +171,12 @@ export default function SongActionsMenu({ song, queue = [], itemType = 'song', i
   const menuItems = [
     { label: 'Play next', icon: ListEnd, onClick: playNext },
     { label: 'Add to queue', icon: ListPlus, onClick: addQueue },
-    { label: saved ? 'Remove from Liked Songs' : 'Add to Liked Songs', icon: ThumbsUp, onClick: saveToLibrary },
+    { label: isSong ? (saved ? 'Remove from Liked Songs' : 'Add to Liked Songs') : (saved ? 'Remove from library' : 'Save to library'), icon: ThumbsUp, onClick: saveToLibrary },
     { label: 'Save to playlist', icon: ListPlus, onClick: () => { navigate('/new-playlist', { state: { song } }); close() }, disabled: !isSong },
     { label: 'Go to artist', icon: UserRound, onClick: goToArtist, disabled: !isSong || !getArtistId(song) },
     { label: 'Add to Listen again', icon: Pin, onClick: listenAgain, disabled: !isSong },
     { label: isNotInterested(song) ? 'Interested again' : 'Not interested', icon: Ban, onClick: dismiss },
+    ...(onDelete ? [{ label: 'Delete playlist', icon: Trash2, onClick: () => { onDelete(song); close() } }] : []),
   ]
 
   const mobileListItems = [
@@ -195,7 +196,7 @@ export default function SongActionsMenu({ song, queue = [], itemType = 'song', i
         aria-label={`More options for ${title}`}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={`grid h-8 w-8 place-items-center rounded-full bg-transparent text-white transition focus-visible:opacity-100 ${alwaysVisible ? 'opacity-100' : mobileAlwaysVisible ? 'opacity-100 md:opacity-0 md:group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+        className={`grid h-8 w-8 place-items-center rounded-full bg-transparent text-white transition focus-visible:opacity-100 ${alwaysVisible ? 'opacity-100' : mobileAlwaysVisible ? 'opacity-100 md:opacity-0 md:group-hover:opacity-100' : tabletAlwaysVisible ? 'opacity-0 group-hover:opacity-100 md:opacity-100 lg:opacity-0 lg:group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
       >
         <MoreVertical size={20} />
       </button>

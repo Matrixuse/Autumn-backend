@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, Shuffle, Search, X, MoreVertical, Bookmark, Plus } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Shuffle, Search, X, Pencil } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import PlaylistCard from '../components/cards/PlaylistCard';
 import { searchPlaylists } from '../api/playlists';
@@ -9,26 +9,11 @@ import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality';
 import SongActionsMenu from '../components/common/SongActionsMenu';
 import NowPlayingOverlay from '../components/common/NowPlayingOverlay';
 import Loader from '../components/common/Loader';
+import PlaylistCover from '../components/common/PlaylistCover';
 
 const ImageWithFallback = ({ src, alt, className, fallback }) => (
   <img src={src || fallback} alt={alt} className={className} onError={(event) => { event.currentTarget.src = fallback; }} />
 );
-
-const getPlaylistImage = (playlist) => getBestImageUrl([
-  playlist?.image,
-  playlist?.images,
-  playlist?.more_info?.images,
-  playlist?.cover,
-  playlist?.thumbnail
-]);
-
-const getPlaylistCoverUrl = (playlist) => {
-  const variants = Array.isArray(playlist?.image) ? playlist.image : [];
-  return variants.find((variant) => String(variant?.quality || '').includes('500'))?.url
-    || variants.find((variant) => String(variant?.quality || '').includes('150'))?.url
-    || variants[0]?.url
-    || getPlaylistImage(playlist);
-};
 
 function RelatedPlaylistsRail({ playlists, onWheel }) {
   const railRef = useRef(null);
@@ -78,7 +63,7 @@ function RelatedPlaylistsRail({ playlists, onWheel }) {
 
 export default function PlaylistPage({ libraryOption = '' }) {
   const navigate = useNavigate();
-  const { currentTrack, isPlaying, playTrack, userPlaylists } = usePlayer();
+  const { currentTrack, isPlaying, playTrack, userPlaylists, setUserPlaylists } = usePlayer();
   const { playlistId: encodedPlaylistId, playlistName: encodedPlaylistName } = useParams();
   const [playlistTitle, setPlaylistTitle] = useState('Playlist');
   const playlistRouteName = React.useMemo(() => {
@@ -100,8 +85,11 @@ export default function PlaylistPage({ libraryOption = '' }) {
   const mobileScrollContainerRef = useRef(null);
   const desktopScrollContainerRef = useRef(null);
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(true);
-  const [vibeMenuOpen, setVibeMenuOpen] = useState(false);
   const [isVibeShuffleMode, setIsVibeShuffleMode] = useState(false);
+  const [isEditingPlaylist, setIsEditingPlaylist] = useState(false);
+  const [editPlaylistName, setEditPlaylistName] = useState('');
+  const [editPlaylistDescription, setEditPlaylistDescription] = useState('');
+  const [editPlaylistImage, setEditPlaylistImage] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -192,8 +180,31 @@ export default function PlaylistPage({ libraryOption = '' }) {
   }, [encodedPlaylistId, playlistRouteName, userPlaylists]);
 
   const displayName = playlist?.name || playlistTitle || 'Playlist';
-  const displayImage = getPlaylistCoverUrl(playlist) || songs[0]?.image || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Music';
   const dailySongs = songs;
+  const isLocalPlaylist = userPlaylists.some((item) => String(item.id) === String(encodedPlaylistId));
+
+  const handleSavePlaylistDetails = (event) => {
+    event.preventDefault();
+    const name = editPlaylistName.trim();
+    if (!name || !isLocalPlaylist) return;
+    const updates = {
+      name,
+      description: editPlaylistDescription.trim(),
+      image: editPlaylistImage.trim() || null,
+    };
+    setUserPlaylists((items) => items.map((item) => (
+      String(item.id) === String(encodedPlaylistId) ? { ...item, ...updates } : item
+    )));
+    setPlaylist((current) => current ? { ...current, ...updates } : current);
+    setPlaylistTitle(name);
+    setIsEditingPlaylist(false);
+  };
+
+  const handleDeletePlaylist = () => {
+    if (!isLocalPlaylist || !window.confirm(`Delete "${displayName}"?`)) return;
+    setUserPlaylists((items) => items.filter((item) => String(item.id) !== String(encodedPlaylistId)));
+    navigate('/library');
+  };
 
   const filteredSongs = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -297,7 +308,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
     );
   }
 
-  if (!hasSongData) {
+  if (!hasSongData && (loadError || !playlist)) {
     return (
       <div className="flex h-full min-h-[50vh] items-center justify-center p-8 text-center text-white">
         <div className="max-w-md rounded-2xl border border-gray-700 bg-[#0f0f0f]/80 p-8 shadow-xl">
@@ -339,15 +350,24 @@ export default function PlaylistPage({ libraryOption = '' }) {
           <div className={`shrink-0 transition-all duration-300 ${isHeaderExpanded ? 'bg-[#0f0f0f]/80 p-6' : 'bg-[#0f0f0f]/80 p-3'}`}>
             {isHeaderExpanded && dailySongs.length > 0 && (
               <div className="flex items-center">
-                <ImageWithFallback
-                  src={displayImage}
-                  alt={displayName}
-                  className="w-24 h-22 rounded-lg object-cover shadow-lg"
-                  fallback={'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'}
-                />
+                <PlaylistCover playlist={playlist} songs={dailySongs} alt={displayName} className="w-24 rounded-lg shadow-lg" />
                 <div className="w-full mt-3">
                   <h2 className="text-2xl font-bold ml-5 leading-none tracking-tight text-white">{displayName}</h2>
                   <div className="mt-3 ml-5 flex items-center justify-start gap-5 md:gap-6">
+                    {isLocalPlaylist && <button
+                      type="button"
+                      onClick={() => {
+                        setEditPlaylistName(playlist?.name || playlistTitle || '');
+                        setEditPlaylistDescription(playlist?.description || '');
+                        setEditPlaylistImage(typeof playlist?.image === 'string' ? playlist.image : '');
+                        setIsEditingPlaylist(true);
+                      }}
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-[#282828]"
+                      aria-label="Edit playlist details"
+                      title="Edit playlist"
+                    >
+                      <Pencil size={20} />
+                    </button>}
                     <button
                       onClick={() => {
                         if (dailySongs.length > 0) {
@@ -359,48 +379,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
                     >
                       {isPlaying ? <Pause className="h-5 w-5 fill-white text-white" /> : <Play className="ml-1 h-5 w-5 fill-white text-white" />}
                     </button>
-                    <div className="relative">
-                      <button
-                        onClick={() => setVibeMenuOpen(!vibeMenuOpen)}
-                        className="rounded-full bg-[#1f1f1f] p-2 text-white transition-colors hover:bg-[#282828]"
-                        aria-label="Vibe actions"
-                      >
-                        <MoreVertical size={20} />
-                      </button>
-                      {vibeMenuOpen && (
-                        <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#1f1f1f] rounded-lg shadow-lg z-20">
-                          <button
-                            onClick={() => {
-                              handleToggleShuffle();
-                              setVibeMenuOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-[#282828] rounded-t-lg flex items-center gap-2 text-white transition-colors"
-                          >
-                            <Shuffle size={16} />
-                            <span>Shuffle</span>
-                          </button>
-                          <button
-                            onClick={async () => {
-                              setVibeMenuOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-[#282828] flex items-center gap-2 text-white transition-colors"
-                          >
-                            <Bookmark size={16} />
-                            <span>Playlist details</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (dailySongs.length > 0) playTrack(dailySongs[0], dailySongs);
-                              setVibeMenuOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-[#282828] rounded-b-lg flex items-center gap-2 text-white transition-colors"
-                          >
-                            <Plus size={16} />
-                            <span>Add to Queue</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    <SongActionsMenu song={playlist || { id: encodedPlaylistId, name: displayName }} itemType="playlist" items={dailySongs} alwaysVisible onDelete={isLocalPlaylist ? handleDeletePlaylist : undefined} />
                   </div>
                 </div>
               </div>
@@ -454,17 +433,17 @@ export default function PlaylistPage({ libraryOption = '' }) {
                         <ImageWithFallback
                           src={song.image}
                           alt={song.title}
-                          className="w-10 h-10 rounded-md object-cover"
+                          className="w-12 h-12 rounded-md object-cover"
                           fallback={'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'}
                         />
                         {isActive && <NowPlayingOverlay />}
                       </div>
-                      <div className="flex-1 min-w-0 overflow-hidden mr-6">
+                      <div className="flex-1 min-w-0 overflow-hidden mr-6 mt-2">
                         <h4 className={`text-sm font-semibold truncate ${isActive ? 'text-red-300' : 'text-white'}`}>{song.title}</h4>
                         <p className="text-xs text-gray-400 truncate">{Array.isArray(song.artist) ? song.artist.join(', ') : (song.artist || '')}</p>
                       </div>
                       <div className="absolute right-1 top-1/2 -translate-y-1/2 shrink-0">
-                        <MoreVertical size={16} className="text-white/50" />
+                        <SongActionsMenu song={song} queue={filteredSongs} alwaysVisible />
                       </div>
                     </div>
                   </div>
@@ -492,33 +471,31 @@ export default function PlaylistPage({ libraryOption = '' }) {
       </div>
 
       <div className="hidden md:flex md:h-[calc(100vh-10rem)] md:min-h-0 md:min-w-0 md:flex-none md:overflow-hidden md:flex-row">
-        <div className="shrink-0 transition-all duration-300 bg-[#0f0f0f]/80 p-1 lg:w-107.5 lg:min-w-107.5 md:w-90 md:min-w-90 md:sticky md:top-0 md:h-full md:border-r md:border-gray-800 md:p-5">
-          <div className="flex items-center gap-3 mb-0 md:mb-4">
-            <button type="button" onClick={() => navigate(-1)} className="p-2 rounded-full bg-[#0f0f0f] hover:bg-[#282828] shrink-0" aria-label="Go back">
-              <ArrowLeft size={20} />
-            </button>
-          </div>
+        <div className="relative shrink-0 transition-all duration-300 bg-[#0f0f0f]/80 p-1 lg:w-107.5 lg:min-w-107.5 md:w-90 md:min-w-90 md:sticky md:top-0 md:h-full md:border-r md:border-gray-800 md:p-5">
+          <button type="button" onClick={() => navigate(-1)} className="absolute left-4 top-4 z-20 rounded-full bg-[#0f0f0f] p-2 hover:bg-[#282828]" aria-label="Go back">
+            <ArrowLeft size={20} />
+          </button>
 
           {dailySongs.length > 0 && (
             <div className="mt-4 md:mt-4 md:flex md:flex-col md:items-center md:text-center">
-              <ImageWithFallback
-                src={displayImage}
-                alt={displayName}
-                className="w-56 h-56 rounded-xl object-cover shadow-lg md:w-64 md:h-64"
-                fallback={'https://placehold.co/400x400/1F2937/FFFFFF?text=Music'}
-              />
+              <PlaylistCover playlist={playlist} songs={dailySongs} alt={displayName} className="w-56 rounded-xl shadow-lg md:w-64" />
               <div className="flex-1 mt-5 md:mt-5 md:w-full">
                 <h2 className="text-2xl leading-none tracking-tight font-bold text-white lg:text-4xl md:text-2xl">{displayName}</h2>
-                <div className="lg:mt-6 md:mt-1 flex items-center justify-center gap-5 md:gap-6">
-                  <button
-                    onClick={async () => {
-                      handleSelectSong(dailySongs[0]?.id);
+                <div className="lg:mt-6 md:mt-1 flex items-center justify-center gap-5 md:gap-6 lg:gap-10">
+                  {isLocalPlaylist && <button
+                    type="button"
+                    onClick={() => {
+                      setEditPlaylistName(playlist?.name || playlistTitle || '');
+                      setEditPlaylistDescription(playlist?.description || '');
+                      setEditPlaylistImage(typeof playlist?.image === 'string' ? playlist.image : '');
+                      setIsEditingPlaylist(true);
                     }}
-                    className="rounded-full p-2 text-white transition-colors hover:bg-[#282828]"
-                    aria-label="Save vibe as playlist"
+                    className="inline-flex rounded-full p-2 text-white transition-colors hover:bg-[#282828]"
+                    aria-label="Edit playlist details"
+                    title="Edit playlist"
                   >
-                    <Bookmark size={20} />
-                  </button>
+                    <Pencil size={23} />
+                  </button>}
                   <button
                     onClick={() => {
                       if (dailySongs.length > 0) {
@@ -531,48 +508,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
                     {isPlaying ? <Pause className="h-7 w-7 fill-white text-white md:h-8 md:w-8" /> : <Play className="ml-1 h-7 w-7 fill-white text-white md:h-8 md:w-8" />}
                   </button>
 
-                  <div className="relative">
-                    <button
-                      onClick={() => setVibeMenuOpen(!vibeMenuOpen)}
-                      className="rounded-full bg-[#1f1f1f] p-2 text-white transition-colors hover:bg-[#282828]"
-                      aria-label="Vibe actions"
-                    >
-                      <MoreVertical size={20} />
-                    </button>
-                    {vibeMenuOpen && (
-                      <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#1f1f1f] rounded-lg shadow-lg z-20">
-                        <button
-                          onClick={() => {
-                            handleToggleShuffle();
-                            setVibeMenuOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-[#282828] rounded-t-lg flex items-center gap-2 text-white transition-colors"
-                        >
-                          <Shuffle size={16} />
-                          <span>Shuffle</span>
-                        </button>
-                        <button
-                          onClick={async () => {
-                            setVibeMenuOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-[#282828] flex items-center gap-2 text-white transition-colors"
-                        >
-                          <Bookmark size={16} />
-                          <span>Save Playlist</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (dailySongs.length > 0) playTrack(dailySongs[0], dailySongs);
-                            setVibeMenuOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-[#282828] rounded-b-lg flex items-center gap-2 text-white transition-colors"
-                        >
-                          <Plus size={16} />
-                          <span>Add to Queue</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <SongActionsMenu song={playlist || { id: encodedPlaylistId, name: displayName }} itemType="playlist" items={dailySongs} alwaysVisible onDelete={isLocalPlaylist ? handleDeletePlaylist : undefined} />
                 </div>
               </div>
             </div>
@@ -636,7 +572,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
                           <span className="text-xs text-gray-300 md:text-sm mr-1">{formatDuration(song)}</span>
-                          <SongActionsMenu song={song} queue={songs} />
+                          <SongActionsMenu song={song} queue={songs} tabletAlwaysVisible />
                         </div>
                       </div>
                     </div>
@@ -663,6 +599,34 @@ export default function PlaylistPage({ libraryOption = '' }) {
           </div>
         </div>
       </div>
+      {isEditingPlaylist && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/65 p-4 backdrop-blur-sm">
+          <form onSubmit={handleSavePlaylistDetails} role="dialog" aria-modal="true" aria-labelledby="edit-playlist-title" className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl border border-white/15 bg-[#242424] p-5 text-white shadow-2xl sm:p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 id="edit-playlist-title" className="text-xl font-bold">Edit playlist</h2>
+              <button type="button" onClick={() => setIsEditingPlaylist(false)} aria-label="Close edit playlist dialog" className="rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white"><X size={20} /></button>
+            </div>
+            <div className="space-y-5">
+              <label className="block text-sm text-white/70">
+                <span className="mb-2 block">Playlist name</span>
+                <input autoFocus required maxLength={80} value={editPlaylistName} onChange={(event) => setEditPlaylistName(event.target.value)} className="w-full border-b border-white/20 bg-transparent px-0 py-3 text-base text-white outline-none focus:border-[#3ca9ff]" />
+              </label>
+              <label className="block text-sm text-white/70">
+                <span className="mb-2 block">Description</span>
+                <textarea rows={3} maxLength={240} value={editPlaylistDescription} onChange={(event) => setEditPlaylistDescription(event.target.value)} className="w-full resize-y rounded-md border border-white/15 bg-black/20 px-3 py-2 text-base text-white outline-none focus:border-[#3ca9ff]" />
+              </label>
+              <label className="block text-sm text-white/70">
+                <span className="mb-2 block">Cover image URL</span>
+                <input type="url" value={editPlaylistImage} onChange={(event) => setEditPlaylistImage(event.target.value)} placeholder="https://..." className="w-full border-b border-white/20 bg-transparent px-0 py-3 text-base text-white outline-none placeholder:text-white/40 focus:border-[#3ca9ff]" />
+              </label>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setIsEditingPlaylist(false)} className="rounded-full px-5 py-2.5 text-sm font-semibold text-white/75 hover:bg-white/10 hover:text-white">Cancel</button>
+              <button type="submit" className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#242424] hover:bg-white/85">Save changes</button>
+            </div>
+          </form>
+        </div>
+      )}
     </>
   );
 };

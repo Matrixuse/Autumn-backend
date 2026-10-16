@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { getBestImageUrl } from '../../utils/mediaQuality'
 import SongActionsMenu from '../common/SongActionsMenu'
+import PlaylistCover from '../common/PlaylistCover'
 import { usePlayer } from '../../context/PlayerContext'
 
 export default function PlaylistCard({ song, playlist, to, compact = false, itemType = 'playlist', items = [] }) {
@@ -15,7 +16,9 @@ export default function PlaylistCard({ song, playlist, to, compact = false, item
         <article className={`group relative ${compact ? 'w-36 min-w-36 shrink-0' : 'min-w-40.5 md:min-w-42.5 flex-1'}`}>
             <Link to={destination} className="block">
                 <div className={`${compact ? 'aspect-square rounded-lg' : 'aspect-square rounded-xl'} overflow-hidden bg-[#28251f]`}>
-                    {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
+                    {itemType === 'playlist'
+                        ? <PlaylistCover playlist={playlist} alt={playlist.name || playlist.title || 'Playlist'} className="h-full w-full" />
+                        : image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
                 </div>
                 <h3 className={`${compact ? 'mt-2 text-xs' : 'mt-3 text-sm'} truncate pr-8 font-bold text-white`}>
                     {playlist.name}

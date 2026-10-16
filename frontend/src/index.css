@@ -22,6 +22,40 @@ button { cursor: pointer; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #4a4138; border: 2px solid #111311; border-radius: 999px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #8b6338; }
 .range-amber { accent-color: #e6a44a; }
+.autoplay-switch {
+	position: relative;
+	height: 1.1rem;
+	width: 2rem;
+	flex: none;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+	border: 0;
+	border-radius: 9999px;
+	background-color: rgba(100, 116, 139, 0.377);
+	transition: all .3s ease;
+	margin-right: 2rem;
+}
+.autoplay-switch:checked { background-color: rgb(64, 73, 204); }
+.autoplay-switch::before {
+	position: absolute;
+	content: "";
+	left: calc(1.5rem - 1.6rem);
+	top: calc(1.5rem - 1.6rem);
+	display: block;
+	height: 1.3rem;
+	width: 1.3rem;
+	cursor: pointer;
+	border: 1px solid rgba(100, 116, 139, 0.527);
+	border-radius: 9999px;
+	background-color: #ffffff;
+	box-shadow: 0 3px 10px rgba(100, 116, 139, 0.327);
+	transition: all .3s ease;
+}
+.autoplay-switch:hover::before { box-shadow: 0 0 0 8px rgba(0, 0, 0, .15); }
+.autoplay-switch:checked:hover::before { box-shadow: 0 0 0 8px rgba(124, 76, 207, 0.15); }
+.autoplay-switch:checked::before { transform: translateX(100%); border-color: rgb(63, 96, 203); }
+.autoplay-switch:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .art-sheen { background: linear-gradient(135deg, #2d2a22 0%, #7d502f 44%, #c48745 100%); }
 .cover-container { position: relative; overflow: hidden; }
 .now-playing-overlay {

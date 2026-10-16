@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, MoreHorizontal, Play } from 'lucide-react'
+import { ArrowLeft, MoreHorizontal } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axiosInstance from '../api/axiosInstance'
 import { getBestImageUrl } from '../utils/mediaQuality'
 import SongCard from '../components/cards/SongCard'
 import Loader from '../components/common/Loader'
+import PlaylistCover from '../components/common/PlaylistCover'
 
 const normalizeSong = (song = {}) => ({
   id: song.id || song._id || `${song.name || song.title || 'song'}-${Math.random().toString(36).slice(2, 8)}`,
@@ -71,7 +72,6 @@ export default function PlaylistDetail() {
   }, [playlist])
 
   const displayName = playlist?.name || decodeURIComponent(String(playlistName || '')) || 'Playlist'
-  const coverImage = playlist?.image?.[0]?.url || playlist?.image?.[0]?.link || songs[0]?.image || null
 
   if (loading) {
     return (
@@ -99,15 +99,7 @@ export default function PlaylistDetail() {
         Back
       </button>
       <section className="flex flex-col gap-6 rounded-3xl border border-white/8 bg-white/4 p-6 sm:flex-row sm:items-end sm:p-10">
-        <div className="grid aspect-square w-40 shrink-0 place-items-center overflow-hidden rounded-2xl shadow-2xl">
-          {coverImage ? (
-            <img src={coverImage} alt={displayName} className="h-full w-full object-cover" />
-          ) : (
-            <div className="grid h-full w-full place-items-center bg-[#2b2b2b]">
-              <Play size={36} fill="white" />
-            </div>
-          )}
-        </div>
+        <PlaylistCover playlist={playlist} songs={songs} alt={displayName} className="w-40 shrink-0 rounded-2xl shadow-2xl" />
         <div>
           <p className="text-xs font-bold uppercase tracking-[.2em] text-[#d29a55]">
             Playlist
