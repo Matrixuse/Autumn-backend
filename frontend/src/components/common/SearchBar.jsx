@@ -292,7 +292,7 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
       {focused && (
         <div className="absolute left-0 right-0 top-[calc(100%+10px)] hidden overflow-hidden rounded border border-white/10 bg-[#17191a]/95 shadow-[0_20px_40px_rgba(0,0,0,0.45)] backdrop-blur-md lg:block">
           {showHistory && recentHistory.length > 0 && (
-            <div className="py-1.5">
+            <div className="max-h-[520px] overflow-y-auto scrollbar-none py-1.5">
               {recentHistory.map((item) => (
                 <div key={item} className="flex items-center justify-between gap-1 px-3 py-2 text-white/75 transition hover:bg-white/5">
                   <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => handleSelect(item, { __type: 'history' })} className="flex flex-1 items-center gap-3 text-left">
