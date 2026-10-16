@@ -56,12 +56,14 @@ export class App {
   private initializeGlobalMiddlewares() {
     this.app.use(logger())
     this.app.use(prettyJSON())
-    this.app.use(cors({
-      origin: getAllowedOrigin,
-      credentials: true,
-      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-    }))
+    this.app.use(
+      cors({
+        origin: getAllowedOrigin,
+        credentials: true,
+        allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+      })
+    )
   }
 
   private initializeSwaggerUI() {

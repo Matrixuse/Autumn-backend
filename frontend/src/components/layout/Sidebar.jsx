@@ -1,11 +1,13 @@
-import { Settings2, Home, Library, Plus } from 'lucide-react'
+import { Settings2, Home, Library, ListMusic, Plus } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import Button from '../common/Button'
+import { usePlayer } from '../../context/PlayerContext'
 
 const navItems = [{ to: '/', label: 'Home', icon: Home }, { to: '/explore', label: 'Recommended', icon: Settings2 }, { to: '/library', label: 'Library', icon: Library }]
 
 export default function Sidebar({ locked = false }) {
     const navigate = useNavigate()
+    const { userPlaylists } = usePlayer()
 
     const disabledState = locked ? 'pointer-events-none select-none opacity-60' : 'opacity-100'
 
@@ -34,5 +36,23 @@ export default function Sidebar({ locked = false }) {
     </div>
     <br />
     <Button disabled={locked} onClick={() => navigate('/new-playlist')} variant="ghost" className={`mx-3 flex w-[calc(100%-24px)] items-center justify-center gap-2 border-0 bg-white/30 py-2.5 ${locked ? 'pointer-events-none opacity-60' : ''}`}><Plus size={19} /> New playlist</Button>
+    <div className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-2 mt-5">
+        {userPlaylists.map((playlist) => (
+            <button
+                key={playlist.id}
+                type="button"
+                disabled={locked}
+                onClick={() => navigate(`/playlist/${encodeURIComponent(String(playlist.id))}/${encodeURIComponent(playlist.name || 'playlist')}`)}
+                title={playlist.name || 'Untitled playlist'}
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-white/75 transition hover:border-white/15 hover:bg-white/10 hover:text-white disabled:pointer-events-none"
+            >
+                <ListMusic size={16} className="shrink-0 text-white" />
+                <div>
+                    <span className="truncate text-sm">{playlist.name || 'Untitled playlist'}</span>
+                    <p className='text-xs text-white/45'>Playlist</p>
+                </div>
+            </button>
+        ))}
+    </div>
   </aside>
 }

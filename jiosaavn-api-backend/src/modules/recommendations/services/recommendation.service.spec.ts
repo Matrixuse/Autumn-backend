@@ -29,7 +29,9 @@ describe('RecommendationService', () => {
   let cursor = createCursor(overflow)
   const collection = {
     createIndex: vi.fn(() => Promise.resolve('index')),
-    bulkWrite: vi.fn((operations: Array<{ updateOne: { filter: { userId: ObjectId; eventId: string } } }>) => Promise.resolve({ upsertedCount: operations.length })),
+    bulkWrite: vi.fn((operations: Array<{ updateOne: { filter: { userId: ObjectId; eventId: string } } }>) =>
+      Promise.resolve({ upsertedCount: operations.length })
+    ),
     find: vi.fn(() => cursor),
     deleteMany: vi.fn(() => Promise.resolve({ deletedCount: overflow.length }))
   }
@@ -56,7 +58,12 @@ describe('RecommendationService', () => {
 
   it('returns a bounded chronological profile for the requested user', async () => {
     const profileEvents = [
-      { eventId: 'event-2', type: 'track_completed', trackId: 'song-2', occurredAt: new Date('2026-01-02T00:00:00.000Z') },
+      {
+        eventId: 'event-2',
+        type: 'track_completed',
+        trackId: 'song-2',
+        occurredAt: new Date('2026-01-02T00:00:00.000Z')
+      },
       { eventId: 'event-1', type: 'track_started', trackId: 'song-1', occurredAt: new Date('2026-01-01T00:00:00.000Z') }
     ]
     collection.find.mockImplementation(() => createCursor(profileEvents))

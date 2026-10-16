@@ -1,4 +1,11 @@
-import { AlbumController, ArtistController, AuthController, RecommendationController, SearchController, SongController } from '#modules/index'
+import {
+  AlbumController,
+  ArtistController,
+  AuthController,
+  RecommendationController,
+  SearchController,
+  SongController
+} from '#modules/index'
 import { PlaylistController } from '#modules/playlists/controllers'
 import { App } from './app.js'
 

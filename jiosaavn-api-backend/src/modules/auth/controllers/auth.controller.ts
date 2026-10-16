@@ -12,7 +12,7 @@ const getSessionCookieOptions = (requestUrl: string) => {
 
   return {
     httpOnly: true,
-    sameSite: isSecure ? 'None' as const : 'Lax' as const,
+    sameSite: isSecure ? ('None' as const) : ('Lax' as const),
     secure: isSecure,
     path: '/',
     maxAge: SESSION_COOKIE_MAX_AGE
@@ -25,7 +25,12 @@ const credentialsSchema = z.object({
 })
 
 const registerSchema = credentialsSchema.extend({
-  username: z.string().trim().min(3).max(32).regex(/^[a-zA-Z0-9_]+$/)
+  username: z
+    .string()
+    .trim()
+    .min(3)
+    .max(32)
+    .regex(/^[a-zA-Z0-9_]+$/)
 })
 
 const googleSchema = z.object({ idToken: z.string().min(1) })
@@ -46,9 +51,15 @@ export class AuthController implements Routes {
         summary: 'Sign in with Google',
         request: { body: { content: { 'application/json': { schema: googleSchema } } } },
         responses: {
-          200: { description: 'User signed in with Google', content: { 'application/json': { schema: successResponse } } },
+          200: {
+            description: 'User signed in with Google',
+            content: { 'application/json': { schema: successResponse } }
+          },
           400: { description: 'Invalid Google request', content: { 'application/json': { schema: errorResponse } } },
-          401: { description: 'Invalid Google identity token', content: { 'application/json': { schema: errorResponse } } },
+          401: {
+            description: 'Invalid Google identity token',
+            content: { 'application/json': { schema: errorResponse } }
+          },
           500: { description: 'Google sign-in failed', content: { 'application/json': { schema: errorResponse } } }
         }
       }),
@@ -70,7 +81,10 @@ export class AuthController implements Routes {
         responses: {
           201: { description: 'User registered', content: { 'application/json': { schema: successResponse } } },
           400: { description: 'Invalid registration data', content: { 'application/json': { schema: errorResponse } } },
-          409: { description: 'Username or email is already registered', content: { 'application/json': { schema: errorResponse } } },
+          409: {
+            description: 'Username or email is already registered',
+            content: { 'application/json': { schema: errorResponse } }
+          },
           500: { description: 'Registration failed', content: { 'application/json': { schema: errorResponse } } }
         }
       }),

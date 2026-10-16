@@ -26,7 +26,7 @@ const parseBio = (value: string | null | undefined) => {
 
 const parseLanguages = (value: string | null | undefined) => {
   const parsed = parseJson<unknown>(value, null)
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, string> : null
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, string>) : null
 }
 
 export const createArtistPayload = (artist: z.infer<typeof ArtistAPIResponseModel>): z.infer<typeof ArtistModel> => ({

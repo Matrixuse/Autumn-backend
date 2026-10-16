@@ -10,7 +10,9 @@ describe('RecommendationEventsBatchModel', () => {
       occurredAt: new Date().toISOString()
     }
     expect(RecommendationEventsBatchModel.safeParse({ events: [event] }).success).toBe(true)
-    expect(RecommendationEventsBatchModel.safeParse({ events: [{ ...event, type: 'not_supported' }] }).success).toBe(false)
+    expect(RecommendationEventsBatchModel.safeParse({ events: [{ ...event, type: 'not_supported' }] }).success).toBe(
+      false
+    )
   })
 
   it('caps the number of accepted events per request', () => {

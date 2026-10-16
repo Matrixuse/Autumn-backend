@@ -33,7 +33,8 @@ export class AuthError extends Error {
 }
 
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 365 * 10
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '36232842622-0cfa2jhn3fv20iq16ro2c05uhhrj9td0.apps.googleusercontent.com'
+const GOOGLE_CLIENT_ID =
+  process.env.GOOGLE_CLIENT_ID || '36232842622-0cfa2jhn3fv20iq16ro2c05uhhrj9td0.apps.googleusercontent.com'
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID)
 
 const getGoogleAvatar = (picture: unknown) => {
@@ -122,7 +123,8 @@ export class AuthService {
       user.googleId = payload.sub
       if (updates.avatar) user.avatar = updates.avatar
     } else {
-      const baseUsername = (payload.name || payload.email.split('@')[0]).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 24) || 'autumn_user'
+      const baseUsername =
+        (payload.name || payload.email.split('@')[0]).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 24) || 'autumn_user'
       const username = await this.getAvailableUsername(baseUsername)
       user = {
         _id: new ObjectId(),
@@ -155,10 +157,7 @@ export class AuthService {
     }
 
     const expiresAt = new Date(Date.now() + SESSION_DURATION_MS)
-    await database.collection<SessionDocument>('sessions').updateOne(
-      { _id: session._id },
-      { $set: { expiresAt } }
-    )
+    await database.collection<SessionDocument>('sessions').updateOne({ _id: session._id }, { $set: { expiresAt } })
 
     const user = await database.collection<UserDocument>('users').findOne({ _id: session.userId })
     if (!user) {
