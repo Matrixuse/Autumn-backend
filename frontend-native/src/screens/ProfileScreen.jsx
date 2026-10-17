@@ -35,6 +35,7 @@ export default function ProfileScreen({ navigation }) {
       {!!error && <Text style={{ marginBottom: 14, color: colors.danger, fontFamily: typography.body }}>{error}</Text>}
       <Pressable onPress={save} style={{ height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: colors.amber }}><Text style={{ color: '#21160a', fontFamily: typography.bodyBold }}>Save changes</Text></Pressable>
       <Pressable onPress={() => navigation.navigate('Feedback')} style={{ height: 48, marginTop: 18, justifyContent: 'center' }}><Text style={{ color: colors.text, fontFamily: typography.bodyBold }}>Send feedback</Text></Pressable>
+      <Pressable onPress={() => navigation.navigate('Settings')} accessibilityRole="button" style={{ height: 48, justifyContent: 'center' }}><Text style={{ color: colors.text, fontFamily: typography.bodyBold }}>Settings</Text></Pressable>
       <Pressable onPress={() => signOut()} style={{ height: 48, justifyContent: 'center' }}><Text style={{ color: colors.danger, fontFamily: typography.bodyBold }}>Log out</Text></Pressable>
     </ScrollView>
   )

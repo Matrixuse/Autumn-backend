@@ -1,4 +1,4 @@
-import { ChevronUp, ListMusic, Pause, Play, Repeat2, Shuffle, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react'
+import { ChevronUp, ListMusic, Pause, Play, Radio, Repeat2, Shuffle, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useRef, useState } from 'react'
 import { usePlayer } from '../../context/PlayerContext'
@@ -129,6 +129,9 @@ export default function PlayerBar() {
           <button onClick={toggleKeepListening} aria-label={isKeepListeningOpen ? 'Close queue' : 'Open queue'} className="hidden gap-2 hover:text-white md:flex">
             <ListMusic size={20} />
             <ChevronUp size={19} className={`hidden text-white/60 transition-transform sm:block ${isKeepListeningOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <button type="button" onClick={() => navigate('/settings/continue-anywhere')} aria-label="Open connected devices" title="Continue Anywhere" className="rounded-full p-1.5 text-white/65 hover:bg-white/10 hover:text-white">
+            <Radio size={19} />
           </button>
         </div>
       </div>

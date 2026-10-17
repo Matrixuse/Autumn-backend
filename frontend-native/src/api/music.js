@@ -41,6 +41,13 @@ const searchType = async (type, query, limit) => {
   return response.data?.data?.results || []
 }
 
+export const getSongById = async (id) => {
+  const response = await apiClient.get(`/songs/${encodeURIComponent(String(id))}`)
+  const data = response.data?.data
+  const song = Array.isArray(data) ? data[0] : data
+  return song ? normalizeSong(song) : null
+}
+
 export const searchSongs = async (query, limit = 24, page = 0) => {
   const response = await apiClient.get('/search/songs', {
     params: { query, page, limit },

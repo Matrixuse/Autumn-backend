@@ -15,8 +15,11 @@ import SongListScreen from '../screens/SongListScreen'
 import NewPlaylistScreen from '../screens/NewPlaylistScreen'
 import LocalPlaylistScreen from '../screens/LocalPlaylistScreen'
 import ProfileScreen from '../screens/ProfileScreen'
+import SettingsScreen from '../screens/SettingsScreen'
+import ContinueAnywhereScreen from '../screens/ContinueAnywhereScreen'
 import FeedbackScreen from '../screens/FeedbackScreen'
 import MiniPlayer from '../components/MiniPlayer'
+import ConnectRuntime from '../player/ConnectRuntime'
 import { useAuth } from '../auth/AuthContext'
 import { colors, typography } from '../theme/tokens'
 
@@ -69,6 +72,7 @@ function MainShell({ navigation }) {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <MainTabs />
       <MiniPlayer navigation={navigation} />
+      <ConnectRuntime />
     </View>
   )
 }
@@ -102,6 +106,8 @@ export default function RootNavigator() {
       <Stack.Screen name="NewPlaylist" component={NewPlaylistScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="LocalPlaylist" component={LocalPlaylistScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="ContinueAnywhere" component={ContinueAnywhereScreen} />
       <Stack.Screen name="Feedback" component={FeedbackScreen} />
     </Stack.Navigator>
   )

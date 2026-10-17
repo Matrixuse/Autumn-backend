@@ -2,6 +2,7 @@ import {
   AlbumController,
   ArtistController,
   AuthController,
+  ConnectController,
   RecommendationController,
   SearchController,
   SongController
@@ -16,7 +17,8 @@ const app = new App([
   new AlbumController(),
   new ArtistController(),
   new PlaylistController(),
-  new RecommendationController()
+  new RecommendationController(),
+  new ConnectController()
 ]).getApp()
 
 export default app

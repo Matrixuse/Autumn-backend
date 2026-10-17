@@ -1,4 +1,4 @@
-import { ArrowLeft, Bell, Download, Info, LogOut, Menu, RefreshCw, SlidersHorizontal, UserRound, X } from 'lucide-react'
+import { ArrowLeft, Bell, Download, Info, LogOut, Menu, RefreshCw, SlidersHorizontal, Megaphone, Settings, UserRound, X } from 'lucide-react'
 import SearchBar from '../common/SearchBar'
 import Avatar from '../common/Avatar'
 import { useAuth } from '../../context/AuthContext'
@@ -20,6 +20,7 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
     const isExplorePage = location.pathname === '/explore'
     const isPlaylistsPage = location.pathname === '/playlists' || location.pathname.startsWith('/playlist/')
     const isLibraryPage = location.pathname === '/library'
+    const isSettingsPage = location.pathname === '/settings' || location.pathname.startsWith('/settings/')
     const isMobileHiddenPage = location.pathname === '/recently-played' || location.pathname === '/liked-songs' || location.pathname === '/keep-listening' || location.pathname.startsWith('/album/') || location.pathname.startsWith('/artist/') || location.pathname.startsWith('/mood/')
     const disabledState = locked ? 'pointer-events-none opacity-60' : ''
     const closeMenu = () => setIsMenuOpen(false)
@@ -30,9 +31,16 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
         const handleOutsideClick = (event) => {
             if (!accountMenuRef.current?.contains(event.target)) setIsAccountMenuOpen(false)
         }
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setIsAccountMenuOpen(false)
+        }
 
-        document.addEventListener('mousedown', handleOutsideClick)
-        return () => document.removeEventListener('mousedown', handleOutsideClick)
+        document.addEventListener('pointerdown', handleOutsideClick)
+        document.addEventListener('keydown', handleKeyDown)
+        return () => {
+            document.removeEventListener('pointerdown', handleOutsideClick)
+            document.removeEventListener('keydown', handleKeyDown)
+        }
     }, [isAccountMenuOpen])
 
     useEffect(() => {
@@ -69,7 +77,7 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
 
     return (
     <>
-    <header aria-disabled={locked} className={`${isMobileHiddenPage ? 'hidden md:flex' : isLibraryPage || isExplorePage ? 'hidden lg:flex' : isPlaylistsPage ? 'hidden md:flex' : isNotificationsPage ? 'flex md:flex lg:hidden' : 'flex'} sticky top-0 z-20 items-center gap-4 bg-[#080909]/80 px-2 py-3 backdrop-blur-xl lg:px-10 ${disabledState}`}>
+    <header aria-disabled={locked} className={`${isSettingsPage ? 'hidden lg:flex' : isMobileHiddenPage ? 'hidden md:flex' : isLibraryPage || isExplorePage ? 'hidden lg:flex' : isPlaylistsPage ? 'hidden md:flex' : isNotificationsPage ? 'flex md:flex lg:hidden' : 'flex'} sticky top-0 z-20 items-center gap-4 bg-[#080909]/80 px-2 py-3 backdrop-blur-xl lg:px-10 ${disabledState}`}>
         {isNotificationsPage ? (
             <div className="flex w-full items-center gap-3">
                 <button
@@ -99,13 +107,22 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
                                     <UserRound size={15} />
                                     Profile
                                 </Link>
-                                {installPrompt && !isStandalone && <button onClick={() => { setIsAccountMenuOpen(false); void handleInstallApp() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/10 hover:text-white">
-                                    <Download size={15} />
-                                    Install Autumn
-                                </button>}
+                                <Link to="/settings" onClick={() => setIsAccountMenuOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
+                                    <SlidersHorizontal size={15} />
+                                    Settings
+                                </Link>
+                                {installPrompt && !isStandalone &&
+                                    <button onClick={() => { closeMenu(); void handleInstallApp() }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10 hover:text-white">
+                                        <Download size={18} />
+                                        Install Autumn
+                                    </button>}
+                                <Link to="/" onClick={() => setIsAccountMenuOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
+                                    <Megaphone size={15} />
+                                    Your Updates
+                                </Link>
                                 <button disabled={locked} onClick={() => { setIsAccountMenuOpen(false); logout() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/10 hover:text-white">
                                     <LogOut size={15} />
-                                    Log out
+                                    Logout
                                 </button>
                             </div> : <div>
                                         <Link to="/login" className="block rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
@@ -145,12 +162,16 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
                                 <UserRound size={18} />
                                 Profile
                             </Link>
+                            <Link to="/settings" onClick={closeMenu} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">
+                                <SlidersHorizontal size={18} />
+                                Settings
+                            </Link>
                             {installPrompt && !isStandalone && <button onClick={() => { closeMenu(); void handleInstallApp() }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10 hover:text-white">
                                 <Download size={18} />
                                 Install Autumn
                             </button>}
                             <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10 hover:text-white">
-                                <RefreshCw size={18} />
+                                <Megaphone size={18} />
                                 App Updates
                             </button>
                             <Link to="/equalizer" onClick={closeMenu} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white">
@@ -202,13 +223,17 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
                                     <UserRound size={15} />
                                     Profile
                                 </Link>
-                                {installPrompt && !isStandalone && <button onClick={() => { setIsAccountMenuOpen(false); void handleInstallApp() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/10 hover:text-white">
-                                    <Download size={15} />
-                                    Install Autumn
-                                </button>}
+                                <Link to="/settings" onClick={() => setIsAccountMenuOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
+                                    <Settings size={15} />
+                                    Settings
+                                </Link>
+                                <Link to="/" onClick={() => setIsAccountMenuOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">
+                                    <Megaphone size={15} />
+                                    Your Updates
+                                </Link>
                                 <button disabled={locked} onClick={() => { setIsAccountMenuOpen(false); logout() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/70 hover:bg-white/10 hover:text-white">
                                     <LogOut size={15} />
-                                    Log out
+                                    Logout
                                 </button>
                             </div> : <div>
                                         <Link to="/login" className="block rounded-lg px-3 py-2 text-xs text-white/70 hover:bg-white/10 hover:text-white">

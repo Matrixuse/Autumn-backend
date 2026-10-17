@@ -62,6 +62,17 @@ export const getBestAudioUrl = (audioField) => entriesFrom(audioField)
   .filter((item) => item.url)
   .sort((a, b) => b.score - a.score)[0]?.url || null
 
+export const getDataSavingAudioUrl = (audioField) => {
+  const variants = entriesFrom(audioField)
+    .map((item) => ({
+      url: usableUrl(item.url || item.src || item.link || item.downloadUrl),
+      score: normalizedNumber(item.bitrate ?? item.kbps ?? item.quality ?? item.key)
+    }))
+    .filter((item) => item.url)
+  const knownBitrates = variants.filter((item) => item.score > 0).sort((first, second) => first.score - second.score)
+  return knownBitrates[0]?.url || variants[0]?.url || getBestAudioUrl(audioField)
+}
+
 /** Returns the largest image URL from a string, keyed object, or variant array. */
 export const getBestImageUrl = (imageField) => {
   const candidates = collectImageCandidates(imageField)

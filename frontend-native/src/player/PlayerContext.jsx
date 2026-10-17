@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
+import { getSongById } from '../api/music'
 
 const PlayerContext = createContext(null)
 const STORAGE_KEYS = {
@@ -34,6 +35,8 @@ export function PlayerProvider({ children }) {
   const [isShuffleEnabled, setShuffleEnabled] = useState(false)
   const [isRepeatEnabled, setRepeatEnabled] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
+  const handoffPreparationRef = useRef(null)
+  const resolvingTrackIdsRef = useRef(new Set())
 
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true }).catch(() => {})
@@ -48,6 +51,15 @@ export function PlayerProvider({ children }) {
   useEffect(() => {
     player.loop = isRepeatEnabled
   }, [isRepeatEnabled, player])
+
+  useEffect(() => {
+    const preparation = handoffPreparationRef.current
+    if (!preparation || !status.isLoaded) return
+    handoffPreparationRef.current = null
+    clearTimeout(preparation.timeout)
+    player.pause()
+    player.seekTo(preparation.position).then(() => preparation.resolve(true)).catch(() => preparation.resolve(false))
+  }, [player, status.isLoaded])
 
   useEffect(() => {
     if (!isHydrated) return
@@ -65,7 +77,18 @@ export function PlayerProvider({ children }) {
   }, [isHydrated, userPlaylists])
 
   const playTrack = (track, sourceQueue = queue) => {
-    if (!track?.audio) return
+    if (!track?.id) return
+    if (!track.audio) {
+      const trackId = String(track.id)
+      if (resolvingTrackIdsRef.current.has(trackId)) return
+      resolvingTrackIdsRef.current.add(trackId)
+      getSongById(trackId).then((resolved) => {
+        if (!resolved?.audio) return
+        const updatedQueue = sourceQueue.map((item) => String(item.id) === trackId ? resolved : item)
+        playTrack(resolved, updatedQueue)
+      }).catch(() => {}).finally(() => resolvingTrackIdsRef.current.delete(trackId))
+      return
+    }
     const normalizedQueue = Array.isArray(sourceQueue) ? sourceQueue.filter((item) => item?.id && item?.audio) : []
     const matchingIndex = normalizedQueue.findIndex((item) => String(item.id) === String(track.id))
     const nextQueue = matchingIndex >= 0 ? normalizedQueue : [track, ...normalizedQueue]
@@ -119,6 +142,52 @@ export function PlayerProvider({ children }) {
     setCurrentIndex(-1)
   }
 
+  const prepareTransferredPlayback = (snapshot, resolvedQueue) => new Promise((resolve) => {
+    const queueTracks = Array.isArray(resolvedQueue) ? resolvedQueue : []
+    const index = Math.max(0, Math.min(Number(snapshot.currentIndex) || 0, queueTracks.length - 1))
+    const track = queueTracks[index] || snapshot.track
+    if (!track?.audio) { resolve(false); return }
+    if (handoffPreparationRef.current) {
+      clearTimeout(handoffPreparationRef.current.timeout)
+      handoffPreparationRef.current.resolve(false)
+    }
+    const timeout = setTimeout(() => {
+      if (!handoffPreparationRef.current) return
+      handoffPreparationRef.current = null
+      resolve(false)
+    }, 12000)
+    handoffPreparationRef.current = { position: Math.max(0, Number(snapshot.positionMs) / 1000), resolve, timeout }
+    setQueue(queueTracks)
+    setCurrentIndex(index)
+    setCurrentTrack(track)
+    setShuffleEnabled(Boolean(snapshot.shuffle))
+    setRepeatEnabled(Boolean(snapshot.repeat))
+    player.pause()
+    player.replace(track.audio)
+  })
+
+  const pauseForHandoff = () => {
+    const position = Number(player.currentTime) || 0
+    player.pause()
+    return position
+  }
+
+  const setPlaybackPaused = (paused) => {
+    if (paused) player.pause()
+    else if (currentTrack) player.play()
+  }
+
+  const startPreparedPlayback = async () => {
+    if (!currentTrack || !status.isLoaded) return false
+    player.play()
+    const startedAt = Date.now()
+    while (Date.now() - startedAt < 5000) {
+      if (player.playing) return true
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+    return false
+  }
+
   const toggleLike = (track) => {
     if (!track?.id) return
     setLikedSongs((songs) => songs.some((song) => String(song.id) === String(track.id))
@@ -162,6 +231,10 @@ export function PlayerProvider({ children }) {
     setUserPlaylists,
     setShuffleEnabled,
     setRepeatEnabled,
+    prepareTransferredPlayback,
+    pauseForHandoff,
+    setPlaybackPaused,
+    startPreparedPlayback,
   }), [
     currentIndex,
     currentTrack,
