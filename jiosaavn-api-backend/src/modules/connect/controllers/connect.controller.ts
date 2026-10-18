@@ -8,6 +8,11 @@ import type { Routes } from '#common/types'
 import { AuthService } from '#modules/auth/services'
 
 const SESSION_COOKIE = 'jiosaavn_session'
+const getRequestSessionToken = (ctx: { req: { header: (name: string) => string | undefined } }) => {
+  const headerValue = ctx.req.header('Authorization')
+  if (headerValue?.startsWith('Bearer ')) return headerValue.slice('Bearer '.length).trim()
+  return getCookie(ctx, SESSION_COOKIE)
+}
 const deviceIdModel = z.string().min(8).max(128)
 const deviceNameModel = z.string().trim().min(1).max(48)
 const trackModel = z.object({
@@ -109,7 +114,8 @@ export class ConnectController implements Routes {
 
   public initRoutes() {
     this.controller.post('/connect/devices/register', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const input = z.object({ deviceId: deviceIdModel, name: deviceNameModel, platform: z.enum(['web', 'android', 'other']) }).safeParse(await ctx.req.json().catch(() => null))
       if (!input.success) return ctx.json({ success: false, message: 'Invalid device registration' }, 400)
       const database = await getDatabase()
@@ -128,7 +134,8 @@ export class ConnectController implements Routes {
     })
 
     this.controller.get('/connect/devices', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const currentDeviceId = ctx.req.query('deviceId') || ''
       if (!deviceIdModel.safeParse(currentDeviceId).success) return ctx.json({ success: false, message: 'Invalid device ID' }, 400)
       const database = await getDatabase()
@@ -141,7 +148,8 @@ export class ConnectController implements Routes {
     })
 
     this.controller.post('/connect/devices/heartbeat', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const input = z.object({ deviceId: deviceIdModel }).safeParse(await ctx.req.json().catch(() => null))
       if (!input.success) return ctx.json({ success: false, message: 'Invalid heartbeat' }, 400)
       const now = new Date()
@@ -154,7 +162,8 @@ export class ConnectController implements Routes {
     })
 
     this.controller.patch('/connect/devices/:deviceId', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const deviceId = deviceIdModel.safeParse(ctx.req.param('deviceId'))
       const body = await ctx.req.json().catch(() => null) as unknown
       if (!deviceId.success || !body || typeof body !== 'object') return ctx.json({ success: false, message: 'Invalid device update' }, 400)
@@ -175,7 +184,8 @@ export class ConnectController implements Routes {
     })
 
     this.controller.delete('/connect/devices/:deviceId', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const deviceId = deviceIdModel.safeParse(ctx.req.param('deviceId'))
       if (!deviceId.success) return ctx.json({ success: false, message: 'Invalid device ID' }, 400)
       const database = await getDatabase()
@@ -196,7 +206,8 @@ export class ConnectController implements Routes {
     })
 
     this.controller.put('/connect/session', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const input = z.object({ deviceId: deviceIdModel, snapshot: snapshotModel }).safeParse(await ctx.req.json().catch(() => null))
       if (!input.success) return ctx.json({ success: false, message: 'Invalid playback snapshot' }, 400)
       const database = await getDatabase()
@@ -217,7 +228,8 @@ export class ConnectController implements Routes {
     })
 
     this.controller.post('/connect/handoffs', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const input = z.object({ sourceDeviceId: deviceIdModel, targetDeviceId: deviceIdModel }).safeParse(await ctx.req.json().catch(() => null))
       if (!input.success) return ctx.json({ success: false, message: 'Invalid handoff request' }, 400)
       const database = await getDatabase()
@@ -240,7 +252,8 @@ export class ConnectController implements Routes {
     })
 
     this.controller.get('/connect/handoffs/pending', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const deviceId = deviceIdModel.safeParse(ctx.req.query('deviceId'))
       if (!deviceId.success) return ctx.json({ success: false, message: 'Invalid device ID' }, 400)
       const userId = new ObjectId(user.id)
@@ -251,7 +264,8 @@ export class ConnectController implements Routes {
     })
 
     this.controller.get('/connect/handoffs/active', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const deviceId = deviceIdModel.safeParse(ctx.req.query('deviceId'))
       if (!deviceId.success) return ctx.json({ success: false, message: 'Invalid device ID' }, 400)
       const active = await (await getDatabase()).collection<Handoff>('connect_handoffs').findOne({
@@ -264,7 +278,8 @@ export class ConnectController implements Routes {
     })
 
     this.controller.get('/connect/handoffs/:handoffId', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const handoffId = handoffIdModel.safeParse(ctx.req.param('handoffId'))
       const deviceId = deviceIdModel.safeParse(ctx.req.query('deviceId'))
       if (!handoffId.success || !deviceId.success) return ctx.json({ success: false, message: 'Invalid handoff lookup' }, 400)
@@ -303,7 +318,8 @@ export class ConnectController implements Routes {
     })
 
     this.controller.post('/connect/handoffs/:handoffId/action', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const token = getRequestSessionToken(ctx)
+      const user = await this.authService.getUserBySession(token)
       const handoffId = handoffIdModel.safeParse(ctx.req.param('handoffId'))
       const input = z.object({ deviceId: deviceIdModel, action: z.enum(['accept', 'decline', 'ready', 'source-paused', 'started', 'failed']), snapshot: snapshotModel.optional() }).safeParse(await ctx.req.json().catch(() => null))
       if (!handoffId.success || !input.success) return ctx.json({ success: false, message: 'Invalid handoff action' }, 400)

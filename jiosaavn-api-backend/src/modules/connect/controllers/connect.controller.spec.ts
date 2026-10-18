@@ -1,7 +1,35 @@
 import { App } from '../../../app.js'
 import { AuthError } from '#modules/auth/services'
 import { ConnectController, getConnectDeviceStatus, isAllowedHandoffTransition } from '#modules/connect/controllers'
+import { getDatabase } from '#common/database'
 import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('#common/database', () => ({
+  getDatabase: vi.fn()
+}))
+
+const mockDeviceRecord = {
+  userId: '507f1f77bcf86cd799439011',
+  deviceId: 'mobile-device-12345678',
+  name: 'Mobile',
+  platform: 'android',
+  createdAt: new Date(),
+  lastSeenAt: new Date(),
+  lastActiveAt: new Date(),
+  enabled: true,
+  allowReceiving: true
+}
+
+const mockDatabase = {
+  collection: vi.fn(() => {
+    const collection = {
+      findOne: vi.fn().mockImplementation(async () => mockDeviceRecord),
+      updateOne: vi.fn().mockResolvedValue({ matchedCount: 0, upsertedCount: 1 }),
+      find: vi.fn().mockReturnValue({ sort: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) }) })
+    }
+    return collection
+  })
+}
 
 const createApp = (authenticated = false) => {
   const authService = {
@@ -10,6 +38,9 @@ const createApp = (authenticated = false) => {
       return Promise.resolve({ id: '507f1f77bcf86cd799439011', username: 'listener', email: 'listener@example.com', createdAt: new Date().toISOString() })
     })
   }
+
+  vi.mocked(getDatabase).mockResolvedValue(mockDatabase as any)
+
   return { app: new App([new ConnectController(authService)]).getApp(), authService }
 }
 
@@ -24,6 +55,21 @@ describe('ConnectController', () => {
 
     expect(response.status).toBe(401)
     expect(authService.getUserBySession).toHaveBeenCalledWith(undefined)
+  })
+
+  it('accepts bearer-token sessions for device operations', async () => {
+    const { app, authService } = createApp(true)
+    const response = await app.request('/api/connect/devices/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer valid-session'
+      },
+      body: JSON.stringify({ deviceId: 'mobile-device-12345678', name: 'Mobile', platform: 'android' })
+    })
+
+    expect(response.status).toBe(200)
+    expect(authService.getUserBySession).toHaveBeenCalledWith('valid-session')
   })
 
   it('classifies presence from backend last-seen timestamps', () => {

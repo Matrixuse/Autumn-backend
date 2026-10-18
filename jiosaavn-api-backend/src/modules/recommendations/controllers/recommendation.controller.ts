@@ -6,6 +6,11 @@ import { RecommendationEventsBatchModel } from '#modules/recommendations/models'
 import { RecommendationService } from '#modules/recommendations/services'
 
 const SESSION_COOKIE = 'jiosaavn_session'
+const getRequestSessionToken = (ctx: { req: { header: (name: string) => string | undefined } }) => {
+  const headerValue = ctx.req.header('Authorization')
+  if (headerValue?.startsWith('Bearer ')) return headerValue.slice('Bearer '.length).trim()
+  return getCookie(ctx, SESSION_COOKIE)
+}
 
 export class RecommendationController implements Routes {
   public controller = new OpenAPIHono()
@@ -28,13 +33,13 @@ export class RecommendationController implements Routes {
 
   public initRoutes() {
     this.controller.get('/recommendations/profile', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const user = await this.authService.getUserBySession(getRequestSessionToken(ctx))
       const profile = await this.recommendationService.getProfile(user.id)
       return ctx.json({ success: true, data: profile })
     })
 
     this.controller.post('/recommendations/events', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const user = await this.authService.getUserBySession(getRequestSessionToken(ctx))
       let payload: unknown
       try {
         payload = await ctx.req.json()
@@ -58,7 +63,7 @@ export class RecommendationController implements Routes {
     })
 
     this.controller.post('/recommendations/past-plays', async (ctx) => {
-      const user = await this.authService.getUserBySession(getCookie(ctx, SESSION_COOKIE))
+      const user = await this.authService.getUserBySession(getRequestSessionToken(ctx))
       let payload: unknown
       try {
         payload = await ctx.req.json()

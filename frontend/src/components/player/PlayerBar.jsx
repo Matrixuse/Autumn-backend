@@ -106,8 +106,8 @@ export default function PlayerBar() {
         </button>
         <div className="ml-auto flex shrink-0 items-center gap-3 text-white/80 md:mr-10 md:gap-5">
           <div className="flex items-center gap-5 md:hidden">
-            <button onClick={toggleShuffle} aria-label={isShuffleEnabled ? 'Disable shuffle' : 'Enable shuffle'} className={`hover:text-white ${isShuffleEnabled ? 'text-[#5b7cff]' : ''}`}>
-              <Shuffle size={20} />
+            <button type="button" onClick={() => navigate('/settings/continue-anywhere')} aria-label="Open connected devices" title="Continue Anywhere" className="rounded-full p-1.5 text-white/65 hover:bg-white/10 hover:text-white">
+              <Radio size={19} />
             </button>
             <button onClick={togglePlay} aria-label={isPlaying ? 'Pause' : 'Play'} className="hover:text-white">
               {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
@@ -120,6 +120,9 @@ export default function PlayerBar() {
             <input aria-label="Volume" className="w-25 h-1.5 cursor-pointer accent-white" type="range" min="0" max="1" step=".01" value={volume} onChange={(event) => setVolume(Number(event.target.value))} />
             {volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
           </div>
+          <button type="button" onClick={() => navigate('/settings/continue-anywhere')} aria-label="Open connected devices" title="Continue Anywhere" className="rounded-full p-1.5 hidden md:block text-white/90 hover:text-white">
+            <Radio size={20} />
+          </button>
           <button onClick={toggleRepeat} aria-label={isRepeatEnabled ? 'Disable repeat' : 'Enable repeat'} className={`hidden hover:text-white md:block ${isRepeatEnabled ? 'text-[#5b7cff]' : ''}`}>
             <Repeat2 size={20} />
           </button>
@@ -128,10 +131,7 @@ export default function PlayerBar() {
           </button>
           <button onClick={toggleKeepListening} aria-label={isKeepListeningOpen ? 'Close queue' : 'Open queue'} className="hidden gap-2 hover:text-white md:flex">
             <ListMusic size={20} />
-            <ChevronUp size={19} className={`hidden text-white/60 transition-transform sm:block ${isKeepListeningOpen ? 'rotate-180' : ''}`} />
-          </button>
-          <button type="button" onClick={() => navigate('/settings/continue-anywhere')} aria-label="Open connected devices" title="Continue Anywhere" className="rounded-full p-1.5 text-white/65 hover:bg-white/10 hover:text-white">
-            <Radio size={19} />
+            <ChevronUp size={20} className={`hidden text-white/60 transition-transform sm:block ${isKeepListeningOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
       </div>

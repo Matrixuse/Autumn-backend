@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import * as SecureStore from 'expo-secure-store'
 import * as authApi from '../api/auth'
+import { persistSessionToken } from '../api/client'
 
 const AuthContext = createContext(null)
 const PROFILE_KEY = 'autumn.cached-profile.v1'
@@ -77,6 +78,7 @@ export function AuthProvider({ children }) {
       await authApi.logout()
     } finally {
       await persistUser(null)
+      await persistSessionToken(null)
       setUser(null)
       setStartupError('')
     }
