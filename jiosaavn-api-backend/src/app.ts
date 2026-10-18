@@ -21,11 +21,28 @@ const allowedOrigins = new Set([
   'capacitor://localhost'
 ])
 
+const isAllowedDeploymentOrigin = (origin: string) => {
+  try {
+    const { hostname, protocol } = new URL(origin)
+    if (protocol !== 'http:' && protocol !== 'https:') return false
+
+    const isLocalDevelopmentOrigin = /^(localhost|127\.0\.0\.1)$/.test(hostname)
+    if (isLocalDevelopmentOrigin) return true
+
+    const allowedHostnames = ['onrender.com', 'vercel.app', 'netlify.app']
+    return allowedHostnames.some((suffix) => hostname === `autumn-its-listening.${suffix}` || hostname.endsWith(`.${suffix}`))
+  } catch {
+    return false
+  }
+}
+
 const getAllowedOrigin = (origin?: string) => {
   if (!origin) return undefined
 
   const configuredOrigin = process.env.FRONTEND_URL?.replace(/\/$/, '')
   if (allowedOrigins.has(origin) || origin === configuredOrigin) return origin
+
+  if (isAllowedDeploymentOrigin(origin)) return origin
 
   const isLocalDevelopmentOrigin = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)
   return isLocalDevelopmentOrigin ? origin : undefined
