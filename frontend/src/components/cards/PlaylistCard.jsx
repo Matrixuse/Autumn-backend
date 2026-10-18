@@ -4,7 +4,7 @@ import SongActionsMenu from '../common/SongActionsMenu'
 import PlaylistCover from '../common/PlaylistCover'
 import { usePlayer } from '../../context/PlayerContext'
 
-export default function PlaylistCard({ song, playlist, to, compact = false, itemType = 'playlist', items = [] }) {
+export default function PlaylistCard({ playlist, to, compact = false, itemType = 'playlist', items = [] }) {
     const { isNotInterested } = usePlayer()
     if (isNotInterested(playlist)) return null
     const image = getBestImageUrl(playlist.image || playlist.images || playlist.more_info?.images)

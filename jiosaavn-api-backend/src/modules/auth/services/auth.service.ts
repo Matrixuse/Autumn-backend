@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { createHash, randomBytes } from 'node:crypto'
+import process from 'node:process'
 import { OAuth2Client } from 'google-auth-library'
 import { ObjectId } from 'mongodb'
 import { getDatabase } from '#common/database'
@@ -29,6 +30,7 @@ export class AuthError extends Error {
     public readonly status: 400 | 401 | 409 | 500
   ) {
     super(message)
+    this.name = 'AuthError'
   }
 }
 
@@ -124,7 +126,7 @@ export class AuthService {
       if (updates.avatar) user.avatar = updates.avatar
     } else {
       const baseUsername =
-        (payload.name || payload.email.split('@')[0]).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 24) || 'autumn_user'
+        (payload.name || payload.email.split('@')[0]).replaceAll(/\W/g, '').slice(0, 24) || 'autumn_user'
       const username = await this.getAvailableUsername(baseUsername)
       user = {
         _id: new ObjectId(),

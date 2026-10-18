@@ -1,4 +1,4 @@
-import { ArrowLeft, Bell, Download, Info, LogOut, Menu, RefreshCw, SlidersHorizontal, Megaphone, Settings, UserRound, X } from 'lucide-react'
+import { ArrowLeft, Bell, Download, Info, LogOut, Menu, SlidersHorizontal, Megaphone, Settings, UserRound, X } from 'lucide-react'
 import SearchBar from '../common/SearchBar'
 import Avatar from '../common/Avatar'
 import { useAuth } from '../../context/AuthContext'

@@ -35,7 +35,7 @@ let pastPlaysIndexesPromise: Promise<void> | undefined
 const normalizeTrackId = (value: unknown) => String(value ?? '').trim()
 const normalizeArtist = (value: unknown) =>
   String(value ?? '')
-    .replace(/\s+/g, ' ')
+    .replaceAll(/\s+/g, ' ')
     .trim()
 const getDateKey = (date = new Date()) => {
   const year = date.getUTCFullYear()

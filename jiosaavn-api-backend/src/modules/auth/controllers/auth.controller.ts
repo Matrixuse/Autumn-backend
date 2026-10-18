@@ -4,7 +4,7 @@ import { z } from 'zod'
 import type { Routes } from '#common/types'
 import { UserModel } from '#modules/auth/models'
 import type { Context } from 'hono'
-import { AuthError, AuthService } from '#modules/auth/services'
+import { AuthService } from '#modules/auth/services'
 
 const SESSION_COOKIE = 'jiosaavn_session'
 const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 400
@@ -37,7 +37,7 @@ const registerSchema = credentialsSchema.extend({
     .trim()
     .min(3)
     .max(32)
-    .regex(/^[a-zA-Z0-9_]+$/)
+    .regex(/^\w+$/)
 })
 
 const googleSchema = z.object({ idToken: z.string().min(1) })

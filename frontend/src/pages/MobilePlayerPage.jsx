@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ThumbsUp, EllipsisVertical, MessageCircle, Pause, Play, Repeat2, Shuffle, SkipBack, SkipForward } from 'lucide-react'
+import { ChevronDown, ThumbsUp, Pause, Play, Repeat2, Shuffle, SkipBack, SkipForward } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
 import { useUpNextQueue } from '../hooks/useUpNextQueue'
@@ -21,7 +21,7 @@ import useRelatedTrackDetails from '../hooks/useRelatedTrackDetails'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
 
-export default function MobilePlayerPage({ song }) {
+export default function MobilePlayerPage() {
   const navigate = useNavigate()
   const {
     currentTrack,

@@ -289,7 +289,6 @@ export const getListeningLanguageProfile = (history = []) => {
 export const getNewReleaseSearchQueries = (history = []) => {
   const profile = getListeningLanguageProfile(history)
   const preferred = profile.length ? profile.slice(0, 2) : ['hindi']
-  const currentYear = new Date().getFullYear()
 
   const languageMap = {
     hindi: ['latest Bollywood songs', 'new Hindi songs', 'latest Hindi music', 'new Bollywood music'],

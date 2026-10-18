@@ -1,10 +1,8 @@
 import { Pause, Play, Shuffle } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import SongCard from '../components/cards/SongCard'
 import { usePlayer } from '../context/PlayerContext'
 
 export default function RecentlyPlayed() {
-  const navigate = useNavigate()
   const { listenHistory, currentTrack, isPlaying, playTrack } = usePlayer()
 
   const playAll = () => {

@@ -23,7 +23,7 @@ const mockDeviceRecord = {
 const mockDatabase = {
   collection: vi.fn(() => {
     const collection = {
-      findOne: vi.fn().mockImplementation(async () => mockDeviceRecord),
+      findOne: vi.fn().mockImplementation(() => Promise.resolve(mockDeviceRecord)),
       updateOne: vi.fn().mockResolvedValue({ matchedCount: 0, upsertedCount: 1 }),
       find: vi.fn().mockReturnValue({ sort: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) }) })
     }

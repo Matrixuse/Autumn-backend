@@ -19,10 +19,6 @@ function RelatedPlaylistsRail({ playlists, onWheel }) {
   const railRef = useRef(null);
   const dragRef = useRef({ active: false, startX: 0, startScrollLeft: 0 });
 
-  const scrollRail = (distance) => {
-    railRef.current?.scrollBy({ left: distance, behavior: 'smooth' });
-  };
-
   const handlePointerDown = (event) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const rail = railRef.current;
@@ -70,7 +66,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
   const rawValue = libraryOption || encodedPlaylistName || encodedPlaylistId || '';
     try {
       return decodeURIComponent(rawValue).trim();
-    } catch (error) {
+    } catch {
       return String(rawValue || '').trim();
     }
   }, [encodedPlaylistId, encodedPlaylistName, libraryOption]);
@@ -262,7 +258,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
 
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
-      try { searchInputRef.current.focus(); } catch (error) {}
+      try { searchInputRef.current.focus(); } catch {}
     }
   }, [searchOpen]);
 

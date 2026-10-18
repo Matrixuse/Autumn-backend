@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
-import { Ban, ListEnd, ListPlus, MoreVertical, Pin, ThumbsUp, UserRound, Share2, Radio, X, Bookmark, Trash2 } from 'lucide-react'
+import { Ban, ListEnd, ListPlus, MoreVertical, Pin, ThumbsUp, UserRound, Radio, X, Bookmark, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../../context/PlayerContext'
 import axiosInstance from '../../api/axiosInstance'
@@ -142,18 +142,6 @@ export default function SongActionsMenu({ song, queue = [], itemType = 'song', i
     const artistName = getArtistName(song)
     if (artistId) navigate(`/artist/${encodeURIComponent(String(artistId))}/${encodeURIComponent(artistName || 'artist')}`)
     close()
-  }
-
-  const share = async () => {
-    const shareUrl = window.location.href
-    try {
-      if (navigator.share) await navigator.share({ title, text: title, url: shareUrl })
-      else await navigator.clipboard?.writeText(shareUrl)
-    } catch {
-      // Sharing can be cancelled by the user.
-    } finally {
-      close()
-    }
   }
 
   const startMix = async () => {

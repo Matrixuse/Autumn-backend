@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Play, Search, Shuffle, X } from 'lucide-react';
+import { ArrowLeft, Play, Search, Shuffle, X } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import QuickPicks from '../components/sections/QuickPicks';
 import Albums from '../components/sections/Albums';

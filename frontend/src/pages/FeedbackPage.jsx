@@ -13,7 +13,7 @@ const FeedbackPage = () => {
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (raw) setList(JSON.parse(raw));
-        } catch (e) {}
+        } catch {}
     }, []);
 
     const save = (ev) => {

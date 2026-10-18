@@ -1,6 +1,13 @@
 import { configDefaults, defineConfig } from 'vitest/config'
+import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '#modules': fileURLToPath(new URL('./src/modules', import.meta.url)),
+      '#common': fileURLToPath(new URL('./src/common', import.meta.url))
+    }
+  },
   test: {
     include: ['src/**/*.spec.ts'],
     exclude: [...configDefaults.exclude],

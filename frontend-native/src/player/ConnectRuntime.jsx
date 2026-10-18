@@ -84,13 +84,7 @@ export default function ConnectRuntime() {
       if (!mounted) return
       deviceIdRef.current = deviceId
       try { registeredRef.current = await registerConnectDevice(deviceId) } catch { }
-        try { registeredRef.current = await registerConnectDevice(deviceId) } catch { }
-        if (mounted) setRegistrationReady(Boolean(registeredRef.current))
-        }, [isAuthenticated, registrationReady, player.currentTrack, player.queue, player.currentIndex, player.isPlaying, player.isShuffleEnabled, player.isRepeatEnabled])
-        if (!isAuthenticated || !registrationReady || !registeredRef.current?.enabled || !player.currentTrack || !deviceIdRef.current) return undefined
-        }, [isAuthenticated, registrationReady, player.currentTrack, player.queue, player.currentIndex, player.isPlaying, player.isShuffleEnabled, player.isRepeatEnabled])
-        if (!isAuthenticated || !registrationReady) return undefined
-        }, [isAuthenticated, registrationReady])
+      if (mounted) setRegistrationReady(Boolean(registeredRef.current))
       const heartbeat = async () => {
         if (AppState.currentState !== 'active') return
         try { await heartbeatConnectDevice(deviceId) } catch { }
@@ -109,7 +103,7 @@ export default function ConnectRuntime() {
   }, [isAuthenticated, user?.id])
 
   useEffect(() => {
-    if (!isAuthenticated || !registeredRef.current?.enabled || !player.currentTrack || !deviceIdRef.current) return undefined
+    if (!isAuthenticated || !registrationReady || !registeredRef.current?.enabled || !player.currentTrack || !deviceIdRef.current) return undefined
     let active = true
     const sync = () => {
       if (!active || sourceRequestRef.current) return
@@ -119,7 +113,7 @@ export default function ConnectRuntime() {
     sync()
     const interval = setInterval(sync, 8000)
     return () => { active = false; clearInterval(interval) }
-  }, [isAuthenticated, player.currentTrack, player.queue, player.currentIndex, player.isPlaying, player.progress, player.isShuffleEnabled, player.isRepeatEnabled])
+  }, [isAuthenticated, registrationReady, player.currentTrack, player.queue, player.currentIndex, player.isPlaying, player.progress, player.isShuffleEnabled, player.isRepeatEnabled])
 
   useEffect(() => {
     if (!isAuthenticated) return undefined
@@ -166,7 +160,6 @@ export default function ConnectRuntime() {
             const position = activePlayer.pauseForHandoff()
             try {
               await actOnPlaybackHandoff(status._id, deviceId, 'source-paused', createSnapshot(position))
-            } catch {
             } catch {
             }
           } else if (['FAILED', 'CANCELLED', 'EXPIRED'].includes(status.state)) {

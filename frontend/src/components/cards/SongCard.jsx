@@ -18,7 +18,7 @@ const getColorIndex = (value) => {
 }
 
 export default function SongCard({ song, queue = [], playQueue = queue }) {
-    const { playTrack, isNotInterested, currentTrack, isPlaying } = usePlayer()
+    const { playTrack, isNotInterested } = usePlayer()
     const imageSource = getBestImageUrl(song?.image || song?.cover || song?.thumbnail || song?.artwork || song?.images || song?.img)
     const [imageFailed, setImageFailed] = useState(false)
     useEffect(() => setImageFailed(false), [imageSource])

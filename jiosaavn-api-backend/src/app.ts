@@ -3,6 +3,7 @@ import { apiReference } from '@scalar/hono-api-reference'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { prettyJSON } from 'hono/pretty-json'
+import process from 'node:process'
 import { Home } from './pages/home.js'
 import type { Routes } from '#common/types'
 import type { HTTPException } from 'hono/http-exception'
@@ -26,7 +27,7 @@ const isAllowedDeploymentOrigin = (origin: string) => {
     const { hostname, protocol } = new URL(origin)
     if (protocol !== 'http:' && protocol !== 'https:') return false
 
-    const isLocalDevelopmentOrigin = /^(localhost|127\.0\.0\.1)$/.test(hostname)
+    const isLocalDevelopmentOrigin = /^(?:localhost|127\.0\.0\.1)$/.test(hostname)
     if (isLocalDevelopmentOrigin) return true
 
     const allowedHostnames = ['onrender.com', 'vercel.app', 'netlify.app']

@@ -61,7 +61,6 @@ export function ConnectProvider({ children }) {
   const [incomingBusy, setIncomingBusy] = useState(false)
   const [incomingError, setIncomingError] = useState('')
   const [transfer, setTransfer] = useState(null)
-  const [requestingTransfer, setRequestingTransfer] = useState(false)
 
   playerRef.current = player
   incomingRef.current = incoming
@@ -233,7 +232,6 @@ export function ConnectProvider({ children }) {
     if (transferRef.current && !['STARTED', 'CANCELLED', 'FAILED', 'EXPIRED'].includes(transferRef.current.state)) throw new Error('A playback transfer is already in progress.')
     if (initiatingTransferRef.current) throw new Error('A playback transfer is already being requested.')
     initiatingTransferRef.current = true
-    setRequestingTransfer(true)
     try {
       const snapshot = snapshotRef.current?.()
       if (!snapshot?.track) throw new Error('There is no active playback session to move.')
@@ -244,7 +242,6 @@ export function ConnectProvider({ children }) {
       return nextTransfer
     } finally {
       initiatingTransferRef.current = false
-      setRequestingTransfer(false)
     }
   }
   const acceptIncoming = async () => {

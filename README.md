@@ -5,8 +5,8 @@ A music player frontend backed by a JioSaavn API service.
 ## Project Structure
 
 - `frontend/` - React and Vite web application
+- `frontend-native/` - Expo and React Native mobile application
 - `jiosaavn-api-backend/` - Bun, Hono, and TypeScript API server
-- `music.html` - standalone HTML entry point
 
 ## Local Setup
 

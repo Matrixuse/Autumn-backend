@@ -23,7 +23,7 @@ export const createDownloadLinks = (encryptedMediaUrl: string) => {
 
   return qualities.map((quality) => ({
     quality: quality.bitrate,
-    url: decryptedLink.replace('_96', quality.id)
+    url: decryptedLink.replaceAll('_96', quality.id)
   }))
 }
 
@@ -36,6 +36,6 @@ export const createImageLinks = (link: string) => {
 
   return qualities.map((quality) => ({
     quality,
-    url: link.replace(qualityRegex, quality).replace(protocolRegex, 'https://')
+    url: link.replaceAll(qualityRegex, quality).replace(protocolRegex, 'https://')
   }))
 }

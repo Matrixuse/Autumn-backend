@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Play } from 'lucide-react'
+import { Play } from 'lucide-react'
 import { usePlayer } from '../../context/PlayerContext'
 import SongActionsMenu from '../common/SongActionsMenu'
 import NowPlayingOverlay from '../common/NowPlayingOverlay'
@@ -26,13 +26,6 @@ const getAlbumLabel = (album) => {
     return String(album)
 }
 
-const getArtistLabel = (artist) => {
-    if (!artist) return 'Unknown Artist'
-    if (typeof artist === 'string') return artist
-    if (Array.isArray(artist)) return artist.filter(Boolean).map(String).join(', ') || 'Unknown Artist'
-    if (typeof artist === 'object') return artist.name || artist.title || 'Unknown Artist'
-    return String(artist)
-}
 export default function LongToListen({ songs }) {
     const { playTrack, currentTrack, isPlaying } = usePlayer()
     const visibleSongs = Array.isArray(songs) ? songs.slice(0, 20) : []

@@ -114,8 +114,6 @@ const fetchArtistDetails = async (name) => {
   }
 }
 
-const playlists = [1, 2, 3, 4].map((id) => ({ id, name: `Collection ${id}`, description: 'A fresh listening set', image: null }))
-
 export default function Home() {
   const rotationDate = useDailyRotationDate()
   const [artists, setArtists] = useState([])

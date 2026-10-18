@@ -23,7 +23,8 @@
       ],
       "expo-image",
       "expo-font",
-      "expo-audio"
+      "expo-audio",
+      "expo-asset"
     ],
     "android": {
       "package": "com.autumn.player",

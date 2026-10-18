@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, CalendarDays, CheckCheck, Music4, Sparkles } from 'lucide-react'
+import { CalendarDays, CheckCheck, Music4, Sparkles } from 'lucide-react'
 
 const badgeStyles = {
   1: 'bg-transparent',
