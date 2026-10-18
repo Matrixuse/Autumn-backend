@@ -9,13 +9,13 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 export default function AppLayout() { 
-    const { isAuthenticated } = useAuth()
+    const { isAuthenticated, loading } = useAuth()
     const location = useLocation()
     const [searchState, setSearchState] = useState({ query: '', history: [], results: [], loading: false })
     const isHomePage = location.pathname === '/'
     const isKeepListeningRoute = location.pathname.startsWith('/keep-listening')
     const isNowPlayingRoute = location.pathname.startsWith('/now-playing')
-    const locked = !isAuthenticated && !isKeepListeningRoute
+    const locked = !loading && !isAuthenticated && !isKeepListeningRoute
 
     return (
         <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_12%_0%,#062029_0%,transparent_28%),radial-gradient(circle_at_100%_0%,#252313_0%,transparent_24%),#050505] text-white">
