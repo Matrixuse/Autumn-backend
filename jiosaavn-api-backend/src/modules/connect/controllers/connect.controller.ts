@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto'
 import { ObjectId } from 'mongodb'
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { getCookie } from 'hono/cookie'
+import type { Context } from 'hono'
 import { z } from 'zod'
 import { getDatabase, getMongoClient } from '#common/database'
 import type { Routes } from '#common/types'
 import { AuthService } from '#modules/auth/services'
 
 const SESSION_COOKIE = 'jiosaavn_session'
-const getRequestSessionToken = (ctx: { req: { header: (name: string) => string | undefined } }) => {
+const getRequestSessionToken = (ctx: Context) => {
   const headerValue = ctx.req.header('Authorization')
   if (headerValue?.startsWith('Bearer ')) return headerValue.slice('Bearer '.length).trim()
   return getCookie(ctx, SESSION_COOKIE)
