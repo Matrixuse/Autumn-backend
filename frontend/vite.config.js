@@ -29,6 +29,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        inlineWorkboxRuntime: true,
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api(?:\/|$)/],

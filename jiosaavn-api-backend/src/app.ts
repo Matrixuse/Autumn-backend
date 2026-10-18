@@ -78,7 +78,8 @@ export class App {
         origin: getAllowedOrigin,
         credentials: true,
         allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+        allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        exposeHeaders: ['X-Session-Token']
       })
     )
   }

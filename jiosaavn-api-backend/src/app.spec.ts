@@ -16,5 +16,6 @@ describe('App CORS policy', () => {
 
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://autumn-its-listening.onrender.com')
     expect(response.headers.get('Access-Control-Allow-Credentials')).toBe('true')
+    expect(response.headers.get('Access-Control-Expose-Headers')).toBe('X-Session-Token')
   })
 })
