@@ -3,10 +3,11 @@ import { getCookie } from 'hono/cookie'
 import type { Routes } from '#common/types'
 import { AuthError, AuthService } from '#modules/auth/services'
 import { RecommendationEventsBatchModel } from '#modules/recommendations/models'
+import type { Context } from 'hono'
 import { RecommendationService } from '#modules/recommendations/services'
 
 const SESSION_COOKIE = 'jiosaavn_session'
-const getRequestSessionToken = (ctx: { req: { header: (name: string) => string | undefined } }) => {
+const getRequestSessionToken = (ctx: Context) => {
   const headerValue = ctx.req.header('Authorization')
   if (headerValue?.startsWith('Bearer ')) return headerValue.slice('Bearer '.length).trim()
   return getCookie(ctx, SESSION_COOKIE)

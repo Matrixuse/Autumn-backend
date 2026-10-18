@@ -3,11 +3,12 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { z } from 'zod'
 import type { Routes } from '#common/types'
 import { UserModel } from '#modules/auth/models'
+import type { Context } from 'hono'
 import { AuthError, AuthService } from '#modules/auth/services'
 
 const SESSION_COOKIE = 'jiosaavn_session'
 const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 400
-const getRequestSessionToken = (ctx: { req: { header: (name: string) => string | undefined; url: string } }) => {
+const getRequestSessionToken = (ctx: Context) => {
   const headerValue = ctx.req.header('Authorization')
   if (headerValue?.startsWith('Bearer ')) return headerValue.slice('Bearer '.length).trim()
   return getCookie(ctx, SESSION_COOKIE)
