@@ -21,6 +21,7 @@ import MobilePlayerPage from '../pages/MobilePlayerPage'
 import NotificationsPage from '../pages/NotificationsPage'
 import Settings from '../pages/Settings'
 import ContinueAnywhere from '../pages/ContinueAnywhere'
+import ProtectedRoute from './ProtectedRoute'
 
 export default function AppRoutes() {
     return (
@@ -40,7 +41,7 @@ export default function AppRoutes() {
                 <Route path="/new-playlist" element={<NewPlaylist />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/settings" element={<Settings />} />
-                <Route path="/settings/continue-anywhere" element={<ContinueAnywhere />} />
+                <Route element={<ProtectedRoute />}><Route path="/settings/continue-anywhere" element={<ContinueAnywhere />} /></Route>
                 <Route path="/playlist/:playlistId/:playlistName?" element={<PlaylistsPage />} />
                 <Route path="/artist/:artistId/:artistName?" element={<ArtistPage />} />
                 <Route path="/album/:albumId/:albumName?" element={<AlbumsPage />} />

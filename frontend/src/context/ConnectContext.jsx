@@ -55,6 +55,8 @@ export function ConnectProvider({ children }) {
   const incomingRef = useRef(null)
   const transferRef = useRef(null)
   const [registeredDevice, setRegisteredDevice] = useState(null)
+  const [registrationError, setRegistrationError] = useState(null)
+  const registrationReadyRef = useRef(false)
   const [incoming, setIncoming] = useState(null)
   const [incomingBusy, setIncomingBusy] = useState(false)
   const [incomingError, setIncomingError] = useState('')
@@ -90,15 +92,23 @@ export function ConnectProvider({ children }) {
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
+      registrationReadyRef.current = false
       setRegisteredDevice(null)
+      setRegistrationError(null)
       return undefined
     }
     let active = true
     const beat = async () => {
-      if (document.visibilityState !== 'visible') return
+      if (!registrationReadyRef.current || document.visibilityState !== 'visible') return
       try { await heartbeatConnectDevice(deviceId) } catch { }
     }
-    registerConnectDevice(deviceId).then((device) => { if (active) setRegisteredDevice(device) }).catch(() => {})
+    registerConnectDevice(deviceId).then((device) => {
+      if (active) {
+        registrationReadyRef.current = true
+        setRegisteredDevice(device)
+        setRegistrationError(null)
+      }
+    }).catch((error) => { if (active) setRegistrationError(error) })
     const heartbeatTimer = window.setInterval(() => { void beat() }, 30_000)
     const handleVisibility = () => { if (document.visibilityState === 'visible') void beat() }
     document.addEventListener('visibilitychange', handleVisibility)
@@ -297,7 +307,15 @@ export function ConnectProvider({ children }) {
     finally { setIncomingBusy(false) }
   }
 
-  const value = { deviceId, registeredDevice, transfer, movePlayback, hasTransferablePlayback: Boolean(player.currentTrack), transferInProgress: Boolean(transfer && !['STARTED', 'CANCELLED', 'FAILED', 'EXPIRED'].includes(transfer.state)) }
+  const retryRegistration = async () => {
+    const device = await registerConnectDevice(deviceId)
+    registrationReadyRef.current = true
+    setRegisteredDevice(device)
+    setRegistrationError(null)
+    return device
+  }
+
+  const value = { deviceId, registeredDevice, registrationError, retryRegistration, transfer, movePlayback, hasTransferablePlayback: Boolean(player.currentTrack), transferInProgress: Boolean(transfer && !['STARTED', 'CANCELLED', 'FAILED', 'EXPIRED'].includes(transfer.state)) }
   return <ConnectContext.Provider value={value}>
     {children}
     {incoming && !['CANCELLED', 'EXPIRED'].includes(incoming.state) && <IncomingHandoff

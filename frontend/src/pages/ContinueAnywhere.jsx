@@ -14,7 +14,7 @@ const formatLastSeen = (value) => {
 
 export default function ContinueAnywhere() {
   const navigate = useNavigate()
-  const { movePlayback, hasTransferablePlayback, transferInProgress, transfer } = useConnect()
+  const { movePlayback, hasTransferablePlayback, transferInProgress, transfer, registeredDevice, registrationError, retryRegistration } = useConnect()
   const [deviceId] = useState(() => getConnectDeviceId())
   const [devices, setDevices] = useState([])
   const [enabled, setEnabled] = useState(null)
@@ -45,7 +45,28 @@ export default function ContinueAnywhere() {
     }
   }, [deviceId])
 
-  useEffect(() => { void refresh() }, [refresh])
+  useEffect(() => {
+    if (registeredDevice) void refresh()
+    else if (registrationError) {
+      setLoading(false)
+      setError(getConnectErrorMessage(registrationError, 'Could not register this device.'))
+    }
+  }, [refresh, registeredDevice, registrationError])
+
+  const retry = async () => {
+    if (registeredDevice) {
+      await refresh()
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await retryRegistration()
+    } catch (requestError) {
+      setLoading(false)
+      setError(getConnectErrorMessage(requestError, 'Could not register this device.'))
+    }
+  }
 
   const saveCurrentSetting = async (updates, messageText) => {
     setSaving(true)
@@ -142,7 +163,7 @@ export default function ContinueAnywhere() {
         </div> : <div role="status" className="mt-3 border-t border-white/10 pt-5">
           <p className="text-sm font-semibold">{loading ? 'Loading device settings...' : 'Device settings unavailable'}</p>
           <p className="mt-1 text-sm leading-5 text-white/50">{error || 'The backend must register this device before its Connect settings can be changed.'}</p>
-          {!loading && <button type="button" onClick={() => void refresh()} className="mt-3 text-sm font-semibold text-[#e6a44a] hover:text-white">Try again</button>}
+          {!loading && <button type="button" onClick={() => void retry()} className="mt-3 text-sm font-semibold text-[#e6a44a] hover:text-white">Try again</button>}
         </div>}
       </section>
 
@@ -153,7 +174,7 @@ export default function ContinueAnywhere() {
             </h2>
             <button 
                 type="button" 
-                onClick={() => void refresh()} 
+                onClick={() => void retry()}
                 disabled={loading} 
                 className="text-sm font-semibold text-[#e6a44a] hover:text-white disabled:opacity-50"
             >
@@ -173,9 +194,9 @@ export default function ContinueAnywhere() {
                 {error}
             </p>
             <button 
-                type="button" 
-                onClick={() => void refresh()} 
-                className="mt-3 text-sm font-semibold text-[#e6a44a]"
+              type="button"
+              onClick={() => void retry()}
+              className="mt-3 text-sm font-semibold text-[#e6a44a]"
             >
                 Try again
             </button>
