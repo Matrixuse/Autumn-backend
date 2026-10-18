@@ -106,7 +106,8 @@ export default function AuthPage({ mode = 'login' }) {
     return () => resizeObserver?.disconnect()
   }, [isLogin, location.state, loginWithGoogle, navigate])
 
-  if (!loading && isAuthenticated) return <Navigate to={location.state?.from || '/'} replace />
+    if (loading) return <div className="grid min-h-dvh place-items-center bg-[#050505] text-white"><Loader label="Restoring your Autumn session" /></div>
+    if (isAuthenticated) return <Navigate to={location.state?.from || '/'} replace />
 
     const redirectMessage = location.state?.message
 
