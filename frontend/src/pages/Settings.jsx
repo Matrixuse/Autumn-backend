@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight, Info, Radio, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Copy, Info, Radio, SlidersHorizontal, X } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { usePlayer } from '../context/PlayerContext'
@@ -11,6 +11,7 @@ const items = [
 export default function Settings() {
   const navigate = useNavigate()
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [logCopied, setLogCopied] = useState(false)
   const {
     isGaplessPlaybackEnabled,
     setIsGaplessPlaybackEnabled,
@@ -19,6 +20,26 @@ export default function Settings() {
     isAutoplayEnabled,
     setIsAutoplayEnabled
   } = usePlayer()
+
+  const copyDebugLog = async () => {
+    const log = window.__autumnLog?.() || '[]'
+    try {
+      await navigator.clipboard.writeText(log)
+      setLogCopied(true)
+      window.setTimeout(() => setLogCopied(false), 1800)
+    } catch {
+      const textarea = document.createElement('textarea')
+      textarea.value = log
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      textarea.remove()
+      setLogCopied(true)
+      window.setTimeout(() => setLogCopied(false), 1800)
+    }
+  }
 
   useEffect(() => {
     if (!aboutOpen) return undefined
@@ -72,6 +93,15 @@ export default function Settings() {
           <span className="min-w-0 flex-1"><span className="block font-semibold">About Autumn</span><span className="block text-xs leading-5 text-white/50">App information and credits</span></span>
           <ChevronRight size={20} className="shrink-0 text-white/40" />
         </button>
+      </section>
+
+      <section aria-label="Debug log" className="border-b border-white/10">
+        <div className="flex items-center gap-4 py-4 sm:px-3">
+          <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Debug log</span><span className="mt-1 block text-xs leading-5 text-white/50">Copy recent app and playback lifecycle events.</span></span>
+          <button type="button" onClick={copyDebugLog} className="inline-flex shrink-0 items-center gap-2 rounded-md border border-white/15 px-3 py-2 text-sm hover:bg-white/10">
+            <Copy size={16} />{logCopied ? 'Copied' : 'Copy log'}
+          </button>
+        </div>
       </section>
 
       {aboutOpen && <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAboutOpen(false) }}>

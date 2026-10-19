@@ -1,7 +1,21 @@
-import { useContext, useEffect, useEffectEvent, useRef, useState } from 'react'
-import { useAudioPlayer } from '../hooks/useAudioPlayer'
+import { useContext, useEffect, useRef, useState } from 'react'
 import PlayerContext from './player-context'
-import { getBestAudioUrl, getBestImageUrl, getDataSavingAudioUrl } from '../utils/mediaQuality'
+import { getBestAudioUrl, getDataSavingAudioUrl } from '../utils/mediaQuality'
+import {
+  configure as configureAudioEngine,
+  getAudioElement,
+  getState as getAudioEngineState,
+  pause as enginePause,
+  playIndex as enginePlayIndex,
+  playNow as enginePlay,
+  previous as enginePrevious,
+  seekTo as engineSeekTo,
+  setOptions as setAudioEngineOptions,
+  setPreferredNext as setAudioEnginePreferredNext,
+  setQueue as setAudioEngineQueue,
+  stop as engineStop,
+  togglePlay as engineTogglePlay
+} from '../lib/audioEngine'
 import {
   buildUpNextQueue,
   claimRecommendationEventKey,
@@ -38,6 +52,7 @@ const UPCOMING_QUEUE_TARGET = 50
 const UPCOMING_QUEUE_REFILL_THRESHOLD = 49
 const RECOMMENDATION_CACHE_TTL_MS = 5 * 60 * 1000
 const recommendationEventSyncEnabled = import.meta.env.VITE_RECOMMENDATION_EVENTS_ENABLED === 'true'
+const initialAudioState = getAudioEngineState()
 
 const getRecommendationEventsStorageKey = () => `autumn_recommendation_events:${readLocalUserId() || 'anonymous'}`
 
@@ -104,8 +119,8 @@ const pushHistory = (history, track) => {
 }
 
 export const PlayerProvider = ({ children }) => {
-  const [currentTrack, setCurrentTrack] = useState(null)
-  const [queue, setQueue] = useState([])
+  const [currentTrack, setCurrentTrack] = useState(initialAudioState.currentTrack)
+  const [queue, setQueue] = useState(initialAudioState.queue)
   const [isQueueLoading, setIsQueueLoading] = useState(false)
   const [listenHistory, setListenHistory] = useState(() => readHistory())
   const [likedSongs, setLikedSongs] = useState(() => readLikedSongs())
@@ -114,18 +129,21 @@ export const PlayerProvider = ({ children }) => {
   const [notInterested, setNotInterested] = useState(() => readStoredList('autumn_not_interested'))
   const [recommendationEvents, setRecommendationEvents] = useState(() => readRecommendationEvents())
   const [recommendationProfileReload, setRecommendationProfileReload] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [mediaPositionRequest, setMediaPositionRequest] = useState(0)
-  const [volume, setVolume] = useState(1)
-  const [isShuffleEnabled, setIsShuffleEnabled] = useState(false)
-  const [isRepeatEnabled, setIsRepeatEnabled] = useState(false)
-  const [isAutoplayEnabled, setIsAutoplayEnabled] = useState(() => readBooleanPreference(PLAYER_PREFERENCES.autoplay, true))
+  const [queueRefillRequest, setQueueRefillRequest] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(initialAudioState.isPlaying)
+  const [progress, setProgress] = useState(initialAudioState.progress)
+  const [duration, setDuration] = useState(initialAudioState.duration)
+  const [volume, setVolume] = useState(initialAudioState.volume)
+  const [isShuffleEnabled, setIsShuffleEnabled] = useState(initialAudioState.shuffle)
+  const [isRepeatEnabled, setIsRepeatEnabled] = useState(initialAudioState.repeat === 'one' || initialAudioState.repeat === 'all')
+  const [isAutoplayEnabled, setIsAutoplayEnabled] = useState(() => initialAudioState.autoplay ?? readBooleanPreference(PLAYER_PREFERENCES.autoplay, true))
   const [isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled] = useState(() => readBooleanPreference(PLAYER_PREFERENCES.gapless, false))
   const [isDataSavingEnabled, setIsDataSavingEnabled] = useState(() => readBooleanPreference(PLAYER_PREFERENCES.dataSaving, false))
   const [isQueueOpen, setIsQueueOpen] = useState(false)
-  const [currentIndex, setCurrentIndex] = useState(-1)
+  const [currentIndex, setCurrentIndex] = useState(initialAudioState.currentIndex)
+  const shuffleEnabledRef = useRef(isShuffleEnabled)
+  const repeatModeRef = useRef(initialAudioState.repeat)
+  const metadataSyncedRef = useRef(false)
   const recommendationRequestRef = useRef(0)
   const recommendationBufferRef = useRef([])
   const lastRecommendationAttemptRef = useRef('')
@@ -136,9 +154,6 @@ export const PlayerProvider = ({ children }) => {
   const recommendationEventSequenceRef = useRef(0)
   const recordedEventKeysRef = useRef(new Set())
   const shufflePlayedIdsRef = useRef(new Set())
-  const lastMediaPositionUpdateRef = useRef(0)
-  const forceMediaPositionUpdateRef = useRef(false)
-  const lastMediaTrackIdRef = useRef(null)
   const recentlySeekedRef = useRef(false)
   const resolvingQueueTrackIdsRef = useRef(new Set())
   const handoffPreparationRef = useRef(null)
@@ -301,14 +316,17 @@ export const PlayerProvider = ({ children }) => {
       setIsQueueLoading(false)
       if (selectedTrack.queueSource === 'recommendation') recordRecommendationEvent(selectedTrack, 'recommendation_selected')
       if (Array.isArray(selectedQueue)) {
-        setQueue(selection.queue.map((queuedTrack) => String(queuedTrack?.id) === String(selectedTrack.id) ? selectedTrack : queuedTrack))
+        const selectedTracks = selection.queue.map((queuedTrack) => String(queuedTrack?.id) === String(selectedTrack.id) ? selectedTrack : queuedTrack)
+        setQueue(selectedTracks)
+        setAudioEngineQueue(selectedTracks, selection.currentIndex)
+      } else {
+        setAudioEngineQueue(queue, selection.currentIndex)
       }
       if (isShuffleEnabled) shufflePlayedIdsRef.current.add(String(selectedTrack.id))
       setCurrentIndex(selection.currentIndex)
-      setCurrentTrack(selectedTrack)
       setListenHistory((history) => pushHistory(history, selectedTrack))
       setProgress(0)
-      setIsPlaying(true)
+      enginePlayIndex(selection.currentIndex)
       return
     }
 
@@ -318,26 +336,21 @@ export const PlayerProvider = ({ children }) => {
       queuedTrack?.queueSource === 'manual' || !queuedTrack?.queueSource
     ) && String(queuedTrack?.id || '') !== String(sourceTrack.id || ''))
     if (isShuffleEnabled) shufflePlayedIdsRef.current = new Set([String(sourceTrack.id)])
-    setCurrentTrack(sourceTrack)
-    setQueue([sourceTrack, ...preservedTracks])
+    const nextQueue = [sourceTrack, ...preservedTracks]
+    setQueue(nextQueue)
+    setAudioEngineQueue(nextQueue, 0)
     setCurrentIndex(0)
     setIsQueueLoading(false)
     recommendationBufferRef.current = []
     lastRecommendationAttemptRef.current = ''
     setListenHistory((history) => pushHistory(history, sourceTrack))
     setProgress(0)
-    setIsPlaying(true)
+    enginePlayIndex(0)
   }
 
-  const togglePlay = () => setIsPlaying((playing) => !playing)
+  const togglePlay = () => engineTogglePlay()
   const stopPlayback = () => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.currentTime = 0
-      audioRef.current.removeAttribute('src')
-      audioRef.current.load()
-    }
-    setIsPlaying(false)
+    engineStop()
     setCurrentTrack(null)
     setQueue([])
     setIsQueueLoading(false)
@@ -476,25 +489,18 @@ export const PlayerProvider = ({ children }) => {
       }
     }
     recommendationRequestRef.current += 1
-    setCurrentIndex(nextIndex)
-    setCurrentTrack(nextTrack)
     const selectedTrack = selectTrackAudio(nextTrack)
-    setCurrentTrack(selectedTrack)
+    const nextQueue = queue.map((queuedTrack, index) => index === nextIndex ? selectedTrack : queuedTrack)
+    setAudioEngineQueue(nextQueue, currentIndex)
     setListenHistory((history) => pushHistory(history, selectedTrack))
-    setProgress(0)
-    setIsPlaying(true)
+    enginePlayIndex(nextIndex)
   }
   const previous = () => {
     const previousIndex = currentIndex - 1
     const previousTrack = queue[previousIndex]
     if (!previousTrack) return
     recommendationRequestRef.current += 1
-    setCurrentIndex(previousIndex)
-    const selectedTrack = selectTrackAudio(previousTrack)
-    setCurrentTrack(selectedTrack)
-    setListenHistory((history) => pushHistory(history, selectedTrack))
-    setProgress(0)
-    setIsPlaying(true)
+    enginePrevious()
   }
   const seek = (value) => {
     const requestedPosition = Number(value)
@@ -502,15 +508,15 @@ export const PlayerProvider = ({ children }) => {
     const position = Math.max(0, Number.isFinite(duration) && duration > 0 ? Math.min(requestedPosition, duration) : requestedPosition)
     recentlySeekedRef.current = true
     setProgress(position)
-    if (audioRef.current) audioRef.current.currentTime = position
-    forceMediaPositionUpdateRef.current = true
-    setMediaPositionRequest((request) => request + 1)
+    engineSeekTo(position)
   }
   const prepareTransferredPlayback = (snapshot, resolvedQueue) => new Promise((resolve) => {
     const tracks = Array.isArray(resolvedQueue) ? resolvedQueue : []
     const index = Math.max(0, Math.min(Number(snapshot.currentIndex) || 0, tracks.length - 1))
     const track = selectTrackAudio(tracks[index] || snapshot.track)
-      setQueue(tracks.map((queuedTrack) => String(queuedTrack?.id) === String(track.id) ? track : queuedTrack))
+    const transferredTracks = tracks.map((queuedTrack) => String(queuedTrack?.id) === String(track.id) ? track : queuedTrack)
+    setQueue(transferredTracks)
+      setAudioEngineQueue(transferredTracks, index)
     if (!track?.audio && !track?.downloadUrl) { resolve(false); return }
     if (handoffPreparationRef.current) {
       clearTimeout(handoffPreparationRef.current.timeout)
@@ -524,53 +530,52 @@ export const PlayerProvider = ({ children }) => {
     handoffPreparationRef.current = { position: Math.max(0, snapshot.positionMs / 1000), resolve, timeout }
     recommendationRequestRef.current += 1
     setQueue(tracks)
-    setCurrentIndex(index)
-    setCurrentTrack(track)
+    setAudioEngineQueue(tracks, index)
+    enginePlayIndex(index, { shouldPlay: false, position: Math.max(0, snapshot.positionMs / 1000) })
     setProgress(Math.max(0, snapshot.positionMs / 1000))
     setIsPlaying(false)
     setIsShuffleEnabled(Boolean(snapshot.shuffle))
+    repeatModeRef.current = snapshot.repeat ? 'one' : 'off'
     setIsRepeatEnabled(Boolean(snapshot.repeat))
     setIsAutoplayEnabled(Boolean(snapshot.autoplay))
   })
-  const setPlaybackPaused = (paused) => setIsPlaying(!paused)
+  const setPlaybackPaused = (paused) => paused ? enginePause() : enginePlay()
   const pauseForHandoff = () => {
     const position = Number(audioRef.current?.currentTime) || progress || 0
     setProgress(position)
-    setIsPlaying(false)
+    enginePause()
     return position
   }
   const startPreparedPlayback = async () => {
     const audio = audioRef.current
     if (!audio || !currentTrack) return false
     try {
-      await audio.play()
-      setIsPlaying(true)
+      await enginePlay()
       return true
     } catch {
       setIsPlaying(false)
       return false
     }
   }
-  const handleTimeUpdate = (event) => {
+  const handleTimeUpdate = (position, actualDuration, track = currentTrack) => {
     recentlySeekedRef.current = false
-    const position = Number(event.currentTarget?.currentTime) || 0
-    setProgress(position)
-    const session = ensurePlaybackSession(currentTrack)
-    const actualDuration = Number(event.currentTarget?.duration) || Number(duration) || 0
+    setProgress(Number(position) || 0)
+    if (Number(actualDuration) > 0) setDuration(Number(actualDuration))
+    const session = ensurePlaybackSession(track)
     if (session?.started && !session.progressRecorded && actualDuration > 0
       && position >= Math.min(30, actualDuration * 0.2)) {
       session.progressRecorded = true
-      recordRecommendationEvent(currentTrack, 'meaningful_progress', {
+      recordRecommendationEvent(track, 'meaningful_progress', {
         progressSeconds: position,
         durationSeconds: actualDuration
       })
     }
   }
-  const handlePlaybackStart = () => {
-    const session = ensurePlaybackSession(currentTrack)
+  const handlePlaybackStart = (track = currentTrack) => {
+    const session = ensurePlaybackSession(track)
     if (!session || session.started) return
     session.started = true
-    recordRecommendationEvent(currentTrack, 'track_started')
+    recordRecommendationEvent(track, 'track_started')
   }
   const handleLoadedMetadata = (event) => {
     setDuration(Number(event.currentTarget?.duration) || 0)
@@ -583,8 +588,6 @@ export const PlayerProvider = ({ children }) => {
       clearTimeout(preparation.timeout)
       preparation.resolve(true)
     }
-    forceMediaPositionUpdateRef.current = true
-    setMediaPositionRequest((request) => request + 1)
   }
   const handleAudioError = () => {
     const preparation = handoffPreparationRef.current
@@ -593,35 +596,22 @@ export const PlayerProvider = ({ children }) => {
     clearTimeout(preparation.timeout)
     preparation.resolve(false)
   }
-  const handleEnded = () => {
-    const session = ensurePlaybackSession(currentTrack)
+  const handlePlaybackEnded = (track, position, actualDuration) => {
+    const session = ensurePlaybackSession(track)
     if (session && !session.completionRecorded) {
       session.completionRecorded = true
-      recordRecommendationEvent(currentTrack, 'track_completed', {
-        progressSeconds: Number(audioRef.current?.currentTime) || Number(duration) || 0,
-        durationSeconds: Number(audioRef.current?.duration) || Number(duration) || 0
+      recordRecommendationEvent(track, 'track_completed', {
+        progressSeconds: Number(position) || Number(actualDuration) || 0,
+        durationSeconds: Number(actualDuration) || Number(duration) || 0
       })
     }
-    if (isRepeatEnabled) {
-      if (session) {
-        session.replayCount += 1
-        recordRecommendationEvent(currentTrack, 'track_replayed', {
-          progressSeconds: Number(audioRef.current?.currentTime) || Number(duration) || 0,
-          durationSeconds: Number(audioRef.current?.duration) || Number(duration) || 0
-        }, `${session.key}:replay:${session.replayCount}`)
-      }
-      setProgress(0)
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0
-        audioRef.current.play().catch(() => {})
-      }
-      return
+    if (getAudioEngineState().repeat === 'one' && session) {
+      session.replayCount += 1
+      recordRecommendationEvent(track, 'track_replayed', {
+        progressSeconds: Number(position) || Number(actualDuration) || 0,
+        durationSeconds: Number(actualDuration) || Number(duration) || 0
+      }, `${session.key}:replay:${session.replayCount}`)
     }
-    if (isAutoplayEnabled === false) {
-      setIsPlaying(false);
-      return;
-    }
-    next(false)
   }
   const toggleShuffle = () => {
     const nextEnabled = !isShuffleEnabled
@@ -630,7 +620,11 @@ export const PlayerProvider = ({ children }) => {
       : new Set()
     setIsShuffleEnabled(nextEnabled)
   }
-  const toggleRepeat = () => setIsRepeatEnabled((enabled) => !enabled)
+  const toggleRepeat = () => {
+    const nextEnabled = !isRepeatEnabled
+    repeatModeRef.current = nextEnabled ? 'one' : 'off'
+    setIsRepeatEnabled(nextEnabled)
+  }
   const setAutoplayEnabled = (enabled) => {
     recommendationRequestRef.current += 1
     lastRecommendationAttemptRef.current = ''
@@ -643,13 +637,14 @@ export const PlayerProvider = ({ children }) => {
   const toggleQueue = () => setIsQueueOpen((open) => !open)
   const closeQueue = () => setIsQueueOpen(false)
   const audioSource = currentTrack?.audio || getBestAudioUrl(currentTrack?.downloadUrl)
-  const { audioRef } = useAudioPlayer({ src: audioSource, isPlaying, volume, onTimeUpdate: handleTimeUpdate, onEnded: handleEnded })
+  const audioRef = { current: getAudioElement() }
 
   useEffect(() => {
     const preloadAudio = preloadAudioRef.current
     if (!preloadAudio) return
     if (!isGaplessPlaybackEnabled || !isAutoplayEnabled || !currentTrack || currentIndex < 0 || !queue.length) {
       gaplessPreloadRef.current = null
+      setAudioEnginePreferredNext(-1, '')
       preloadAudio.removeAttribute('src')
       preloadAudio.load()
       return
@@ -661,6 +656,7 @@ export const PlayerProvider = ({ children }) => {
         .filter(({ track }) => track?.id && !shufflePlayedIdsRef.current.has(String(track.id)))
       if (!candidates.length) {
         gaplessPreloadRef.current = null
+        setAudioEnginePreferredNext(-1, '')
         preloadAudio.removeAttribute('src')
         preloadAudio.load()
         return
@@ -676,6 +672,7 @@ export const PlayerProvider = ({ children }) => {
       : null
     if (!audioUrl || !nextTrack?.id) {
       gaplessPreloadRef.current = null
+      setAudioEnginePreferredNext(-1, '')
       preloadAudio.removeAttribute('src')
       preloadAudio.load()
       return
@@ -683,6 +680,7 @@ export const PlayerProvider = ({ children }) => {
 
     const trackId = String(nextTrack.id)
     gaplessPreloadRef.current = { index: nextIndex, trackId }
+    setAudioEnginePreferredNext(nextIndex, trackId)
     if (preloadAudio.src !== audioUrl) {
       preloadAudio.src = audioUrl
       preloadAudio.load()
@@ -790,7 +788,7 @@ export const PlayerProvider = ({ children }) => {
     })
 
     return undefined
-  }, [currentIndex, currentTrack, isAutoplayEnabled, isQueueLoading, likedSongs, listenHistory, notInterested, recommendationEvents, queue])
+  }, [currentIndex, currentTrack, isAutoplayEnabled, isQueueLoading, likedSongs, listenHistory, notInterested, queueRefillRequest, recommendationEvents, queue])
 
   useEffect(() => {
     if (import.meta.env.DEV && currentTrack) {
@@ -804,105 +802,59 @@ export const PlayerProvider = ({ children }) => {
     }
   }, [audioSource, currentTrack])
 
-  const syncMediaPositionState = useEffectEvent((force = false) => {
-    if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || !currentTrack) return
-    const mediaSession = navigator.mediaSession
-    if (typeof mediaSession.setPositionState !== 'function') return
+  useEffect(() => {
+    shuffleEnabledRef.current = isShuffleEnabled
+  }, [isShuffleEnabled])
 
-    const now = Date.now()
-    if (!force && now - lastMediaPositionUpdateRef.current < 1000) return
-    const audio = audioRef.current
-    const mediaDuration = Number(audio?.duration)
-    const position = Number(audio?.currentTime)
-    if (!Number.isFinite(mediaDuration) || mediaDuration <= 0 || !Number.isFinite(position)) return
-
-    lastMediaPositionUpdateRef.current = now
-    try {
-      mediaSession.setPositionState({
-        duration: mediaDuration,
-        playbackRate: Number.isFinite(audio.playbackRate) && audio.playbackRate > 0 ? audio.playbackRate : 1,
-        position: Math.max(0, Math.min(position, mediaDuration)),
-      })
-    } catch {
-      // Position state may be rejected while browser media metadata is changing.
+  useEffect(() => {
+    configureAudioEngine({
+      onTrackChanged: (song, index) => {
+        const state = getAudioEngineState()
+        setQueue(state.queue)
+        setCurrentIndex(index)
+        setCurrentTrack(song)
+        setProgress(state.progress)
+        setDuration(state.duration)
+        if (shuffleEnabledRef.current && song?.id) shufflePlayedIdsRef.current.add(String(song.id))
+        if (song) setListenHistory((history) => pushHistory(history, song))
+      },
+      onStateChange: (state) => {
+        setIsPlaying(state.isPlaying)
+        setProgress(state.progress)
+        setDuration(state.duration)
+      },
+      onProgress: handleTimeUpdate,
+      onLoadedMetadata: handleLoadedMetadata,
+      onPlaybackStart: handlePlaybackStart,
+      onPlaybackEnded: handlePlaybackEnded,
+      onError: handleAudioError,
+      onNeedMore: () => setQueueRefillRequest((count) => count + 1)
+    })
+    const audio = getAudioElement()
+    if (!metadataSyncedRef.current && audio?.readyState >= 1) {
+      metadataSyncedRef.current = true
+      handleLoadedMetadata({ currentTarget: audio })
     }
   })
 
-  const handleMediaSessionAction = useEffectEvent(({ action, details }) => {
-    if (action === 'play' && !isPlaying) togglePlay()
-    if (action === 'pause' && isPlaying) togglePlay()
-    if (action === 'previoustrack') previous()
-    if (action === 'nexttrack') next()
-    if (action === 'seekbackward') seek(Math.max(0, progress - (details.seekOffset || 10)))
-    if (action === 'seekforward') seek(Math.min(duration || Infinity, progress + (details.seekOffset || 10)))
-    if (action === 'seekto' && Number.isFinite(details.seekTime)) seek(details.seekTime)
-  })
+  useEffect(() => {
+    setAudioEngineQueue(queue, currentIndex)
+  }, [currentIndex, queue])
 
   useEffect(() => {
-    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return undefined
-
-    const mediaSession = navigator.mediaSession
-    if (!currentTrack) {
-      mediaSession.metadata = null
-      return undefined
-    }
-    const artwork = getBestImageUrl(currentTrack.image)
-    mediaSession.metadata = new MediaMetadata({
-      title: currentTrack.title || currentTrack.name || 'Autumn',
-      artist: currentTrack.artist || currentTrack.subtitle || 'Autumn Player',
-      album: currentTrack.album || 'Autumn',
-      artwork: artwork ? [96, 128, 192, 256, 384, 512].map((size) => ({ src: artwork, sizes: `${size}x${size}`, type: 'image/jpeg' })) : [],
+    setAudioEngineOptions({
+      autoplay: isAutoplayEnabled,
+      shuffle: isShuffleEnabled,
+      repeat: isRepeatEnabled ? (repeatModeRef.current === 'all' ? 'all' : 'one') : 'off',
+      volume,
+      playedIds: [...shufflePlayedIdsRef.current]
     })
-    lastMediaPositionUpdateRef.current = 0
-
-    const actions = {
-      play: () => handleMediaSessionAction({ action: 'play', details: {} }),
-      pause: () => handleMediaSessionAction({ action: 'pause', details: {} }),
-      previoustrack: () => handleMediaSessionAction({ action: 'previoustrack', details: {} }),
-      nexttrack: () => handleMediaSessionAction({ action: 'nexttrack', details: {} }),
-      seekbackward: (details) => handleMediaSessionAction({ action: 'seekbackward', details }),
-      seekforward: (details) => handleMediaSessionAction({ action: 'seekforward', details }),
-      seekto: (details) => handleMediaSessionAction({ action: 'seekto', details }),
-    }
-
-    Object.entries(actions).forEach(([action, handler]) => {
-      try {
-        mediaSession.setActionHandler(action, handler)
-      } catch {
-        // Some browsers expose Media Session without supporting every action.
-      }
-    })
-
-    return () => {
-      Object.keys(actions).forEach((action) => {
-        try {
-          mediaSession.setActionHandler(action, null)
-        } catch {
-          // Ignore unsupported action cleanup.
-        }
-      })
-    }
-  }, [currentTrack])
-
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
-    const trackId = currentTrack?.id ?? null
-    if (trackId !== lastMediaTrackIdRef.current) {
-      lastMediaTrackIdRef.current = trackId
-      lastMediaPositionUpdateRef.current = 0
-      forceMediaPositionUpdateRef.current = true
-    }
-    navigator.mediaSession.playbackState = isPlaying && currentTrack ? 'playing' : 'paused'
-    if (currentTrack && lastMediaPositionUpdateRef.current === 0) forceMediaPositionUpdateRef.current = true
-    syncMediaPositionState(forceMediaPositionUpdateRef.current)
-    forceMediaPositionUpdateRef.current = false
-  }, [currentTrack, duration, isPlaying, mediaPositionRequest, progress])
+  }, [isAutoplayEnabled, isRepeatEnabled, isShuffleEnabled, volume])
 
   return (
     <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, isQueueLoading, isAutoplayEnabled, setIsAutoplayEnabled: setAutoplayEnabled, isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled: setGaplessPlaybackEnabled, isDataSavingEnabled, setIsDataSavingEnabled: setDataSavingEnabled, listenHistory, likedSongs, recommendationEvents, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue, prepareTransferredPlayback, pauseForHandoff, setPlaybackPaused, startPreparedPlayback }}>
         {children}
-        <audio ref={audioRef} src={audioSource || undefined} onPlay={handlePlaybackStart} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onEnded={handleEnded} onError={handleAudioError} />
-      <audio ref={preloadAudioRef} preload="auto" aria-hidden="true" className="hidden" />
+        <audio ref={preloadAudioRef} preload="auto" aria-hidden="true" className="hidden" />
     </PlayerContext.Provider>
   )
 }
