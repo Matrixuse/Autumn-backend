@@ -364,7 +364,6 @@ export default function MobilePlayerPage() {
           >
             <div className="cover-container h-11 w-11 shrink-0 bg-white/10">
               {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
-              {isPlaying && <NowPlayingOverlay />}
             </div>
             <div 
               type="button"
