@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import MoodChips from '../components/sections/MoodChips'
 import ListenAgain from '../components/sections/ListenAgain'
 import PopularArtists from '../components/sections/PopularArtists'
+import ArtistSpotlight from '../components/sections/ArtistSpotlight'
 import QuickPicks from '../components/sections/QuickPicks'
 import LongToListen from '../components/sections/LongToListen'
 import Footer from '../components/sections/Footer'
@@ -17,12 +18,14 @@ import { usePlayer } from '../context/PlayerContext'
 import { useAuth } from '../context/AuthContext'
 import axiosInstance from '../api/axiosInstance'
 import { getBestImageUrl } from '../utils/mediaQuality'
-import { getHollywoodSongs, getSongsByIds } from '../api/songs'
-import { getMixForYouPlaylists } from '../api/playlists'
-import { getAlbumsForYou } from '../api/albums'
+import { getHollywoodSongs, getSongsByIds, searchSongs } from '../api/songs'
+import { getMixForYouPlaylists, searchPlaylists } from '../api/playlists'
+import { getAlbumsForYou, searchAlbums } from '../api/albums'
 import { mapWithConcurrency } from '../api/requestQueue'
 import { HOLLYWOOD_CURATED_TRACKS, VERIFIED_CURATED_IDS } from '../config/curatedSongs'
 import { getDailyRotationKey, shuffleForDailyRotation } from '../utils/dailyRotation'
+import { getSongArtists } from '../utils/songSearch'
+import { attachPastPlaysArtwork } from '../utils/pastPlays'
 import { fetchPastPlaysSnapshot } from '../api/recommendations'
 
 const getSuggestedLibrarySongs = (fallbackSongs = [], limit = 24, userId = 'anonymous', date = new Date()) => {
@@ -68,6 +71,33 @@ const fixedArtistNames = [
 ]
 
 const normalizeName = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+
+const getDailyArtist = (availableArtists, userId, date) => {
+  if (!availableArtists.length) return null
+
+  const day = Math.floor(new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 86400000)
+  const userOffset = [...String(userId || 'anonymous')].reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0, 0)
+  return availableArtists[(day + userOffset) % availableArtists.length]
+}
+
+const hasCompleteArtistSpotlight = (entries) => Array.isArray(entries)
+  && entries.length === 10
+  && entries.filter((entry) => entry.kind === 'song').length === 7
+  && entries.filter((entry) => entry.kind === 'playlist' || entry.kind === 'album').length === 3
+
+const getArtistSpotlightSongs = (songs, artistName) => {
+  const expectedArtist = normalizeName(artistName)
+  const uniqueSongs = new Map()
+
+  ;(Array.isArray(songs) ? songs : []).forEach((song) => {
+    const songArtist = normalizeName(song?.artist || getSongArtists(song))
+    const id = String(song?.id || song?.trackId || '')
+    if (!id || !songArtist.includes(expectedArtist) || uniqueSongs.has(id)) return
+    uniqueSongs.set(id, song)
+  })
+
+  return [...uniqueSongs.values()]
+}
 
 const isCompleteArtistSet = (artists) => Array.isArray(artists)
   && artists.length === fixedArtistNames.length
@@ -117,6 +147,7 @@ const fetchArtistDetails = async (name) => {
 export default function Home() {
   const rotationDate = useDailyRotationDate()
   const [artists, setArtists] = useState([])
+  const [loadedArtistSpotlight, setLoadedArtistSpotlight] = useState({ key: '', entries: [] })
   const [mixPlaylists, setMixPlaylists] = useState([])
   const [albumsForYou, setAlbumsForYou] = useState([])
   const [curatedHollywoodSongs, setCuratedHollywoodSongs] = useState([])
@@ -154,6 +185,98 @@ export default function Home() {
     return getHollywoodSongs(pool, 24)
   }, [curatedHollywoodSongs, songs, newReleaseSongs, quickPickSongs])
   const listenAgainSongs = listenAgain.length ? listenAgain : (listenHistory.length ? listenHistory : librarySongs)
+  const spotlightArtist = useMemo(() => {
+    const availableArtists = artists.filter((artist) => (
+      artist?.id && artist?.name && normalizeName(artist.id) !== normalizeName(artist.name)
+    ))
+    return getDailyArtist(availableArtists, userId, rotationDate)
+  }, [artists, rotationDate, userId])
+  const spotlightCacheKey = spotlightArtist ? `artist-spotlight-v2-${spotlightArtist.id}` : ''
+  const spotlightEntryKey = spotlightArtist ? `${userId}:${rotationDate}:${spotlightArtist.id}` : ''
+  const cachedArtistSpotlight = useMemo(() => (
+    spotlightCacheKey && hasCompleteArtistSpotlight(readDailyCache(spotlightCacheKey, userId, rotationDate))
+      ? readDailyCache(spotlightCacheKey, userId, rotationDate)
+      : []
+  ), [rotationDate, spotlightCacheKey, userId])
+  const artistSpotlightItems = loadedArtistSpotlight.key === spotlightEntryKey
+    ? loadedArtistSpotlight.entries
+    : cachedArtistSpotlight
+  const spotlightSongs = useMemo(() => artistSpotlightItems
+    .filter((entry) => entry.kind === 'song')
+    .map((entry) => entry.item), [artistSpotlightItems])
+
+  useEffect(() => {
+    if (!spotlightArtist || cachedArtistSpotlight.length) return undefined
+
+    let isMounted = true
+    const loadArtistSpotlight = async () => {
+      const [songsResult, playlistsResult, albumsResult, searchedAlbumsResult] = await Promise.allSettled([
+        axiosInstance.get(`/artists/${encodeURIComponent(String(spotlightArtist.id))}/songs`, {
+          params: { page: 0, limit: 50, sortBy: 'popularity', sortOrder: 'desc' }
+        }),
+        searchPlaylists(`${spotlightArtist.name} playlist`, 20),
+        axiosInstance.get(`/artists/${encodeURIComponent(String(spotlightArtist.id))}/albums`, {
+          params: { page: 0, limit: 30, sortBy: 'popularity', sortOrder: 'desc' }
+        }),
+        searchAlbums(`${spotlightArtist.name} album`, 20)
+      ])
+
+      let songs = songsResult.status === 'fulfilled'
+        ? getArtistSpotlightSongs(songsResult.value?.data?.data?.songs, spotlightArtist.name)
+        : []
+
+      if (songs.length < 7) {
+        const searchResults = await searchSongs(`${spotlightArtist.name} songs`, 30).catch(() => [])
+        songs = getArtistSpotlightSongs([...songs, ...searchResults], spotlightArtist.name)
+      }
+
+      const playlists = playlistsResult.status === 'fulfilled'
+        ? playlistsResult.value.filter((playlist) => playlist?.image || playlist?.images)
+        : []
+      const artistAlbums = albumsResult.status === 'fulfilled'
+        ? (albumsResult.value?.data?.data?.albums || [])
+        : []
+      const searchedAlbums = searchedAlbumsResult.status === 'fulfilled' ? searchedAlbumsResult.value : []
+      const albums = [...artistAlbums, ...searchedAlbums]
+        .map((album) => ({
+          ...album,
+          id: album.id || album._id,
+          name: album.name || album.title,
+          description: album.description || album.subtitle || `${spotlightArtist.name} · Album`,
+          image: getBestImageUrl(album.image || album.images || album.cover || album.thumbnail),
+          type: 'album'
+        }))
+        .filter((album) => album.id && album.name && album.image)
+      const collections = [...playlists.map((item) => ({ kind: 'playlist', item })), ...albums.map((item) => ({ kind: 'album', item }))]
+      const uniqueCollections = [...new Map(collections.map((entry) => [`${entry.kind}:${entry.item.id}`, entry])).values()]
+      const selectedSongs = shuffleForDailyRotation(songs, {
+        userId,
+        scope: `artist-spotlight-songs-${spotlightArtist.id}`,
+        date: rotationDate
+      }).slice(0, 7).map((item) => ({ kind: 'song', item }))
+      const selectedCollections = shuffleForDailyRotation(uniqueCollections, {
+        userId,
+        scope: `artist-spotlight-collections-${spotlightArtist.id}`,
+        date: rotationDate
+      }).slice(0, 3)
+      const mixedItems = shuffleForDailyRotation([...selectedSongs, ...selectedCollections], {
+        userId,
+        scope: `artist-spotlight-sequence-${spotlightArtist.id}`,
+        date: rotationDate
+      })
+
+      if (isMounted && hasCompleteArtistSpotlight(mixedItems)) {
+        setLoadedArtistSpotlight({ key: spotlightEntryKey, entries: mixedItems })
+        if (mixedItems.length) writeDailyCache(spotlightCacheKey, mixedItems, userId, rotationDate)
+      }
+    }
+
+    loadArtistSpotlight().catch(() => {})
+
+    return () => {
+      isMounted = false
+    }
+  }, [cachedArtistSpotlight, rotationDate, spotlightArtist, spotlightCacheKey, spotlightEntryKey, userId])
 
   useEffect(() => {
     if (!isPastPlaysEligible || !user?.id) {
@@ -166,7 +289,7 @@ export default function Home() {
       .then((response) => {
         if (!isMounted) return
         const nextSongs = Array.isArray(response?.data?.data?.songs) ? response.data.data.songs : []
-        setPastPlaysSongs(nextSongs)
+        setPastPlaysSongs(attachPastPlaysArtwork(nextSongs, listenHistory))
       })
       .catch(() => {
         if (isMounted) setPastPlaysSongs([])
@@ -247,6 +370,7 @@ export default function Home() {
             <div className="order-2 lg:order-2"><ListenAgain songs={listenAgainSongs} /></div>
             <div className="order-3 lg:order-5"><Library songs={librarySongs} /></div>
             <div className="order-4 lg:order-6"><MixForYou playlists={mixPlaylists} /></div>
+            {spotlightArtist && hasCompleteArtistSpotlight(artistSpotlightItems) && <div className="order-3 md:order-4 lg:order-3"><ArtistSpotlight artist={spotlightArtist} entries={artistSpotlightItems} songs={spotlightSongs} /></div>}
             <div className="order-5 lg:order-4"><PopularArtists artists={artists} /></div>
             <div className="order-6 lg:order-9"><Albums albums={albumsForYou} /></div>
             <div className="order-7 lg:order-7"><Moods songs={moodSongs} /></div>

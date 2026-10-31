@@ -636,7 +636,6 @@ export const PlayerProvider = ({ children }) => {
   const setDataSavingEnabled = (enabled) => setIsDataSavingEnabled(Boolean(enabled))
   const toggleQueue = () => setIsQueueOpen((open) => !open)
   const closeQueue = () => setIsQueueOpen(false)
-  const audioSource = currentTrack?.audio || getBestAudioUrl(currentTrack?.downloadUrl)
   const audioRef = { current: getAudioElement() }
 
   useEffect(() => {
@@ -789,18 +788,6 @@ export const PlayerProvider = ({ children }) => {
 
     return undefined
   }, [currentIndex, currentTrack, isAutoplayEnabled, isQueueLoading, likedSongs, listenHistory, notInterested, queueRefillRequest, recommendationEvents, queue])
-
-  useEffect(() => {
-    if (import.meta.env.DEV && currentTrack) {
-      console.log('[PLAYER] RECEIVED SONG', {
-        id: currentTrack.id,
-        name: currentTrack.name || currentTrack.title,
-        artists: currentTrack.artists?.primary?.map((artist) => artist?.name).filter(Boolean).join(', ') || currentTrack.artist,
-        downloadUrl: currentTrack.downloadUrl,
-        audioSource
-      })
-    }
-  }, [audioSource, currentTrack])
 
   useEffect(() => {
     shuffleEnabledRef.current = isShuffleEnabled

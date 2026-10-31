@@ -15,7 +15,8 @@ export default function AppLayout() {
     const isHomePage = location.pathname === '/'
     const isKeepListeningRoute = location.pathname.startsWith('/keep-listening')
     const isNowPlayingRoute = location.pathname.startsWith('/now-playing')
-    const locked = !loading && !isAuthenticated && !isKeepListeningRoute
+    const isPublicInfoRoute = location.pathname.startsWith('/info/') || location.pathname === '/feedback'
+    const locked = !loading && !isAuthenticated && !isKeepListeningRoute && !isPublicInfoRoute
 
     return (
         <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_12%_0%,#062029_0%,transparent_28%),radial-gradient(circle_at_100%_0%,#252313_0%,transparent_24%),#050505] text-white">

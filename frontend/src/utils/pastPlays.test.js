@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPastPlaysSnapshot, getPastPlaysSnapshotKey, derivePastPlaysCandidates } from './pastPlays.js'
+import { attachPastPlaysArtwork, createPastPlaysSnapshot, getPastPlaysSnapshotKey, derivePastPlaysCandidates } from './pastPlays.js'
 
 const now = new Date('2026-10-14T12:00:00Z')
 
@@ -19,6 +19,65 @@ const buildEvents = (trackId, entries) => entries.map((entry, index) => ({
   occurredAt: entry.occurredAt,
   track: { title: entry.title || 'Song', artist: entry.artist || 'Artist' }
 }))
+
+test('past plays uses matching listen history artwork when response songs omit it', () => {
+  const history = [
+    { ...createSong('song-1', 'Perfect', 'Ed Sheeran'), image: 'https://image.example/perfect.jpg' },
+    { ...createSong('song-2', 'Bad Guy', 'Billie Eilish'), image: 'https://image.example/bad-guy.jpg' }
+  ]
+  const songs = [
+    { id: 'song-1', title: 'Perfect' },
+    { id: 'song-2', title: 'Bad Guy' },
+    { id: 'song-3', title: 'No match' }
+  ]
+
+  const result = attachPastPlaysArtwork(songs, history)
+
+  assert.equal(result[0].image, 'https://image.example/perfect.jpg')
+  assert.equal(result[1].image, 'https://image.example/bad-guy.jpg')
+  assert.equal(result[2], songs[2])
+})
+
+test('past plays uses imageUrl artwork from matching history and response songs', () => {
+  const history = [
+    { id: 'song-1', title: 'Perfect', artist: 'Ed Sheeran', imageUrl: 'https://image.example/perfect.jpg' }
+  ]
+  const songs = [
+    { id: 'song-1', title: 'Perfect' },
+    { id: 'song-2', title: 'Bad Guy', imageUrl: 'https://image.example/bad-guy.jpg' }
+  ]
+
+  const result = attachPastPlaysArtwork(songs, history)
+
+  assert.equal(result[0].image, 'https://image.example/perfect.jpg')
+  assert.equal(result[1], songs[1])
+})
+
+test('past plays uses history artwork when response image is empty or track IDs differ', () => {
+  const history = [
+    { id: 'history-track-id', title: 'Perfect', artist: 'Ed Sheeran', image: 'https://image.example/perfect.jpg' }
+  ]
+  const songs = [
+    { id: 'recommendation-track-id', title: 'Perfect', artist: 'Ed Sheeran', image: [] }
+  ]
+
+  const result = attachPastPlaysArtwork(songs, history)
+
+  assert.equal(result[0].image, 'https://image.example/perfect.jpg')
+})
+
+test('past plays can match unique history titles when artist labels differ', () => {
+  const history = [
+    { id: 'history-track-id', title: 'Perfect', artist: 'Ed Sheeran', image: 'https://image.example/perfect.jpg' }
+  ]
+  const songs = [
+    { id: 'recommendation-track-id', title: 'Perfect', artist: 'Ed Sheeran, Beyoncé' }
+  ]
+
+  const result = attachPastPlaysArtwork(songs, history)
+
+  assert.equal(result[0].image, 'https://image.example/perfect.jpg')
+})
 
 test('past plays selects a forgotten favourite with a historical baseline and recent decline', () => {
   const song = createSong('song-1', 'Perfect', 'Ed Sheeran')

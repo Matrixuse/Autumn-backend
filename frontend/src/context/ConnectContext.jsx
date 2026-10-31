@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { Radio } from 'lucide-react'
 import { getBestAudioUrl } from '../utils/mediaQuality'
 import { getSongById } from '../api/songs'
@@ -36,6 +36,9 @@ const safeTrack = (track) => {
 }
 
 const createSessionId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+const isPlaybackOwnershipConflict = (error) => error?.response?.status === 409
+  && /playback is owned by another device/i.test(error?.response?.data?.message || '')
+const playbackOwnershipMessage = 'Playback is owned by another device. Use Continue Anywhere on that device to transfer it here.'
 
 export function ConnectProvider({ children }) {
   const { user, isAuthenticated } = useAuth()
@@ -44,6 +47,8 @@ export function ConnectProvider({ children }) {
   const playerRef = useRef(player)
   const snapshotRef = useRef(null)
   const sessionIdRef = useRef(createSessionId())
+  const sessionRevisionRef = useRef(0)
+  const snapshotSaveQueueRef = useRef(Promise.resolve())
   const pollTimerRef = useRef(null)
   const pollingRef = useRef(false)
   const initiatingTransferRef = useRef(false)
@@ -51,10 +56,13 @@ export function ConnectProvider({ children }) {
   const targetPreparedRef = useRef(new Set())
   const targetStartedRef = useRef(new Set())
   const targetNeedsGestureRef = useRef(new Set())
+  const playbackOwnershipConflictRef = useRef(false)
   const dismissedRef = useRef(new Set())
   const incomingRef = useRef(null)
   const transferRef = useRef(null)
   const [registeredDevice, setRegisteredDevice] = useState(null)
+  const [playbackOwnedElsewhere, setPlaybackOwnedElsewhere] = useState(false)
+  const [playbackOwnershipKnown, setPlaybackOwnershipKnown] = useState(false)
   const [registrationError, setRegistrationError] = useState(null)
   const registrationReadyRef = useRef(false)
   const [incoming, setIncoming] = useState(null)
@@ -65,6 +73,17 @@ export function ConnectProvider({ children }) {
   playerRef.current = player
   incomingRef.current = incoming
   transferRef.current = transfer
+
+  const refreshPlaybackOwnership = useCallback(async () => {
+    const result = await listConnectDevices(deviceId)
+    const anotherDeviceOwnsPlayback = (result.devices || []).some((device) => (
+      device.isPlaybackOwner && device.deviceId !== deviceId
+    ))
+    playbackOwnershipConflictRef.current = anotherDeviceOwnsPlayback
+    setPlaybackOwnedElsewhere(anotherDeviceOwnsPlayback)
+    setPlaybackOwnershipKnown(true)
+    return anotherDeviceOwnsPlayback
+  }, [deviceId])
 
   snapshotRef.current = (position = player.progress) => {
     const activePlayer = playerRef.current
@@ -77,7 +96,7 @@ export function ConnectProvider({ children }) {
     }
     return {
       sessionId: sessionIdRef.current,
-      revision: 0,
+      revision: sessionRevisionRef.current,
       track: activeTrack,
       positionMs: Math.max(0, Math.round(Number(position || 0) * 1000)),
       isPlaying: Boolean(activePlayer.isPlaying),
@@ -89,9 +108,34 @@ export function ConnectProvider({ children }) {
     }
   }
 
+  const persistSnapshot = useCallback((snapshot) => {
+    const saveRequest = snapshotSaveQueueRef.current.catch(() => {}).then(async () => {
+      if (playbackOwnershipConflictRef.current) throw new Error(playbackOwnershipMessage)
+      const revision = sessionRevisionRef.current
+      try {
+        const result = await savePlaybackSnapshot(deviceId, { ...snapshot, revision })
+        const returnedRevision = Number(result?.snapshot?.revision ?? result?.revision)
+        sessionRevisionRef.current = Math.max(revision, Number.isFinite(returnedRevision) ? returnedRevision : revision) + 1
+        return result
+      } catch (error) {
+        if (isPlaybackOwnershipConflict(error)) {
+          playbackOwnershipConflictRef.current = true
+          setPlaybackOwnedElsewhere(true)
+          throw new Error(playbackOwnershipMessage)
+        }
+        throw error
+      }
+    })
+    snapshotSaveQueueRef.current = saveRequest
+    return saveRequest
+  }, [deviceId])
+
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
       registrationReadyRef.current = false
+      playbackOwnershipConflictRef.current = false
+      setPlaybackOwnedElsewhere(false)
+      setPlaybackOwnershipKnown(false)
       setRegisteredDevice(null)
       setRegistrationError(null)
       return undefined
@@ -106,30 +150,34 @@ export function ConnectProvider({ children }) {
         registrationReadyRef.current = true
         setRegisteredDevice(device)
         setRegistrationError(null)
+        void refreshPlaybackOwnership().catch(() => {})
       }
     }).catch((error) => { if (active) setRegistrationError(error) })
     const heartbeatTimer = window.setInterval(() => { void beat() }, 30_000)
+    const ownershipTimer = window.setInterval(() => { void refreshPlaybackOwnership().catch(() => {}) }, 30_000)
     const handleVisibility = () => { if (document.visibilityState === 'visible') void beat() }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => {
       active = false
       window.clearInterval(heartbeatTimer)
+      window.clearInterval(ownershipTimer)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [deviceId, isAuthenticated, user?.id])
+  }, [deviceId, isAuthenticated, refreshPlaybackOwnership, user?.id])
 
   useEffect(() => {
     if (!isAuthenticated || !registeredDevice?.enabled || !player.currentTrack) return undefined
     let active = true
     const sync = () => {
+      if (!playbackOwnershipKnown || playbackOwnedElsewhere || playbackOwnershipConflictRef.current) return
       if (transferRef.current && !['STARTED', 'CANCELLED', 'FAILED', 'EXPIRED'].includes(transferRef.current.state)) return
       const snapshot = snapshotRef.current?.()
-      if (snapshot?.track && active) savePlaybackSnapshot(deviceId, snapshot).catch(() => {})
+      if (snapshot?.track && active) persistSnapshot(snapshot).catch(() => {})
     }
     sync()
     const timer = window.setInterval(sync, 8000)
     return () => { active = false; window.clearInterval(timer) }
-  }, [deviceId, isAuthenticated, player.currentTrack, player.queue, player.currentIndex, player.isPlaying, player.isShuffleEnabled, player.isRepeatEnabled, registeredDevice?.enabled])
+  }, [deviceId, isAuthenticated, persistSnapshot, playbackOwnedElsewhere, playbackOwnershipKnown, player.currentTrack, player.queue, player.currentIndex, player.isPlaying, player.isShuffleEnabled, player.isRepeatEnabled, registeredDevice?.enabled])
 
   useEffect(() => {
     if (!isAuthenticated || !registeredDevice?.enabled) return undefined
@@ -235,7 +283,7 @@ export function ConnectProvider({ children }) {
     try {
       const snapshot = snapshotRef.current?.()
       if (!snapshot?.track) throw new Error('There is no active playback session to move.')
-      await savePlaybackSnapshot(deviceId, snapshot)
+      await persistSnapshot(snapshot)
       const request = await createPlaybackHandoff(deviceId, targetDevice.deviceId)
       const nextTransfer = { ...request, targetName: targetDevice.name, uiState: 'Waiting for the other device...' }
       setTransfer(nextTransfer)
@@ -312,7 +360,7 @@ export function ConnectProvider({ children }) {
     return device
   }
 
-  const value = { deviceId, registeredDevice, registrationError, retryRegistration, transfer, movePlayback, hasTransferablePlayback: Boolean(player.currentTrack), transferInProgress: Boolean(transfer && !['STARTED', 'CANCELLED', 'FAILED', 'EXPIRED'].includes(transfer.state)) }
+  const value = { deviceId, registeredDevice, registrationError, retryRegistration, playbackOwnedElsewhere, transfer, movePlayback, hasTransferablePlayback: Boolean(player.currentTrack), transferInProgress: Boolean(transfer && !['STARTED', 'CANCELLED', 'FAILED', 'EXPIRED'].includes(transfer.state)) }
   return <ConnectContext.Provider value={value}>
     {children}
     {incoming && !['CANCELLED', 'EXPIRED'].includes(incoming.state) && <IncomingHandoff

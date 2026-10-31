@@ -21,6 +21,7 @@ import MobilePlayerPage from '../pages/MobilePlayerPage'
 import NotificationsPage from '../pages/NotificationsPage'
 import Settings from '../pages/Settings'
 import ContinueAnywhere from '../pages/ContinueAnywhere'
+import FooterInfoPage from '../pages/FooterInfoPage'
 import ProtectedRoute from './ProtectedRoute'
 
 export default function AppRoutes() {
@@ -49,6 +50,7 @@ export default function AppRoutes() {
                 <Route path="/feedback" element={<FeedbackPage />} />
                 <Route path="/equalizer" element={<EquilizerPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/info/:pageSlug" element={<FooterInfoPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

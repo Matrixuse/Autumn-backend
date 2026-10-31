@@ -1,3 +1,5 @@
+import { getBestImageUrl } from './mediaQuality.js'
+
 const DAY_MS = 24 * 60 * 60 * 1000
 export const PAST_PLAYS_TARGET = 24
 export const PAST_PLAYS_MIN_HISTORY = 5
@@ -7,6 +9,74 @@ export const PAST_PLAYS_COOLDOWN_DAYS = 7
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 const normalizeTrackId = (value) => String(value ?? '').trim()
 const normalizeArtistName = (value) => String(value ?? '').replace(/\s+/g, ' ').trim()
+const normalizeTrackLabel = (value) => String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+const getTrackImage = (song) => getBestImageUrl([
+  song?.image,
+  song?.imageUrl,
+  song?.image_url,
+  song?.cover,
+  song?.coverUrl,
+  song?.thumbnail,
+  song?.thumbnailUrl,
+  song?.artwork,
+  song?.images,
+  song?.img,
+  song?.more_info?.image,
+  song?.more_info?.images,
+  song?.album?.image
+])
+const getTrackArtist = (song) => song?.artist
+  || song?.subtitle
+  || song?.primaryArtists
+  || song?.artists?.all?.map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ')
+  || song?.artists?.primary?.map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ')
+  || ''
+const getTrackTitleArtistKey = (song) => {
+  const title = normalizeTrackLabel(song?.title || song?.name)
+  const artist = normalizeTrackLabel(getTrackArtist(song))
+  return title ? `${title}|${artist}` : ''
+}
+const getTrackTitleKey = (song) => normalizeTrackLabel(song?.title || song?.name)
+
+export const attachPastPlaysArtwork = (songs, listenHistory = []) => {
+  const historyById = new Map()
+  const historyByTitleArtist = new Map()
+  const historyByTitle = new Map()
+
+  ;(Array.isArray(listenHistory) ? listenHistory : []).filter(Boolean).forEach((song) => {
+    const id = normalizeTrackId(song.id || song.trackId || song.songId || song.musicId)
+    const titleArtistKey = getTrackTitleArtistKey(song)
+    if (id) historyById.set(id, song)
+    if (titleArtistKey) {
+      const matches = historyByTitleArtist.get(titleArtistKey) || []
+      matches.push(song)
+      historyByTitleArtist.set(titleArtistKey, matches)
+    }
+    const titleKey = getTrackTitleKey(song)
+    if (titleKey) {
+      const matches = historyByTitle.get(titleKey) || []
+      matches.push(song)
+      historyByTitle.set(titleKey, matches)
+    }
+  })
+
+  return (Array.isArray(songs) ? songs : []).map((song) => {
+    const id = normalizeTrackId(song?.id || song?.trackId || song?.songId || song?.musicId)
+    const titleArtistMatches = historyByTitleArtist.get(getTrackTitleArtistKey(song)) || []
+    const titleMatches = historyByTitle.get(getTrackTitleKey(song)) || []
+    const historySong = historyById.get(id)
+      || (titleArtistMatches.length === 1 ? titleArtistMatches[0] : null)
+      || (titleMatches.length === 1 ? titleMatches[0] : null)
+    if (!historySong) return song
+
+    const image = getTrackImage(historySong) || getTrackImage(song)
+    return {
+      ...historySong,
+      ...song,
+      ...(image ? { image } : {})
+    }
+  })
+}
 
 const toDate = (value) => {
   const date = new Date(value)
