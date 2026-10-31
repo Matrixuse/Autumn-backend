@@ -15,6 +15,7 @@ export default function AppLayout() {
     const isHomePage = location.pathname === '/'
     const isKeepListeningRoute = location.pathname.startsWith('/keep-listening')
     const isNowPlayingRoute = location.pathname.startsWith('/now-playing')
+    const isFooterInfoRoute = location.pathname.startsWith('/info/')
     const isPublicInfoRoute = location.pathname.startsWith('/info/') || location.pathname === '/feedback'
     const locked = !loading && !isAuthenticated && !isKeepListeningRoute && !isPublicInfoRoute
 
@@ -22,7 +23,7 @@ export default function AppLayout() {
         <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_12%_0%,#062029_0%,transparent_28%),radial-gradient(circle_at_100%_0%,#252313_0%,transparent_24%),#050505] text-white">
             <Sidebar locked={locked} />
             <main className="min-h-screen lg:pl-60">
-                <div className={isNowPlayingRoute ? 'hidden lg:block' : ''}><Topbar locked={locked} onSearchStateChange={setSearchState} /></div>
+                <div className={isNowPlayingRoute ? 'hidden lg:block' : isFooterInfoRoute ? 'hidden md:block' : ''}><Topbar locked={locked} onSearchStateChange={setSearchState} /></div>
                 <div className={`relative mx-auto min-h-100vh w-full ${isNowPlayingRoute ? 'px-0 pb-0 pt-0 lg:px-20 lg:pb-24 lg:pt-9' : isHomePage ? 'px-4 pb-44 pt-1 sm:px-4 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9' : 'px-4 pb-44 pt-5 sm:px-4 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9'}`}>
                     <Outlet context={{ searchState }} />
                     {locked && (
