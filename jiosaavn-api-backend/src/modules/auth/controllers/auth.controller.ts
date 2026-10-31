@@ -32,15 +32,16 @@ const credentialsSchema = z.object({
 })
 
 const registerSchema = credentialsSchema.extend({
-  username: z
-    .string()
-    .trim()
-    .min(3)
-    .max(32)
-    .regex(/^\w+$/)
+  username: z.string().trim().min(3).max(32).regex(/^\w+$/)
 })
 
 const googleSchema = z.object({ idToken: z.string().min(1) })
+const profileUpdateSchema = z
+  .object({
+    username: z.string().trim().min(3).max(32).regex(/^\w+$/),
+    email: z.string().trim().email()
+  })
+  .strict()
 
 const successResponse = z.object({ success: z.literal(true), data: UserModel })
 const errorResponse = z.object({ success: z.literal(false), message: z.string() })
@@ -173,5 +174,14 @@ export class AuthController implements Routes {
         return ctx.json({ success: true as const, data: user }, 200)
       }
     )
+
+    this.controller.patch('/auth/profile', async (ctx) => {
+      const token = getRequestSessionToken(ctx)
+      const currentUser = await this.authService.getUserBySession(token)
+      const input = profileUpdateSchema.safeParse(await ctx.req.json().catch(() => null))
+      if (!input.success) return ctx.json({ success: false, message: 'Invalid profile details' }, 400)
+      const user = await this.authService.updateProfile(currentUser.id, input.data.username, input.data.email)
+      return ctx.json({ success: true, data: user }, 200)
+    })
   }
 }

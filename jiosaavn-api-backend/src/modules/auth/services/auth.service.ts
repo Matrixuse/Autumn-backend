@@ -169,6 +169,26 @@ export class AuthService {
     return toUser(user)
   }
 
+  async updateProfile(userId: string, username: string, email: string) {
+    if (!ObjectId.isValid(userId)) throw new AuthError('Invalid session', 401)
+    const database = await getDatabase()
+    const users = database.collection<UserDocument>('users')
+    try {
+      await users.updateOne(
+        { _id: new ObjectId(userId) },
+        { $set: { username: username.trim(), email: normalizeEmail(email) } }
+      )
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
+        throw new AuthError('Username or email is already registered', 409)
+      }
+      throw error
+    }
+    const user = await users.findOne({ _id: new ObjectId(userId) })
+    if (!user) throw new AuthError('User not found', 401)
+    return toUser(user)
+  }
+
   async logout(token: string | undefined) {
     if (!token) return
 

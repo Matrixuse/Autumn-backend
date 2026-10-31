@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 import PlayerContext from './player-context'
-import { getBestAudioUrl, getDataSavingAudioUrl } from '../utils/mediaQuality'
+import { getBestAudioUrl } from '../utils/mediaQuality'
 import {
   configure as configureAudioEngine,
   getAudioElement,
@@ -29,7 +29,9 @@ import {
   shouldRefillRecommendations
 } from '../utils/recommendationQueue'
 import axiosInstance from '../api/axiosInstance'
+import { fetchAccountData, importAccountData, patchAccountData } from '../api/accountData'
 import { fetchRecommendationProfile, persistRecommendationEvents } from '../api/recommendations'
+import { deleteLikedSong, fetchLikedSongs, importLikedSongs, saveLikedSong } from '../api/likedSongs'
 import { getSongById } from '../api/songs'
 
 const HISTORY_LIMIT = 18
@@ -51,7 +53,15 @@ const RECOMMENDATION_EVENT_LIMIT = 500
 const UPCOMING_QUEUE_TARGET = 50
 const UPCOMING_QUEUE_REFILL_THRESHOLD = 49
 const RECOMMENDATION_CACHE_TTL_MS = 5 * 60 * 1000
-const recommendationEventSyncEnabled = import.meta.env.VITE_RECOMMENDATION_EVENTS_ENABLED === 'true'
+const SEARCH_HISTORY_KEY = 'autumn_search_history'
+const ACCOUNT_DATA_CACHE_PREFIX = 'autumn_account_data:'
+const ACCOUNT_DATA_MIGRATION_PREFIX = 'autumn_account_data_imported:'
+const ACCOUNT_DATA_PENDING_PREFIX = 'autumn_account_data_pending:'
+const LEGACY_ACCOUNT_DATA_IMPORTED_KEY = 'autumn_account_data_legacy_imported_v1'
+const LEGACY_LIKED_SONGS_KEY = 'autumn_liked_songs'
+const LEGACY_LIKED_SONGS_IMPORTED_KEY = 'autumn_liked_songs_legacy_imported_v1'
+const getAccountLikedSongsKey = (userId) => `autumn_liked_songs:${userId}`
+const getAccountLikedSongsMigrationKey = (userId) => `autumn_liked_songs_imported:${userId}`
 const initialAudioState = getAudioEngineState()
 
 const getRecommendationEventsStorageKey = () => `autumn_recommendation_events:${readLocalUserId() || 'anonymous'}`
@@ -65,13 +75,37 @@ const readHistory = () => {
   }
 }
 
-const readLikedSongs = () => {
+const readStoredLikedSongs = (key) => {
   try {
-    const raw = localStorage.getItem('autumn_liked_songs')
-    return raw ? JSON.parse(raw) : []
+    const raw = localStorage.getItem(key)
+    const songs = raw ? JSON.parse(raw) : []
+    return Array.isArray(songs) ? songs : []
   } catch {
     return []
   }
+}
+
+const readLikedSongs = (userId = readLocalUserId()) => {
+  if (userId) {
+    try {
+      const accountSongs = localStorage.getItem(getAccountLikedSongsKey(userId))
+      if (accountSongs !== null) return readStoredLikedSongs(getAccountLikedSongsKey(userId))
+      if (localStorage.getItem(LEGACY_LIKED_SONGS_IMPORTED_KEY) === 'true') return []
+    } catch {
+      return []
+    }
+  }
+  return readStoredLikedSongs(LEGACY_LIKED_SONGS_KEY)
+}
+
+const mergeLikedSongLists = (...lists) => {
+  const songs = new Map()
+  for (const list of lists) {
+    for (const song of Array.isArray(list) ? list : []) {
+      if (song?.id != null && String(song.id)) songs.set(String(song.id), song)
+    }
+  }
+  return [...songs.values()]
 }
 
 const readUserPlaylists = () => {
@@ -104,10 +138,109 @@ const readRecommendationEvents = () => {
 
 const readLocalUserId = () => {
   try {
-    return JSON.parse(localStorage.getItem('autumn_user') || 'null')?.id || ''
+    const userId = JSON.parse(localStorage.getItem('autumn_user') || 'null')?.id
+    return userId == null ? '' : String(userId)
   } catch {
     return ''
   }
+}
+
+const getEmptyAccountData = () => ({
+  listenHistory: [],
+  userPlaylists: [],
+  listenAgain: [],
+  notInterested: [],
+  preferences: { autoplay: true, gapless: false, dataSaving: false },
+  searchHistory: [],
+  feedback: []
+})
+
+const normalizeAccountData = (data = {}) => {
+  const defaults = getEmptyAccountData()
+  return {
+    ...defaults,
+    ...data,
+    listenHistory: Array.isArray(data.listenHistory) ? data.listenHistory : defaults.listenHistory,
+    userPlaylists: Array.isArray(data.userPlaylists) ? data.userPlaylists : defaults.userPlaylists,
+    listenAgain: Array.isArray(data.listenAgain) ? data.listenAgain : defaults.listenAgain,
+    notInterested: Array.isArray(data.notInterested) ? data.notInterested.map(String) : defaults.notInterested,
+    preferences: { ...defaults.preferences, ...(data.preferences || {}) },
+    searchHistory: Array.isArray(data.searchHistory) ? data.searchHistory : defaults.searchHistory,
+    feedback: Array.isArray(data.feedback) ? data.feedback : defaults.feedback
+  }
+}
+
+const getLegacyAccountData = () => normalizeAccountData({
+  listenHistory: readHistory(),
+  userPlaylists: readUserPlaylists(),
+  listenAgain: readStoredList('autumn_listen_again'),
+  notInterested: readStoredList('autumn_not_interested').map((item) => String(item?.id || item)),
+  preferences: {
+    autoplay: readBooleanPreference(PLAYER_PREFERENCES.autoplay, true),
+    gapless: readBooleanPreference(PLAYER_PREFERENCES.gapless, false),
+    dataSaving: readBooleanPreference(PLAYER_PREFERENCES.dataSaving, false)
+  },
+  searchHistory: readStoredList(SEARCH_HISTORY_KEY),
+  feedback: readStoredList('musious_feedbacks_v1')
+})
+
+const readAccountDataCache = (userId) => {
+  try {
+    const raw = localStorage.getItem(`${ACCOUNT_DATA_CACHE_PREFIX}${userId}`)
+    return raw ? normalizeAccountData(JSON.parse(raw)) : null
+  } catch {
+    return null
+  }
+}
+
+const readPendingAccountChanges = (userId) => {
+  try {
+    const raw = localStorage.getItem(`${ACCOUNT_DATA_PENDING_PREFIX}${userId}`)
+    const changes = raw ? JSON.parse(raw) : {}
+    return changes && typeof changes === 'object' && !Array.isArray(changes) ? changes : {}
+  } catch {
+    return {}
+  }
+}
+
+const readInitialAccountData = () => {
+  const userId = readLocalUserId()
+  if (!userId) return getLegacyAccountData()
+  const cached = readAccountDataCache(userId)
+  if (cached) return cached
+  return localStorage.getItem(LEGACY_ACCOUNT_DATA_IMPORTED_KEY) === 'true'
+    ? getEmptyAccountData()
+    : getLegacyAccountData()
+}
+
+const queueAccountDataPatch = (pendingRef, timerRef, userId, isReady, changes) => {
+  if (!userId || !isReady) return
+  if (pendingRef.current.userId !== userId) pendingRef.current = { userId, changes: {} }
+  const pending = pendingRef.current
+  const nextChanges = { ...pending.changes, ...changes }
+  if (changes.preferences) {
+    nextChanges.preferences = { ...(pending.changes.preferences || {}), ...changes.preferences }
+  }
+  pendingRef.current = { userId, changes: nextChanges }
+  try {
+    localStorage.setItem(`${ACCOUNT_DATA_PENDING_PREFIX}${userId}`, JSON.stringify(nextChanges))
+  } catch {
+    // Keep the write queued in memory if local storage is unavailable.
+  }
+  if (timerRef.current) window.clearTimeout(timerRef.current)
+  timerRef.current = window.setTimeout(async () => {
+    const request = pendingRef.current
+    if (request.userId !== userId || !Object.keys(request.changes).length) return
+    try {
+      await patchAccountData(request.changes)
+      if (pendingRef.current === request) {
+        pendingRef.current = { userId, changes: {} }
+        localStorage.removeItem(`${ACCOUNT_DATA_PENDING_PREFIX}${userId}`)
+      }
+    } catch {
+      // Keep local changes queued for the next account refresh.
+    }
+  }, 350)
 }
 
 const pushHistory = (history, track) => {
@@ -119,14 +252,20 @@ const pushHistory = (history, track) => {
 }
 
 export const PlayerProvider = ({ children }) => {
+  const [initialAccountData] = useState(readInitialAccountData)
   const [currentTrack, setCurrentTrack] = useState(initialAudioState.currentTrack)
   const [queue, setQueue] = useState(initialAudioState.queue)
   const [isQueueLoading, setIsQueueLoading] = useState(false)
-  const [listenHistory, setListenHistory] = useState(() => readHistory())
+  const [listenHistory, setListenHistory] = useState(() => initialAccountData.listenHistory)
+  const [activeLikedUserId, setActiveLikedUserId] = useState(readLocalUserId)
   const [likedSongs, setLikedSongs] = useState(() => readLikedSongs())
-  const [userPlaylists, setUserPlaylists] = useState(() => readUserPlaylists())
-  const [listenAgain, setListenAgain] = useState(() => readStoredList('autumn_listen_again'))
-  const [notInterested, setNotInterested] = useState(() => readStoredList('autumn_not_interested'))
+  const [likesReady, setLikesReady] = useState(() => !readLocalUserId())
+  const [accountDataReady, setAccountDataReady] = useState(() => !readLocalUserId())
+  const [userPlaylists, setUserPlaylists] = useState(() => initialAccountData.userPlaylists)
+  const [listenAgain, setListenAgain] = useState(() => initialAccountData.listenAgain)
+  const [notInterested, setNotInterested] = useState(() => initialAccountData.notInterested)
+  const [searchHistory, setSearchHistory] = useState(() => initialAccountData.searchHistory)
+  const [feedbackHistory, setFeedbackHistory] = useState(() => initialAccountData.feedback)
   const [recommendationEvents, setRecommendationEvents] = useState(() => readRecommendationEvents())
   const [recommendationProfileReload, setRecommendationProfileReload] = useState(0)
   const [queueRefillRequest, setQueueRefillRequest] = useState(0)
@@ -136,9 +275,9 @@ export const PlayerProvider = ({ children }) => {
   const [volume, setVolume] = useState(initialAudioState.volume)
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(initialAudioState.shuffle)
   const [isRepeatEnabled, setIsRepeatEnabled] = useState(initialAudioState.repeat === 'one' || initialAudioState.repeat === 'all')
-  const [isAutoplayEnabled, setIsAutoplayEnabled] = useState(() => initialAudioState.autoplay ?? readBooleanPreference(PLAYER_PREFERENCES.autoplay, true))
-  const [isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled] = useState(() => readBooleanPreference(PLAYER_PREFERENCES.gapless, false))
-  const [isDataSavingEnabled, setIsDataSavingEnabled] = useState(() => readBooleanPreference(PLAYER_PREFERENCES.dataSaving, false))
+  const [isAutoplayEnabled, setIsAutoplayEnabled] = useState(() => initialAudioState.autoplay ?? initialAccountData.preferences.autoplay)
+  const [isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled] = useState(() => initialAccountData.preferences.gapless)
+  const [isDataSavingEnabled, setIsDataSavingEnabled] = useState(() => initialAccountData.preferences.dataSaving)
   const [isQueueOpen, setIsQueueOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(initialAudioState.currentIndex)
   const shuffleEnabledRef = useRef(isShuffleEnabled)
@@ -151,6 +290,10 @@ export const PlayerProvider = ({ children }) => {
   const recommendationProfileUserRef = useRef('')
   const playbackSessionRef = useRef(null)
   const playbackSessionSequenceRef = useRef(0)
+  const activeLikedUserRef = useRef(activeLikedUserId)
+  const pendingLikedChangesRef = useRef(new Map())
+  const pendingAccountChangesRef = useRef({ userId: activeLikedUserId, changes: readPendingAccountChanges(activeLikedUserId) })
+  const accountPatchTimerRef = useRef(null)
   const recommendationEventSequenceRef = useRef(0)
   const recordedEventKeysRef = useRef(new Set())
   const shufflePlayedIdsRef = useRef(new Set())
@@ -159,6 +302,19 @@ export const PlayerProvider = ({ children }) => {
   const handoffPreparationRef = useRef(null)
   const gaplessPreloadRef = useRef(null)
   const preloadAudioRef = useRef(null)
+
+  const persistLikedSongChange = (songId, song) => {
+    const userId = activeLikedUserRef.current
+    if (!userId) return
+    const change = { userId, songId: String(songId), song }
+    const key = `${userId}:${change.songId}`
+    pendingLikedChangesRef.current.set(key, change)
+    if (!likesReady) return
+    const request = song ? saveLikedSong(song) : deleteLikedSong(change.songId)
+    request.then(() => {
+      if (pendingLikedChangesRef.current.get(key) === change) pendingLikedChangesRef.current.delete(key)
+    }).catch(() => {})
+  }
 
   const ensurePlaybackSession = (track) => {
     const trackId = String(track?.id || '')
@@ -202,40 +358,237 @@ export const PlayerProvider = ({ children }) => {
       ...details
     }
     setRecommendationEvents((events) => [event, ...events].slice(0, RECOMMENDATION_EVENT_LIMIT))
-    if (readLocalUserId() && recommendationEventSyncEnabled) {
+    if (activeLikedUserRef.current) {
       persistRecommendationEvents([event], axiosInstance).catch(() => {})
     }
   }
 
   useEffect(() => {
-    localStorage.setItem('autumn_listen_history', JSON.stringify(listenHistory))
-  }, [listenHistory])
+    if (!activeLikedUserId) localStorage.setItem('autumn_listen_history', JSON.stringify(listenHistory))
+  }, [activeLikedUserId, listenHistory])
 
   useEffect(() => {
     try {
+      if (activeLikedUserId) return
       localStorage.setItem(PLAYER_PREFERENCES.gapless, String(isGaplessPlaybackEnabled))
       localStorage.setItem(PLAYER_PREFERENCES.dataSaving, String(isDataSavingEnabled))
       localStorage.setItem(PLAYER_PREFERENCES.autoplay, String(isAutoplayEnabled))
     } catch {
       // Playback preferences remain available in memory if storage is unavailable.
     }
-  }, [isAutoplayEnabled, isDataSavingEnabled, isGaplessPlaybackEnabled])
+  }, [activeLikedUserId, isAutoplayEnabled, isDataSavingEnabled, isGaplessPlaybackEnabled])
 
   useEffect(() => {
-    localStorage.setItem('autumn_liked_songs', JSON.stringify(likedSongs))
-  }, [likedSongs])
+    if (!likesReady) return
+    try {
+      const storageKey = activeLikedUserId ? getAccountLikedSongsKey(activeLikedUserId) : LEGACY_LIKED_SONGS_KEY
+      localStorage.setItem(storageKey, JSON.stringify(likedSongs))
+    } catch {
+      // The in-memory library remains available if local storage is unavailable.
+    }
+  }, [activeLikedUserId, likedSongs, likesReady])
 
   useEffect(() => {
-    localStorage.setItem('autumn_user_playlists', JSON.stringify(userPlaylists))
-  }, [userPlaylists])
+    const userId = activeLikedUserId
+    if (!userId) return undefined
+
+    let active = true
+    let refreshing = false
+    const refreshLikedSongs = async () => {
+      if (refreshing) return
+      refreshing = true
+      try {
+        let songs = await fetchLikedSongs()
+        const accountMigrationKey = getAccountLikedSongsMigrationKey(userId)
+        if (localStorage.getItem(accountMigrationKey) !== 'true') {
+          const accountCache = readStoredLikedSongs(getAccountLikedSongsKey(userId))
+          const legacySongs = localStorage.getItem(LEGACY_LIKED_SONGS_IMPORTED_KEY) === 'true'
+            ? []
+            : readStoredLikedSongs(LEGACY_LIKED_SONGS_KEY)
+          const songsToImport = mergeLikedSongLists(accountCache, legacySongs)
+          if (songsToImport.length) songs = await importLikedSongs(songsToImport)
+          localStorage.setItem(accountMigrationKey, 'true')
+          localStorage.setItem(LEGACY_LIKED_SONGS_IMPORTED_KEY, 'true')
+        }
+
+        const pending = [...pendingLikedChangesRef.current.entries()]
+          .filter(([, change]) => change.userId === userId)
+        for (const [key, change] of pending) {
+          try {
+            if (change.song) await saveLikedSong(change.song)
+            else await deleteLikedSong(change.songId)
+            if (pendingLikedChangesRef.current.get(key) === change) pendingLikedChangesRef.current.delete(key)
+          } catch {
+            // Keep failed changes queued for the next refresh.
+          }
+        }
+        if (pending.length) songs = await fetchLikedSongs()
+
+        const merged = new Map(songs.map((song) => [String(song.id), song]))
+        for (const [, change] of pendingLikedChangesRef.current) {
+          if (change.userId !== userId) continue
+          if (change.song) merged.set(change.songId, change.song)
+          else merged.delete(change.songId)
+        }
+        if (!active || activeLikedUserRef.current !== userId) return
+        setLikedSongs([...merged.values()])
+        setLikesReady(true)
+      } catch {
+        if (active && activeLikedUserRef.current === userId) setLikesReady(true)
+      } finally {
+        refreshing = false
+      }
+    }
+
+    const refreshWhenVisible = () => {
+      if (!document.hidden) refreshLikedSongs()
+    }
+    refreshLikedSongs()
+    const intervalId = window.setInterval(refreshLikedSongs, 30_000)
+    window.addEventListener('focus', refreshLikedSongs)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      active = false
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', refreshLikedSongs)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [activeLikedUserId])
 
   useEffect(() => {
-    localStorage.setItem('autumn_listen_again', JSON.stringify(listenAgain))
-  }, [listenAgain])
+    if (!activeLikedUserId) localStorage.setItem('autumn_user_playlists', JSON.stringify(userPlaylists))
+  }, [activeLikedUserId, userPlaylists])
 
   useEffect(() => {
-    localStorage.setItem('autumn_not_interested', JSON.stringify(notInterested))
-  }, [notInterested])
+    if (!activeLikedUserId) localStorage.setItem('autumn_listen_again', JSON.stringify(listenAgain))
+  }, [activeLikedUserId, listenAgain])
+
+  useEffect(() => {
+    if (!activeLikedUserId) localStorage.setItem('autumn_not_interested', JSON.stringify(notInterested))
+  }, [activeLikedUserId, notInterested])
+
+  useEffect(() => {
+    if (!activeLikedUserId) localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(searchHistory))
+  }, [activeLikedUserId, searchHistory])
+
+  useEffect(() => {
+    if (!activeLikedUserId) localStorage.setItem('musious_feedbacks_v1', JSON.stringify(feedbackHistory))
+  }, [activeLikedUserId, feedbackHistory])
+
+  useEffect(() => {
+    const userId = activeLikedUserId
+    if (!userId) return undefined
+    let active = true
+    let refreshing = false
+
+    const refreshAccountData = async () => {
+      if (refreshing) return
+      refreshing = true
+      try {
+        let data = normalizeAccountData(await fetchAccountData())
+        const migrationKey = `${ACCOUNT_DATA_MIGRATION_PREFIX}${userId}`
+        if (localStorage.getItem(migrationKey) !== 'true') {
+          const localData = readAccountDataCache(userId)
+            || (localStorage.getItem(LEGACY_ACCOUNT_DATA_IMPORTED_KEY) === 'true' ? getEmptyAccountData() : getLegacyAccountData())
+          data = normalizeAccountData(await importAccountData(localData))
+          localStorage.setItem(migrationKey, 'true')
+          localStorage.setItem(LEGACY_ACCOUNT_DATA_IMPORTED_KEY, 'true')
+        }
+
+        const pending = pendingAccountChangesRef.current
+        if (pending.userId === userId && Object.keys(pending.changes).length) {
+          data = normalizeAccountData({
+            ...data,
+            ...pending.changes,
+            preferences: { ...data.preferences, ...(pending.changes.preferences || {}) }
+          })
+        }
+        if (!active || activeLikedUserRef.current !== userId) return
+        const updateIfChanged = (setter, value) => setter((current) => (
+          JSON.stringify(current) === JSON.stringify(value) ? current : value
+        ))
+        updateIfChanged(setListenHistory, data.listenHistory)
+        updateIfChanged(setUserPlaylists, data.userPlaylists)
+        updateIfChanged(setListenAgain, data.listenAgain)
+        updateIfChanged(setNotInterested, data.notInterested)
+        updateIfChanged(setSearchHistory, data.searchHistory)
+        updateIfChanged(setFeedbackHistory, data.feedback)
+        updateIfChanged(setIsAutoplayEnabled, data.preferences.autoplay)
+        updateIfChanged(setIsGaplessPlaybackEnabled, data.preferences.gapless)
+        updateIfChanged(setIsDataSavingEnabled, data.preferences.dataSaving)
+        setAccountDataReady(true)
+        if (pending.userId === userId && Object.keys(pending.changes).length) {
+          queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, userId, true, pending.changes)
+        }
+      } catch {
+        if (active && activeLikedUserRef.current === userId) setAccountDataReady(true)
+      } finally {
+        refreshing = false
+      }
+    }
+
+    const refreshWhenVisible = () => {
+      if (!document.hidden) refreshAccountData()
+    }
+    refreshAccountData()
+    const intervalId = window.setInterval(refreshAccountData, 30_000)
+    window.addEventListener('focus', refreshAccountData)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      active = false
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', refreshAccountData)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [activeLikedUserId])
+
+  useEffect(() => {
+    if (!accountDataReady) return
+    const data = {
+      listenHistory,
+      userPlaylists,
+      listenAgain,
+      notInterested,
+      preferences: { autoplay: isAutoplayEnabled, gapless: isGaplessPlaybackEnabled, dataSaving: isDataSavingEnabled },
+      searchHistory,
+      feedback: feedbackHistory
+    }
+    try {
+      if (activeLikedUserId) localStorage.setItem(`${ACCOUNT_DATA_CACHE_PREFIX}${activeLikedUserId}`, JSON.stringify(data))
+    } catch {
+      // The server remains the durable copy if browser storage is unavailable.
+    }
+  }, [activeLikedUserId, accountDataReady, feedbackHistory, isAutoplayEnabled, isDataSavingEnabled, isGaplessPlaybackEnabled, listenAgain, listenHistory, notInterested, searchHistory, userPlaylists])
+
+  useEffect(() => {
+    queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, { listenHistory })
+  }, [listenHistory, activeLikedUserId, accountDataReady])
+
+  useEffect(() => {
+    queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, { userPlaylists })
+  }, [userPlaylists, activeLikedUserId, accountDataReady])
+
+  useEffect(() => {
+    queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, { listenAgain })
+  }, [listenAgain, activeLikedUserId, accountDataReady])
+
+  useEffect(() => {
+    queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, { notInterested })
+  }, [notInterested, activeLikedUserId, accountDataReady])
+
+  useEffect(() => {
+    queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, { searchHistory })
+  }, [searchHistory, activeLikedUserId, accountDataReady])
+
+  useEffect(() => {
+    queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, { feedback: feedbackHistory })
+  }, [feedbackHistory, activeLikedUserId, accountDataReady])
+
+  useEffect(() => {
+    queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, {
+      preferences: { autoplay: isAutoplayEnabled, gapless: isGaplessPlaybackEnabled, dataSaving: isDataSavingEnabled }
+    })
+  }, [activeLikedUserId, accountDataReady, isAutoplayEnabled, isDataSavingEnabled, isGaplessPlaybackEnabled])
 
   useEffect(() => {
     try {
@@ -246,7 +599,6 @@ export const PlayerProvider = ({ children }) => {
   }, [recommendationEvents])
 
   useEffect(() => {
-    if (!recommendationEventSyncEnabled) return
     const userId = readLocalUserId()
     if (!userId) {
       recommendationProfileUserRef.current = ''
@@ -255,10 +607,16 @@ export const PlayerProvider = ({ children }) => {
     if (recommendationProfileUserRef.current === userId) return
     recommendationProfileUserRef.current = userId
 
-    fetchRecommendationProfile(axiosInstance).then((response) => {
+    fetchRecommendationProfile(axiosInstance).then(async (response) => {
       if (recommendationProfileUserRef.current !== userId) return
       const remoteEvents = response.data?.data?.events
       if (!Array.isArray(remoteEvents)) return
+      const localEvents = readRecommendationEvents()
+      const remoteEventIds = new Set(remoteEvents.map((event) => String(event?.eventId || '')))
+      const missingEvents = localEvents.filter((event) => event?.eventId && !remoteEventIds.has(String(event.eventId)))
+      for (let index = 0; index < missingEvents.length; index += 50) {
+        await persistRecommendationEvents(missingEvents.slice(index, index + 50), axiosInstance)
+      }
       setRecommendationEvents((localEvents) => {
         const unique = new Map()
         for (const event of [...remoteEvents, ...localEvents]) {
@@ -275,20 +633,48 @@ export const PlayerProvider = ({ children }) => {
 
   useEffect(() => {
     const handleAuthChange = () => {
+      const userId = readLocalUserId()
+      if (activeLikedUserRef.current !== userId) {
+        activeLikedUserRef.current = userId
+        setActiveLikedUserId(userId)
+        setLikedSongs(userId ? readLikedSongs(userId) : [])
+        setLikesReady(!userId)
+        const accountData = userId
+          ? readAccountDataCache(userId)
+            || (localStorage.getItem(LEGACY_ACCOUNT_DATA_IMPORTED_KEY) === 'true' ? getEmptyAccountData() : getLegacyAccountData())
+          : getEmptyAccountData()
+        setListenHistory(accountData.listenHistory)
+        setUserPlaylists(accountData.userPlaylists)
+        setListenAgain(accountData.listenAgain)
+        setNotInterested(accountData.notInterested)
+        setSearchHistory(accountData.searchHistory)
+        setFeedbackHistory(accountData.feedback)
+        setIsAutoplayEnabled(accountData.preferences.autoplay)
+        setIsGaplessPlaybackEnabled(accountData.preferences.gapless)
+        setIsDataSavingEnabled(accountData.preferences.dataSaving)
+        setAccountDataReady(!userId)
+        pendingAccountChangesRef.current = { userId, changes: userId ? readPendingAccountChanges(userId) : {} }
+        if (accountPatchTimerRef.current) window.clearTimeout(accountPatchTimerRef.current)
+      }
       recommendationProfileUserRef.current = ''
       recommendationBufferRef.current = []
       recommendationCacheRef.current.clear()
       setRecommendationEvents(readRecommendationEvents())
       setRecommendationProfileReload((count) => count + 1)
     }
+    const handleStorageChange = (event) => {
+      if (event.key === 'autumn_user') handleAuthChange()
+    }
     window.addEventListener('autumn-auth-changed', handleAuthChange)
-    return () => window.removeEventListener('autumn-auth-changed', handleAuthChange)
+    window.addEventListener('storage', handleStorageChange)
+    return () => {
+      window.removeEventListener('autumn-auth-changed', handleAuthChange)
+      window.removeEventListener('storage', handleStorageChange)
+    }
   }, [])
 
   const selectTrackAudio = (track) => {
-    const audio = isDataSavingEnabled
-      ? getDataSavingAudioUrl(track?.downloadUrl || track?.audio)
-      : getBestAudioUrl(track?.downloadUrl) || getBestAudioUrl(track?.audio)
+    const audio = getBestAudioUrl(track?.downloadUrl) || getBestAudioUrl(track?.audio)
     return audio ? { ...track, audio } : track
   }
 
@@ -307,7 +693,12 @@ export const PlayerProvider = ({ children }) => {
       return
     }
 
-    const selection = resolveQueueSelection(Array.isArray(selectedQueue) ? selectedQueue : queue, track)
+    const requestedQueue = Array.isArray(selectedQueue)
+      ? selectedQueue.map((queuedTrack) => queuedTrack && !queuedTrack.queueSource
+        ? { ...queuedTrack, queueSource: 'manual' }
+        : queuedTrack)
+      : queue
+    const selection = resolveQueueSelection(requestedQueue, track)
     const selectedTrack = selectTrackAudio(selection.track)
 
     if (!selection.shouldRegenerate) {
@@ -364,6 +755,7 @@ export const PlayerProvider = ({ children }) => {
     if (!track?.id) return
     const wasLiked = likedSongs.some((song) => String(song.id) === String(track.id))
     recordRecommendationEvent(track, wasLiked ? 'track_unliked' : 'track_liked')
+    persistLikedSongChange(track.id, wasLiked ? null : { ...track })
 
     setLikedSongs((songs) => {
       if (songs.some((song) => String(song.id) === String(track.id))) {
@@ -449,6 +841,7 @@ export const PlayerProvider = ({ children }) => {
     if (!item?.id) return
     if (type === 'song') {
       setLikedSongs((songs) => songs.filter((song) => String(song.id) !== String(item.id)))
+      persistLikedSongChange(item.id, null)
       return
     }
     setUserPlaylists((items) => items.filter((playlist) => String(playlist.sourceId || playlist.id) !== String(item.id)))
@@ -665,9 +1058,7 @@ export const PlayerProvider = ({ children }) => {
 
     const nextTrack = queue[nextIndex]
     const audioUrl = nextTrack
-      ? isDataSavingEnabled
-        ? getDataSavingAudioUrl(nextTrack.downloadUrl || nextTrack.audio)
-        : getBestAudioUrl(nextTrack.downloadUrl) || getBestAudioUrl(nextTrack.audio)
+      ? getBestAudioUrl(nextTrack.downloadUrl) || getBestAudioUrl(nextTrack.audio)
       : null
     if (!audioUrl || !nextTrack?.id) {
       gaplessPreloadRef.current = null
@@ -684,7 +1075,7 @@ export const PlayerProvider = ({ children }) => {
       preloadAudio.src = audioUrl
       preloadAudio.load()
     }
-  }, [currentIndex, currentTrack, isAutoplayEnabled, isDataSavingEnabled, isGaplessPlaybackEnabled, isShuffleEnabled, queue])
+  }, [currentIndex, currentTrack, isAutoplayEnabled, isGaplessPlaybackEnabled, isShuffleEnabled, queue])
 
   useEffect(() => {
     if (!currentTrack?.id) return undefined
@@ -839,7 +1230,7 @@ export const PlayerProvider = ({ children }) => {
   }, [isAutoplayEnabled, isRepeatEnabled, isShuffleEnabled, volume])
 
   return (
-    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, isQueueLoading, isAutoplayEnabled, setIsAutoplayEnabled: setAutoplayEnabled, isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled: setGaplessPlaybackEnabled, isDataSavingEnabled, setIsDataSavingEnabled: setDataSavingEnabled, listenHistory, likedSongs, recommendationEvents, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue, prepareTransferredPlayback, pauseForHandoff, setPlaybackPaused, startPreparedPlayback }}>
+    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, isQueueLoading, isAutoplayEnabled, setIsAutoplayEnabled: setAutoplayEnabled, isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled: setGaplessPlaybackEnabled, isDataSavingEnabled, setIsDataSavingEnabled: setDataSavingEnabled, listenHistory, likedSongs, recommendationEvents, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, searchHistory, setSearchHistory, feedbackHistory, setFeedbackHistory, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue, prepareTransferredPlayback, pauseForHandoff, setPlaybackPaused, startPreparedPlayback }}>
         {children}
         <audio ref={preloadAudioRef} preload="auto" aria-hidden="true" className="hidden" />
     </PlayerContext.Provider>

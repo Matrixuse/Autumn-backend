@@ -10,16 +10,27 @@ export default function Profile() {
   const [username, setUsername] = useState(user?.username || '')
   const [email, setEmail] = useState(user?.email || '')
   const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setUsername(user?.username || '')
     setEmail(user?.email || '')
   }, [user])
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    updateProfile({ username: username.trim(), email: email.trim() })
-    setMessage('Profile updated')
+    setError('')
+    setMessage('')
+    setSaving(true)
+    try {
+      await updateProfile({ username: username.trim(), email: email.trim() })
+      setMessage('Profile updated')
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || requestError.message || 'Could not update profile.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -39,7 +50,7 @@ export default function Profile() {
         </div>
         <label className="block text-sm font-semibold text-white/75">Username<input required value={username} onChange={(event) => setUsername(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-[#c88d3b]" /></label>
         <label className="mt-5 block text-sm font-semibold text-white/75">Email<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none focus:border-[#c88d3b]" /></label>
-        <div className="mt-6 flex items-center gap-3"><button type="submit" className="flex items-center gap-2 rounded-full bg-[#c88d3b] px-5 py-3 text-sm font-bold text-[#21160a]"><Save size={17} />Save changes</button>{message && <span className="text-sm text-emerald-400">{message}</span>}</div>
+        <div className="mt-6 flex items-center gap-3"><button type="submit" disabled={saving} className="flex items-center gap-2 rounded-full bg-[#c88d3b] px-5 py-3 text-sm font-bold text-[#21160a] disabled:opacity-50"><Save size={17} />{saving ? 'Saving…' : 'Save changes'}</button>{message && <span className="text-sm text-emerald-400">{message}</span>}{error && <span role="alert" className="text-sm text-red-400">{error}</span>}</div>
       </form>
     </div>
   )

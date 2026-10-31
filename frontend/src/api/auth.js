@@ -20,6 +20,11 @@ export const getUser = async () => {
 	return data
 }
 
+export const updateUserProfile = async (updates) => {
+	const { data } = await axiosInstance.patch('/auth/profile', updates, { withCredentials: true })
+	return data
+}
+
 export const logout = async () => {
 	const { data } = await axiosInstance.post('/auth/logout', undefined, { withCredentials: true })
 	return data

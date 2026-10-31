@@ -1,28 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const STORAGE_KEY = 'musious_feedbacks_v1';
+import { usePlayer } from '../context/PlayerContext';
 
 const FeedbackPage = () => {
     const navigate = useNavigate();
+    const { feedbackHistory: list, setFeedbackHistory: setList } = usePlayer();
     const [username, setUsername] = useState('');
     const [message, setMessage] = useState('');
-    const [list, setList] = useState([]);
-
-    useEffect(() => {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (raw) setList(JSON.parse(raw));
-        } catch {}
-    }, []);
 
     const save = (ev) => {
         ev.preventDefault();
         if (!message.trim()) return alert('Please write your feedback.');
         const entry = { id: Date.now(), username: username.trim() || 'Anonymous', message: message.trim(), createdAt: new Date().toISOString() };
-        const next = [entry, ...list];
-        setList(next);
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch (e) { console.error(e); }
+        setList(current => [entry, ...current].slice(0, 100));
         setMessage('');
     };
 
@@ -32,7 +22,7 @@ const FeedbackPage = () => {
                 <div className="mb-6">
                     <button type="button" onClick={() => navigate(-1)} className="text-gray-300 hover:underline">← Back</button>
                     <h1 className="text-2xl font-bold mt-3">Feedback</h1>
-                    <p className="text-gray-400">Share your feedback — it will be shown here with your name.</p>
+                    <p className="text-gray-400">Share your feedback — it will be shown here.</p>
                 </div>
 
                 <form onSubmit={save} className="mb-6">

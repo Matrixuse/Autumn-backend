@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }) => {
       if ([400, 401].includes(error.response?.status)) {
         localStorage.removeItem('autumn_user')
         setUser(null)
+        announceAuthChange()
       }
     }).finally(() => {
       if (requestVersion === authVersion.current) setLoading(false)
@@ -79,10 +80,12 @@ export const AuthProvider = ({ children }) => {
       announceAuthChange()
     }
   }
-  const updateProfile = (updates) => {
-    const nextUser = { ...user, ...updates }
+  const updateProfile = async (updates) => {
+    const response = await authApi.updateUserProfile(updates)
+    const nextUser = response.data || response
     localStorage.setItem('autumn_user', JSON.stringify(nextUser))
     setUser(nextUser)
+    announceAuthChange()
     return nextUser
   }
   return (

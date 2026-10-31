@@ -9,21 +9,6 @@ import NowPlayingOverlay from './NowPlayingOverlay'
 import PlaylistCover from './PlaylistCover'
 import SongActionsMenu from './SongActionsMenu'
 
-const HISTORY_KEY = 'autumn_search_history'
-
-const readHistory = () => {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
-}
-
-const persistHistory = (items) => {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(items))
-}
-
 const formatResultLabel = (item, type) => {
   if (type === 'artist') return item?.name || item?.title || 'Artist'
   if (type === 'playlist') return item?.title || item?.name || 'Playlist'
@@ -92,13 +77,12 @@ const getResultImage = (item, type) => {
 
 export default function SearchBar({ disabled = false, onSearchStateChange }) {
   const [query, setQuery] = useState('')
-  const [history, setHistory] = useState(() => readHistory())
   const [results, setResults] = useState([])
   const [focused, setFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const inputRef = useRef(null)
   const navigate = useNavigate()
-  const { playTrack, currentTrack, isPlaying } = usePlayer()
+  const { playTrack, currentTrack, isPlaying, searchHistory: history, setSearchHistory } = usePlayer()
 
   const showHistory = focused && !query.trim()
   const showResults = focused && query.trim().length > 0
@@ -174,20 +158,14 @@ export default function SearchBar({ disabled = false, onSearchStateChange }) {
     const trimmed = String(value || '').trim()
     if (!trimmed) return
 
-    setHistory((current) => {
+    setSearchHistory((current) => {
       const filtered = current.filter((entry) => entry !== trimmed)
-      const next = [trimmed, ...filtered]
-      persistHistory(next)
-      return next
+      return [trimmed, ...filtered].slice(0, 100)
     })
   }
 
   const removeFromHistory = (value) => {
-    setHistory((current) => {
-      const next = current.filter((entry) => entry !== value)
-      persistHistory(next)
-      return next
-    })
+    setSearchHistory((current) => current.filter((entry) => entry !== value))
   }
 
   const handleSelect = async (value, item) => {
