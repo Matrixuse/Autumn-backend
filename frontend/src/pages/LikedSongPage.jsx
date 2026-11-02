@@ -6,6 +6,19 @@ import { formatTime } from '../utils/formatTime'
 import SongActionsMenu from '../components/common/SongActionsMenu'
 import NowPlayingOverlay from '../components/common/NowPlayingOverlay'
 
+function LikedSongCover({ song, active }) {
+  const [imageFailed, setImageFailed] = useState(false)
+
+  return (
+    <span className="cover-container relative h-12 w-12 shrink-0 rounded bg-[#28251f]">
+      {song.image && !imageFailed
+        ? <img src={song.image} alt="" onError={() => setImageFailed(true)} className="h-full w-full object-cover" />
+        : <span className="grid h-full w-full place-items-center text-xs text-white/50">AU</span>}
+      {active && <NowPlayingOverlay />}
+    </span>
+  )
+}
+
 export default function LikedSongPage() {
   const navigate = useNavigate()
   const { likedSongs, currentTrack, isPlaying, playTrack } = usePlayer()
@@ -109,10 +122,7 @@ export default function LikedSongPage() {
                 <article key={song.id} className={`flex items-center gap-3 border-b border-white/6  px-2 md:px-4 py-2 md:py-3 last:border-b-0 ${active ? 'bg-[#c88d3b]/10' : 'hover:bg-white/4'}`}>
                     <span className="w-6 hidden sm:block text-center text-xs text-white/35">{index + 1}</span>
                     <button type="button" onClick={() => playTrack(song, likedSongs)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                        <span className="cover-container h-12 w-12 shrink-0 rounded bg-[#28251f]">
-                          {song.image ? <img src={song.image} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full w-full place-items-center text-xs text-white/50">AU</span>}
-                          {active && <NowPlayingOverlay />}
-                        </span>
+                        <LikedSongCover song={song} active={active} />
                         <span className="min-w-0"><span className="block truncate text-sm font-semibold">{song.title || 'Untitled track'}</span><span className="block truncate text-xs text-white/45">{song.artist || 'Unknown Artist'}</span></span>
                     </button>
                     <SongActionsMenu song={song} queue={likedSongs} alwaysVisible />

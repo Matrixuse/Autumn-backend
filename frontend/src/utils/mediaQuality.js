@@ -1,24 +1,33 @@
 const usableUrl = (value) => typeof value === 'string' && value.trim() ? value : null
 
-const collectImageCandidates = (value, candidates = []) => {
+const imageVariantScore = (value) => {
+  const match = String(value ?? '').match(/(\d{2,4})(?:\s*x\s*(\d{2,4}))?/i)
+  return match ? Number(match[1]) * (Number(match[2]) || Number(match[1])) : 0
+}
+
+const collectImageCandidates = (value, candidates = [], inheritedScore = 0) => {
   if (!value) return candidates
 
   if (typeof value === 'string') {
     const url = usableUrl(value)
-    if (url) candidates.push(url)
+    if (url && !/^\d{2,4}\s*x\s*\d{2,4}$/i.test(url)) candidates.push({ url, score: inheritedScore })
     return candidates
   }
 
   if (Array.isArray(value)) {
-    value.forEach((entry) => collectImageCandidates(entry, candidates))
+    value.forEach((entry) => collectImageCandidates(entry, candidates, inheritedScore))
     return candidates
   }
 
   if (typeof value === 'object') {
+    const score = Math.max(inheritedScore, imageVariantScore(value.quality ?? value.size ?? value.key ?? value.width))
     const direct = value.url || value.src || value.link || value.image || value.thumbnail || value.cover || value.artwork || value.default || value.webp
-    if (direct) collectImageCandidates(direct, candidates)
+    if (direct) collectImageCandidates(direct, candidates, score)
 
-    Object.values(value).forEach((entry) => collectImageCandidates(entry, candidates))
+    Object.entries(value).forEach(([key, entry]) => {
+      if (['quality', 'size', 'key', 'width', 'height'].includes(key.toLowerCase())) return
+      collectImageCandidates(entry, candidates, score)
+    })
   }
 
   return candidates
@@ -80,16 +89,16 @@ export const getBestImageUrl = (imageField) => {
   if (!candidates.length) return null
 
   const scored = candidates
-    .map((url) => {
+    .map(({ url, score: variantScore }) => {
       const value = String(url || '').trim()
       if (!value) return null
 
       const widthBoost = /(?:\d{3,}x\d{3,}|\d{3,}x\d{2,})/i.test(value) ? 50000 : 0
       const qualityBoost = /\b(640|480|500|720|1080)\b/i.test(value) ? 20000 : 0
-      return { url: value, score: widthBoost + qualityBoost }
+      return { url: value, score: variantScore + widthBoost + qualityBoost }
     })
     .filter(Boolean)
     .sort((a, b) => b.score - a.score)
 
-  return scored[0]?.url || candidates[0] || null
+  return scored[0]?.url || candidates[0]?.url || null
 }

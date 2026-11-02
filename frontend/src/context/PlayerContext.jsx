@@ -33,6 +33,7 @@ import { fetchAccountData, importAccountData, patchAccountData } from '../api/ac
 import { fetchRecommendationProfile, persistRecommendationEvents } from '../api/recommendations'
 import { deleteLikedSong, fetchLikedSongs, importLikedSongs, saveLikedSong } from '../api/likedSongs'
 import { getSongById } from '../api/songs'
+import { mergeLikedSongMetadata, needsLikedSongMetadata, normalizeLikedSong, normalizeLikedSongs } from '../utils/likedSong'
 
 const HISTORY_LIMIT = 18
 const PLAYER_PREFERENCES = {
@@ -52,6 +53,7 @@ const readBooleanPreference = (key, fallback) => {
 const RECOMMENDATION_EVENT_LIMIT = 500
 const UPCOMING_QUEUE_TARGET = 50
 const UPCOMING_QUEUE_REFILL_THRESHOLD = 49
+const LIKED_SONG_METADATA_LOOKUP_LIMIT = 8
 const RECOMMENDATION_CACHE_TTL_MS = 5 * 60 * 1000
 const SEARCH_HISTORY_KEY = 'autumn_search_history'
 const ACCOUNT_DATA_CACHE_PREFIX = 'autumn_account_data:'
@@ -79,7 +81,7 @@ const readStoredLikedSongs = (key) => {
   try {
     const raw = localStorage.getItem(key)
     const songs = raw ? JSON.parse(raw) : []
-    return Array.isArray(songs) ? songs : []
+    return normalizeLikedSongs(songs)
   } catch {
     return []
   }
@@ -101,9 +103,7 @@ const readLikedSongs = (userId = readLocalUserId()) => {
 const mergeLikedSongLists = (...lists) => {
   const songs = new Map()
   for (const list of lists) {
-    for (const song of Array.isArray(list) ? list : []) {
-      if (song?.id != null && String(song.id)) songs.set(String(song.id), song)
-    }
+    for (const song of normalizeLikedSongs(list)) songs.set(song.id, song)
   }
   return [...songs.values()]
 }
@@ -292,6 +292,7 @@ export const PlayerProvider = ({ children }) => {
   const playbackSessionSequenceRef = useRef(0)
   const activeLikedUserRef = useRef(activeLikedUserId)
   const pendingLikedChangesRef = useRef(new Map())
+  const attemptedLikedMetadataRef = useRef(new Set())
   const pendingAccountChangesRef = useRef({ userId: activeLikedUserId, changes: readPendingAccountChanges(activeLikedUserId) })
   const accountPatchTimerRef = useRef(null)
   const recommendationEventSequenceRef = useRef(0)
@@ -306,7 +307,7 @@ export const PlayerProvider = ({ children }) => {
   const persistLikedSongChange = (songId, song) => {
     const userId = activeLikedUserRef.current
     if (!userId) return
-    const change = { userId, songId: String(songId), song }
+    const change = { userId, songId: String(songId), song: song ? normalizeLikedSong(song) : null }
     const key = `${userId}:${change.songId}`
     pendingLikedChangesRef.current.set(key, change)
     if (!likesReady) return
@@ -399,6 +400,33 @@ export const PlayerProvider = ({ children }) => {
       refreshing = true
       try {
         let songs = await fetchLikedSongs()
+        const metadataCandidates = songs.filter((song) => {
+          const lookupKey = `${userId}:${song.id}`
+          return needsLikedSongMetadata(song) && !attemptedLikedMetadataRef.current.has(lookupKey)
+        }).slice(0, LIKED_SONG_METADATA_LOOKUP_LIMIT)
+        const metadataResults = await Promise.all(metadataCandidates.map(async (song) => {
+          const lookupKey = `${userId}:${song.id}`
+          attemptedLikedMetadataRef.current.add(lookupKey)
+          try {
+            return mergeLikedSongMetadata(song, await getSongById(song.id))
+          } catch {
+            return song
+          }
+        }))
+        const resolvedById = new Map(metadataResults.filter(Boolean).map((song) => [song.id, song]))
+        const updatedMetadata = metadataResults.filter((song) => {
+          const original = songs.find((entry) => entry.id === song?.id)
+          return original && (
+            original.title !== song.title
+            || original.artist !== song.artist
+            || original.image !== song.image
+            || original.duration !== song.duration
+          )
+        })
+        songs = songs.map((song) => resolvedById.get(song.id) || song)
+        if (active && activeLikedUserRef.current === userId && updatedMetadata.length) {
+          await Promise.all(updatedMetadata.map((song) => saveLikedSong(song).catch(() => {})))
+        }
         const accountMigrationKey = getAccountLikedSongsMigrationKey(userId)
         if (localStorage.getItem(accountMigrationKey) !== 'true') {
           const accountCache = readStoredLikedSongs(getAccountLikedSongsKey(userId))
@@ -752,17 +780,18 @@ export const PlayerProvider = ({ children }) => {
   }
   const isLiked = (trackId) => likedSongs.some((song) => String(song.id) === String(trackId))
   const toggleLike = (track) => {
-    if (!track?.id) return
-    const wasLiked = likedSongs.some((song) => String(song.id) === String(track.id))
-    recordRecommendationEvent(track, wasLiked ? 'track_unliked' : 'track_liked')
-    persistLikedSongChange(track.id, wasLiked ? null : { ...track })
+    const song = normalizeLikedSong(track)
+    if (!song) return
+    const wasLiked = likedSongs.some((item) => item.id === song.id)
+    recordRecommendationEvent(song, wasLiked ? 'track_unliked' : 'track_liked')
+    persistLikedSongChange(song.id, wasLiked ? null : song)
 
     setLikedSongs((songs) => {
-      if (songs.some((song) => String(song.id) === String(track.id))) {
-        return songs.filter((song) => String(song.id) !== String(track.id))
+      if (songs.some((item) => item.id === song.id)) {
+        return songs.filter((item) => item.id !== song.id)
       }
 
-      return [{ ...track }, ...songs]
+      return [song, ...songs]
     })
   }
   const addToQueue = (track, playNext = false) => {

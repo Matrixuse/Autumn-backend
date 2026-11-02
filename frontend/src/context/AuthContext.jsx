@@ -37,6 +37,19 @@ export const AuthProvider = ({ children }) => {
     })
   }, [])
 
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      authVersion.current += 1
+      localStorage.removeItem('autumn_user')
+      setUser(null)
+      setLoading(false)
+      announceAuthChange()
+    }
+
+    window.addEventListener('autumn-session-expired', handleSessionExpired)
+    return () => window.removeEventListener('autumn-session-expired', handleSessionExpired)
+  }, [])
+
   const login = async (credentials) => {
     const response = await authApi.login(credentials)
     const nextUser = response.data

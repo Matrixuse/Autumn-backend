@@ -28,7 +28,10 @@ axiosInstance.interceptors.response.use(
   },
   (error) => {
     const requestToken = error.config?.headers?.get?.('Authorization') || error.config?.headers?.Authorization
-    if (error.response?.status === 401 && requestToken) localStorage.removeItem(SESSION_TOKEN_KEY)
+    if (error.response?.status === 401 && requestToken) {
+      localStorage.removeItem(SESSION_TOKEN_KEY)
+      window.dispatchEvent(new Event('autumn-session-expired'))
+    }
     return Promise.reject(error)
   },
 )
