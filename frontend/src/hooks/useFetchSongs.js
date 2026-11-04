@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useState } from 'react'
 import { getSongs, getQuickPicksSongs, getNewReleaseSongs, getLongToListenSongs, recentGlobalQueries, LIBRARY_ROTATION_MS } from '../api/songs'
 import { getRotationBucketKey } from '../utils/dailyRotation'
+import { setItemWithCacheEviction } from '../utils/storage'
 
 const getLibraryBucketKey = () => Math.floor(Date.now() / LIBRARY_ROTATION_MS)
 const quickPicksRequests = new Map()
@@ -25,7 +26,12 @@ export const useFetchSongs = () => {
     const loadSongs = async () => {
       const bucketKey = getLibraryBucketKey()
       const cachedKey = `autumn_library_${bucketKey}`
-      const cached = localStorage.getItem(cachedKey)
+      let cached = null
+      try {
+        cached = localStorage.getItem(cachedKey)
+      } catch {
+        cached = null
+      }
 
       if (cached) {
         try {
@@ -33,7 +39,11 @@ export const useFetchSongs = () => {
           setLoading(false)
           return
         } catch {
-          localStorage.removeItem(cachedKey)
+          try {
+            localStorage.removeItem(cachedKey)
+          } catch {
+            // Invalid cache data does not prevent fetching fresh songs.
+          }
         }
       }
 
@@ -43,7 +53,7 @@ export const useFetchSongs = () => {
       try {
         const results = await getSongs(recentGlobalQueries, 5)
         setSongs(results)
-        localStorage.setItem(cachedKey, JSON.stringify(results))
+        setItemWithCacheEviction(cachedKey, JSON.stringify(results))
       } catch (err) {
         setError(err)
         setSongs([])

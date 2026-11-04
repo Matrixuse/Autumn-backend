@@ -5,6 +5,8 @@ import { setItemWithCacheEviction } from './storage.js'
 test('retries a storage write after evicting disposable home caches', () => {
   const values = new Map([
     ['autumn_home_old', 'cache'],
+    ['autumn_library_old', 'cache'],
+    ['autumn_quick_picks_old', 'cache'],
     ['autumn_listen_history', 'old history']
   ])
   const originalStorage = globalThis.localStorage
@@ -21,6 +23,8 @@ test('retries a storage write after evicting disposable home caches', () => {
   try {
     assert.equal(setItemWithCacheEviction('autumn_listen_history', 'new history'), true)
     assert.equal(values.has('autumn_home_old'), false)
+    assert.equal(values.has('autumn_library_old'), false)
+    assert.equal(values.has('autumn_quick_picks_old'), false)
     assert.equal(values.get('autumn_listen_history'), 'new history')
   } finally {
     if (originalStorage === undefined) delete globalThis.localStorage
