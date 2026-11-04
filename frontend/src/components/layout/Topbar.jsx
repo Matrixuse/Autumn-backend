@@ -77,7 +77,7 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
 
     return (
     <>
-    <header aria-disabled={locked} className={`${isSettingsPage ? 'hidden lg:flex' : isMobileHiddenPage ? 'hidden md:flex' : isLibraryPage || isExplorePage ? 'hidden lg:flex' : isPlaylistsPage ? 'hidden md:flex' : isNotificationsPage ? 'flex md:flex lg:hidden' : 'flex'} sticky top-0 z-20 items-center gap-4 bg-[#080909]/80 px-2 py-3 backdrop-blur-xl lg:px-10 ${disabledState}`}>
+    <header aria-disabled={locked} className={`${isSettingsPage ? 'hidden lg:flex' : isMobileHiddenPage ? 'hidden md:flex' : isLibraryPage || isExplorePage ? 'hidden lg:flex' : isPlaylistsPage ? 'hidden md:flex' : isNotificationsPage ? 'flex md:flex lg:hidden' : 'flex'} sticky top-0 z-20 items-center gap-4 bg-transparent px-2 py-3 backdrop-blur-xl lg:px-10 ${disabledState}`}>
         {isNotificationsPage ? (
             <div className="flex w-full items-center gap-3">
                 <button
