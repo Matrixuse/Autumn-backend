@@ -20,6 +20,15 @@ import Loader from '../components/common/Loader'
 import useRelatedTrackDetails from '../hooks/useRelatedTrackDetails'
 
 const tabs = ['UP NEXT', 'LYRICS', 'RELATED']
+const dailyDetailsBackgroundColors = [
+  '#030202',
+  '#1d0c16',
+  '#140c1d',
+  '#0c151d',
+  '#0c1d14',
+  '#232516',
+  '#1d0c0c',
+]
 
 export default function MobilePlayerPage() {
   const navigate = useNavigate()
@@ -47,6 +56,7 @@ export default function MobilePlayerPage() {
   const [activeTab, setActiveTab] = useState('UP NEXT')
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [detailsDragOffset, setDetailsDragOffset] = useState(0)
+  const [detailsBackgroundColor, setDetailsBackgroundColor] = useState(dailyDetailsBackgroundColors[0])
   const [recommendedPlaylists, setRecommendedPlaylists] = useState([])
   const {
     artists: similarArtists,
@@ -62,6 +72,25 @@ export default function MobilePlayerPage() {
   const currentArtist = getSongArtists(currentTrack)
   const nextTracks = currentIndex >= 0 ? queue.slice(currentIndex + 1) : queue
   const { lyrics, copyright: lyricsCopyright, loading: lyricsLoading } = useLyrics(currentTrack, activeTab === 'LYRICS')
+
+  useEffect(() => {
+    let midnightTimer
+
+    const updateDailyBackground = () => {
+      const now = new Date()
+      const currentDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+      const firstDayOfYear = Date.UTC(now.getFullYear(), 0, 1)
+      const dayOfYear = Math.floor((currentDay - firstDayOfYear) / 86400000)
+      const colorIndex = dayOfYear % dailyDetailsBackgroundColors.length
+      setDetailsBackgroundColor(dailyDetailsBackgroundColors[colorIndex])
+
+      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      midnightTimer = window.setTimeout(updateDailyBackground, nextMidnight.getTime() - now.getTime())
+    }
+
+    updateDailyBackground()
+    return () => window.clearTimeout(midnightTimer)
+  }, [])
 
   const recommendedTracks = useMemo(() => {
     const normalize = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -265,7 +294,7 @@ export default function MobilePlayerPage() {
               </div>
               <span className="min-w-0 flex-1">
                 <span className={`block truncate text-sm font-semibold ${index === currentIndex ? 'text-white' : 'text-white/75'}`}>{track.title || track.name}</span>
-                <span className="mt-1 block truncate text-xs text-white/45">{track.artist}</span>
+                <span className="mt-1 block truncate text-xs text-white/45">{track.artist || track.artistName}</span>
               </span>
               <span className="shrink-0 text-xs text-white/40">{formatTime(track.duration)}</span>
             </button>
@@ -383,33 +412,40 @@ export default function MobilePlayerPage() {
                 {isPlaying ? <Pause size={25} fill="currentColor" /> : <Play size={25} fill="currentColor" />}
             </button>
           </div>
-          <button
-            type="button"
-            aria-label="Close player details"
-            onClick={() => setIsDetailsOpen(false)}
-            onTouchStart={handleSheetTouchStart}
-            onTouchMove={handleSheetTouchMove}
-            onTouchEnd={handleSheetTouchEnd}
-            className="mx-auto mt-3 block h-1 w-12 touch-none rounded-full bg-white/30"
-          />
-          <div className="mx-5 mt-5 items-center justify-between">
-            <MoodChips />
-          </div>
           <div
-            className="mt-7 flex touch-none border-b border-white/10 px-3"
-            onTouchStart={handleSheetTouchStart}
-            onTouchMove={handleSheetTouchMove}
-            onTouchEnd={handleSheetTouchEnd}
+            style={{
+              backgroundColor: detailsBackgroundColor,
+              transform: `translateY(${isDetailsOpen ? detailsDragOffset : window.innerHeight}px)`
+            }}
           >
-            {tabs.map((tab) => (
-              <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`relative flex-1 pb-4 text-[11px] font-bold ${activeTab === tab ? 'text-white' : 'text-white/45'}`}>
-                {tab}
-                {activeTab === tab && <span className="absolute inset-x-2 bottom-0 h-0.5 bg-white" />}
-              </button>
-            ))}
-          </div>
-          <div className="max-h-[calc(98dvh-3.5rem)] overflow-y-auto scrollbar-none">
-            {renderPanelContent()}
+            <button
+              type="button"
+              aria-label="Close player details"
+              onClick={() => setIsDetailsOpen(false)}
+              onTouchStart={handleSheetTouchStart}
+              onTouchMove={handleSheetTouchMove}
+              onTouchEnd={handleSheetTouchEnd}
+              className="mx-auto mt-2 block h-1 w-12 touch-none rounded-full bg-white/30"
+            />
+            <div className="mx-5 mt-5 items-center justify-between">
+              <MoodChips />
+            </div>
+            <div
+              className="mt-7 flex touch-none border-b border-white/10 px-3"
+              onTouchStart={handleSheetTouchStart}
+              onTouchMove={handleSheetTouchMove}
+              onTouchEnd={handleSheetTouchEnd}
+            >
+              {tabs.map((tab) => (
+                <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`relative flex-1 pb-4 text-[11px] font-bold ${activeTab === tab ? 'text-white' : 'text-white/45'}`}>
+                  {tab}
+                  {activeTab === tab && <span className="absolute inset-x-2 bottom-0 h-0.5 bg-white" />}
+                </button>
+              ))}
+            </div>
+            <div className="max-h-[calc(98dvh-3.5rem)] overflow-y-auto scrollbar-none">
+              {renderPanelContent()}
+            </div>
           </div>
         </section>
       </div>

@@ -36,10 +36,6 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api(?:\/|$)/],
         runtimeCaching: [
           {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api'),
-            handler: 'NetworkOnly',
-          },
-          {
             urlPattern: ({ url }) => /saavncdn/i.test(url.hostname),
             handler: 'NetworkOnly',
           },

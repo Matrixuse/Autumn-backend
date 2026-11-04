@@ -24,6 +24,7 @@ import { getAlbumsForYou, searchAlbums } from '../api/albums'
 import { mapWithConcurrency } from '../api/requestQueue'
 import { HOLLYWOOD_CURATED_TRACKS, VERIFIED_CURATED_IDS } from '../config/curatedSongs'
 import { getDailyRotationKey, shuffleForDailyRotation } from '../utils/dailyRotation'
+import { setItemWithCacheEviction } from '../utils/storage'
 import { getSongArtists } from '../utils/songSearch'
 import { attachPastPlaysArtwork } from '../utils/pastPlays'
 import { fetchPastPlaysSnapshot } from '../api/recommendations'
@@ -120,7 +121,7 @@ const readDailyCache = (key, userId, date) => {
 
 const writeDailyCache = (key, value, userId, date) => {
   const rotationKey = getDailyRotationKey(userId, key, date)
-  localStorage.setItem(`autumn_home_${rotationKey}`, JSON.stringify({ key: rotationKey, items: value }))
+  setItemWithCacheEviction(`autumn_home_${rotationKey}`, JSON.stringify({ key: rotationKey, items: value }))
 }
 
 const fetchArtistDetails = async (name) => {
@@ -363,7 +364,7 @@ export default function Home() {
   }, [])
 
   return (
-    <div>
+    <div className="min-h-screen w-full overflow-x-hidden">
         <div className="flex flex-col space-y-5 md:space-y-10">
           <div className="order-0 lg:order-1"><MoodChips /></div>
             <div className="order-1 lg:order-3"><QuickPicks songs={quickPickSongs} homeMobileGrid /></div>

@@ -20,9 +20,14 @@ export default function AppLayout() {
     const locked = !loading && !isAuthenticated && !isKeepListeningRoute && !isPublicInfoRoute
 
     return (
-        <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_12%_0%,#062029_0%,transparent_28%),radial-gradient(circle_at_100%_0%,#252313_0%,transparent_24%),#050505] text-white">
+        <div className="relative min-h-screen w-full overflow-x-hidden bg-[#030303] text-white">
+            {isHomePage && <>
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] bg-gradient-to-r from-[#42121e]/40 via-[#030303]/10 to-[#14291b]/40 blur-[90px]" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] bg-gradient-to-b from-transparent to-[#030303]" />
+            </>}
+            <div className="relative z-10 w-full">
             <Sidebar locked={locked} />
-            <main className="min-h-screen lg:pl-60">
+            <main className={`min-h-screen lg:pl-60 ${isHomePage ? 'bg-gradient-to-b from-[#1628069b] via-[#0c0c14] to-[#0d0a27]' : 'bg-gradient-to-b from-[#0811289b] via-[#0c0c14] to-[#000000]'} text-white`}>
                 <div className={isNowPlayingRoute ? 'hidden lg:block' : isFooterInfoRoute ? 'hidden md:block' : ''}><Topbar locked={locked} onSearchStateChange={setSearchState} /></div>
                 <div className={`relative mx-auto min-h-100vh w-full ${isNowPlayingRoute ? 'px-0 pb-0 pt-0 lg:px-20 lg:pb-24 lg:pt-9' : isHomePage ? 'px-4 pb-44 pt-1 sm:px-4 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9' : 'px-4 pb-44 pt-5 sm:px-4 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9'}`}>
                     <Outlet context={{ searchState }} />
@@ -60,6 +65,7 @@ export default function AppLayout() {
                 <PlayerBar />
             </div>
             <div className={isNowPlayingRoute ? 'hidden lg:block' : ''}><MobileNav locked={locked} /></div>
+            </div>
         </div>
     )
 }

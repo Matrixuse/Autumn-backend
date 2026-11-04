@@ -34,6 +34,7 @@ import { fetchRecommendationProfile, persistRecommendationEvents } from '../api/
 import { deleteLikedSong, fetchLikedSongs, importLikedSongs, saveLikedSong } from '../api/likedSongs'
 import { getSongById } from '../api/songs'
 import { mergeLikedSongMetadata, needsLikedSongMetadata, normalizeLikedSong, normalizeLikedSongs } from '../utils/likedSong'
+import { setItemWithCacheEviction } from '../utils/storage'
 
 const HISTORY_LIMIT = 18
 const PLAYER_PREFERENCES = {
@@ -365,7 +366,7 @@ export const PlayerProvider = ({ children }) => {
   }
 
   useEffect(() => {
-    if (!activeLikedUserId) localStorage.setItem('autumn_listen_history', JSON.stringify(listenHistory))
+    if (!activeLikedUserId) setItemWithCacheEviction('autumn_listen_history', JSON.stringify(listenHistory))
   }, [activeLikedUserId, listenHistory])
 
   useEffect(() => {
