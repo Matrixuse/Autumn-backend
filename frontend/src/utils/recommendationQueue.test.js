@@ -47,6 +47,17 @@ test('explicit likes materially raise a candidate score', () => {
   assert.ok(liked > baseline + 0.05)
 })
 
+test('following an artist raises the score of their songs', () => {
+  const candidate = track('followed-artist-song', { artist: 'Followed Artist' })
+  const baseline = scoreRecommendationCandidate({ candidate, sourceSong: source })
+  const followed = scoreRecommendationCandidate({
+    candidate,
+    sourceSong: source,
+    followedArtists: [{ id: 'artist-1', name: 'Followed Artist' }]
+  })
+  assert.ok(followed > baseline)
+})
+
 test('missing metadata produces a finite score', () => {
   const score = scoreRecommendationCandidate({ candidate: { id: 'sparse', title: 'Sparse Song' }, sourceSong: { id: 'seed' } })
   assert.ok(Number.isFinite(score))

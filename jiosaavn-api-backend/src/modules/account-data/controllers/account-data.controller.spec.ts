@@ -13,6 +13,7 @@ const data = {
   listenHistory: [{ id: 'song-1', title: 'Song One' }],
   userPlaylists: [],
   listenAgain: [],
+  followedArtists: [],
   notInterested: [],
   preferences: { autoplay: true, gapless: false, dataSaving: false },
   searchHistory: [],
@@ -61,7 +62,10 @@ describe('AccountDataController', () => {
   })
 
   it('patches only the submitted data fields', async () => {
-    const changes = { preferences: { autoplay: false } }
+    const changes = {
+      preferences: { autoplay: false },
+      followedArtists: [{ id: 'artist-1', name: 'Artist One' }]
+    }
     const response = await app.request('/api/account/data', {
       method: 'PATCH',
       headers: requestHeaders,

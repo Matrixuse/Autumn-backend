@@ -1,5 +1,5 @@
-import { Heart, ListMusic, Music2, Play, CircleFadingPlus, Search, LogOut, UserRound } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Check, Heart, ListMusic, Music2, Play, CircleFadingPlus, Plus, Search, LogOut, UserRound } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
 import MoodChips from '../components/sections/MoodChips'
@@ -7,13 +7,137 @@ import { useAuth } from '../context/AuthContext'
 import Avatar from '../components/common/Avatar'
 import SongActionsMenu from '../components/common/SongActionsMenu'
 import PlaylistCover from '../components/common/PlaylistCover'
+import axiosInstance from '../api/axiosInstance'
+import { fetchRecommendationCandidates } from '../api/recommendations'
+import { getBestImageUrl } from '../utils/mediaQuality'
+
+const getArtistsFromTrack = (track = {}) => {
+    const artists = [
+        ...(Array.isArray(track.artists?.primary) ? track.artists.primary : []),
+        ...(Array.isArray(track.artists?.all) ? track.artists.all : []),
+        ...(Array.isArray(track.artists?.featured) ? track.artists.featured : [])
+    ].filter((artist) => artist?.id || artist?.name || artist?.title)
+
+    if (artists.length) return artists
+    return String(track.artist || track.primaryArtists || track.subtitle || '')
+        .split(',')
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .map((name) => ({ name }))
+}
+
+const normalizeArtist = (artist = {}) => {
+    const name = artist.name || artist.title
+    const id = artist.id || artist._id || name
+    return name && id ? {
+        id: String(id),
+        name: String(name),
+        image: getBestImageUrl(artist.image || artist.images || artist.thumbnail || artist.image_url) || null
+    } : null
+}
 
 export default function Library({locked = false}) {
     const navigate = useNavigate()
-    const { user, logout } = useAuth()
-    const { userPlaylists, setUserPlaylists, playTrack } = usePlayer()
+    const { user, logout, isAuthenticated } = useAuth()
+    const { userPlaylists, setUserPlaylists, playTrack, listenHistory, likedSongs, followedArtists, toggleFollowArtist } = usePlayer()
     const [searchOpen, setSearchOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
+    const [suggestedArtists, setSuggestedArtists] = useState([])
+    const [suggestionsLoading, setSuggestionsLoading] = useState(true)
+
+    const artistSeedTracks = useMemo(() => {
+        const uniqueTracks = new Map()
+        for (const track of [...likedSongs, ...listenHistory]) {
+            if (track?.id && !uniqueTracks.has(String(track.id))) uniqueTracks.set(String(track.id), track)
+        }
+        return [...uniqueTracks.values()].slice(0, 3)
+    }, [likedSongs, listenHistory])
+    const followedArtistSignature = followedArtists
+        .map((artist) => String(artist?.id || artist?._id || ''))
+        .filter(Boolean)
+        .sort()
+        .join(',')
+    const suggestionsCacheKey = `autumn_suggested_artists:${user?.id || 'anonymous'}:${followedArtistSignature || 'none'}`
+
+    useEffect(() => {
+        let active = true
+
+        const loadSuggestedArtists = async () => {
+            try {
+                const cached = JSON.parse(localStorage.getItem(suggestionsCacheKey) || 'null')
+                if (Array.isArray(cached) && cached.length) {
+                    setSuggestedArtists(cached)
+                    setSuggestionsLoading(false)
+                    return
+                }
+            } catch {
+                // Continue with a fresh request when browser storage is unavailable.
+            }
+
+            setSuggestionsLoading(true)
+            const excludedIds = new Set(followedArtists.map((artist) => String(artist?.id || artist?._id || '')).filter(Boolean))
+            const excludedNames = new Set(followedArtists.map((artist) => String(artist?.name || artist?.title || '').trim().toLowerCase()).filter(Boolean))
+            artistSeedTracks.forEach((track) => getArtistsFromTrack(track).forEach((artist) => {
+                const normalized = normalizeArtist(artist)
+                if (normalized) {
+                    excludedIds.add(normalized.id)
+                    excludedNames.add(normalized.name.trim().toLowerCase())
+                }
+            }))
+
+            try {
+                let artistResults = []
+                if (artistSeedTracks.length) {
+                    const candidateBatches = await Promise.allSettled(
+                        artistSeedTracks.map((track) => fetchRecommendationCandidates(track, axiosInstance, () => true))
+                    )
+                    artistResults = candidateBatches.flatMap((result) => result.status === 'fulfilled' ? result.value : [])
+                }
+
+                const artistsById = new Map()
+                artistResults.forEach((track) => getArtistsFromTrack(track).forEach((artist) => {
+                    const normalized = normalizeArtist(artist)
+                    if (!normalized || excludedIds.has(normalized.id) || excludedNames.has(normalized.name.trim().toLowerCase())) return
+                    artistsById.set(normalized.id, normalized)
+                }))
+
+                if (artistsById.size < 8) {
+                    try {
+                        const response = await axiosInstance.get('/search/artists', {
+                            params: { query: artistSeedTracks.length ? 'trending music artists' : 'popular singers', page: 0, limit: 20 }
+                        })
+                        const popularArtists = response.data?.data?.results || []
+                        popularArtists.forEach((artist) => {
+                            const normalized = normalizeArtist(artist)
+                            if (!normalized || excludedIds.has(normalized.id) || excludedNames.has(normalized.name.trim().toLowerCase())) return
+                            artistsById.set(normalized.id, normalized)
+                        })
+                    } catch {
+                        // Keep any related artists already found.
+                    }
+                }
+
+                if (active) {
+                    const suggestions = [...artistsById.values()].slice(0, 12)
+                    setSuggestedArtists(suggestions)
+                    if (suggestions.length) {
+                        try {
+                            localStorage.setItem(suggestionsCacheKey, JSON.stringify(suggestions))
+                        } catch {
+                            // Keep the suggestions available for this session.
+                        }
+                    }
+                }
+            } catch {
+                if (active) setSuggestedArtists([])
+            } finally {
+                if (active) setSuggestionsLoading(false)
+            }
+        }
+
+        loadSuggestedArtists()
+        return () => { active = false }
+    }, [artistSeedTracks, followedArtists, suggestionsCacheKey])
 
     const filteredPlaylists = useMemo(() => {
         const term = searchTerm.trim().toLowerCase()
@@ -164,6 +288,51 @@ export default function Library({locked = false}) {
                     </div>
                 )) : <p className="rounded-xl border border-dashed border-white/10 p-5 text-sm text-white/45">{searchTerm.trim() ? 'No playlists match your search.' : 'Your playlist will appear here.'}</p>}
             </div>
+        </section>
+        <section aria-labelledby="suggested-artists-heading" className="mt-8">
+            <div className="mb-4">
+                <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Picked for your listening</p>
+                <h2 id="suggested-artists-heading" className="font-['Space_Grotesk'] text-xl font-bold sm:text-2xl">Suggested</h2>
+            </div>
+            {suggestionsLoading ? (
+                <p className="text-sm text-white/45" role="status">Finding artists for you...</p>
+            ) : suggestedArtists.length ? (
+                <div className="space-y-2">
+                    {suggestedArtists.map((artist) => {
+                        const isFollowing = followedArtists.some((followed) => String(followed?.id || followed?._id || '') === artist.id)
+                        const artistUrl = `/artist/${encodeURIComponent(artist.id)}/${encodeURIComponent(artist.name)}`
+                        return (
+                            <div key={artist.id} className="flex min-h-16 items-center gap-3 bg-transparent px-3 py-2 transition-colors hover:bg-white/5 sm:gap-4 sm:px-4">
+                                <Link to={artistUrl} aria-label={`Open ${artist.name}`} className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-white/5 text-sm font-semibold text-white/50 sm:h-12 sm:w-12">
+                                    <span aria-hidden="true">{artist.name.slice(0, 1).toUpperCase()}</span>
+                                    {artist.image && <img src={artist.image} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(event) => event.currentTarget.remove()} />}
+                                </Link>
+                                <Link to={artistUrl} className="min-w-0 flex-1 truncate text-sm font-semibold text-white hover:underline sm:text-base">
+                                    {artist.name}
+                                </Link>
+                                <button
+                                    type="button"
+                                    aria-pressed={isFollowing}
+                                    aria-label={isFollowing ? `Unfollow ${artist.name}` : `Follow ${artist.name}`}
+                                    onClick={() => {
+                                        if (!isAuthenticated) {
+                                            navigate('/login')
+                                            return
+                                        }
+                                        toggleFollowArtist(artist)
+                                    }}
+                                    className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:px-4 sm:text-sm ${isFollowing ? 'border border-white/35 bg-transparent text-white hover:bg-white/10' : 'bg-white text-black hover:bg-white/85'}`}
+                                >
+                                    {isFollowing ? <Check size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}
+                                    {isFollowing ? 'Following' : 'Follow'}
+                                </button>
+                            </div>
+                        )
+                    })}
+                </div>
+            ) : (
+                <p className="text-sm text-white/45">Artist suggestions are unavailable right now.</p>
+            )}
         </section>
     </div>
     )

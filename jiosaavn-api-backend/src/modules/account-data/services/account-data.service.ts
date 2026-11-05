@@ -45,6 +45,7 @@ export class AccountDataService {
       listenHistory: document?.listenHistory ?? defaults.listenHistory,
       userPlaylists: document?.userPlaylists ?? defaults.userPlaylists,
       listenAgain: document?.listenAgain ?? defaults.listenAgain,
+      followedArtists: document?.followedArtists ?? defaults.followedArtists,
       notInterested: document?.notInterested ?? defaults.notInterested,
       preferences: { ...defaults.preferences, ...document?.preferences },
       searchHistory: document?.searchHistory ?? defaults.searchHistory,
@@ -80,6 +81,7 @@ export class AccountDataService {
     if (local.listenHistory) merged.listenHistory = mergeRecords(remote.listenHistory, local.listenHistory, 500)
     if (local.userPlaylists) merged.userPlaylists = mergeRecords(remote.userPlaylists, local.userPlaylists, 300)
     if (local.listenAgain) merged.listenAgain = mergeRecords(remote.listenAgain, local.listenAgain, 500)
+    if (local.followedArtists) merged.followedArtists = mergeRecords(remote.followedArtists, local.followedArtists, 500)
     if (local.notInterested)
       merged.notInterested = [...new Set([...remote.notInterested, ...local.notInterested])].slice(0, 5000)
     if (local.preferences) merged.preferences = { ...local.preferences, ...(storedDocument?.preferences || {}) }

@@ -12,6 +12,7 @@ const remoteDocument = {
   listenHistory: [{ id: 'remote-song' }],
   userPlaylists: [{ id: 'remote-playlist' }],
   listenAgain: [{ id: 'remote-again' }],
+  followedArtists: [{ id: 'remote-artist', name: 'Remote Artist' }],
   notInterested: ['remote-dislike'],
   preferences: { autoplay: false, gapless: true, dataSaving: false },
   searchHistory: ['remote query'],
@@ -41,6 +42,7 @@ describe('AccountDataService', () => {
       listenHistory: [{ id: 'local-song' }],
       userPlaylists: [{ id: 'local-playlist' }],
       listenAgain: [{ id: 'local-again' }],
+      followedArtists: [{ id: 'local-artist', name: 'Local Artist' }],
       notInterested: ['local-dislike'],
       preferences: { autoplay: true, dataSaving: true },
       searchHistory: ['local query']
@@ -50,6 +52,10 @@ describe('AccountDataService', () => {
     expect(set.listenHistory).toEqual([{ id: 'remote-song' }, { id: 'local-song' }])
     expect(set.userPlaylists).toEqual([{ id: 'remote-playlist' }, { id: 'local-playlist' }])
     expect(set.listenAgain).toEqual([{ id: 'remote-again' }, { id: 'local-again' }])
+    expect(set.followedArtists).toEqual([
+      { id: 'remote-artist', name: 'Remote Artist' },
+      { id: 'local-artist', name: 'Local Artist' }
+    ])
     expect(set.notInterested).toEqual(['remote-dislike', 'local-dislike'])
     expect(set['preferences.autoplay']).toBe(false)
     expect(set['preferences.gapless']).toBe(true)

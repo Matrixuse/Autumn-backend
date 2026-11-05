@@ -150,6 +150,7 @@ const getEmptyAccountData = () => ({
   listenHistory: [],
   userPlaylists: [],
   listenAgain: [],
+  followedArtists: [],
   notInterested: [],
   preferences: { autoplay: true, gapless: false, dataSaving: false },
   searchHistory: [],
@@ -164,6 +165,7 @@ const normalizeAccountData = (data = {}) => {
     listenHistory: Array.isArray(data.listenHistory) ? data.listenHistory : defaults.listenHistory,
     userPlaylists: Array.isArray(data.userPlaylists) ? data.userPlaylists : defaults.userPlaylists,
     listenAgain: Array.isArray(data.listenAgain) ? data.listenAgain : defaults.listenAgain,
+    followedArtists: Array.isArray(data.followedArtists) ? data.followedArtists : defaults.followedArtists,
     notInterested: Array.isArray(data.notInterested) ? data.notInterested.map(String) : defaults.notInterested,
     preferences: { ...defaults.preferences, ...(data.preferences || {}) },
     searchHistory: Array.isArray(data.searchHistory) ? data.searchHistory : defaults.searchHistory,
@@ -264,6 +266,7 @@ export const PlayerProvider = ({ children }) => {
   const [accountDataReady, setAccountDataReady] = useState(() => !readLocalUserId())
   const [userPlaylists, setUserPlaylists] = useState(() => initialAccountData.userPlaylists)
   const [listenAgain, setListenAgain] = useState(() => initialAccountData.listenAgain)
+  const [followedArtists, setFollowedArtists] = useState(() => initialAccountData.followedArtists)
   const [notInterested, setNotInterested] = useState(() => initialAccountData.notInterested)
   const [searchHistory, setSearchHistory] = useState(() => initialAccountData.searchHistory)
   const [feedbackHistory, setFeedbackHistory] = useState(() => initialAccountData.feedback)
@@ -539,6 +542,7 @@ export const PlayerProvider = ({ children }) => {
         updateIfChanged(setListenHistory, data.listenHistory)
         updateIfChanged(setUserPlaylists, data.userPlaylists)
         updateIfChanged(setListenAgain, data.listenAgain)
+        updateIfChanged(setFollowedArtists, data.followedArtists)
         updateIfChanged(setNotInterested, data.notInterested)
         updateIfChanged(setSearchHistory, data.searchHistory)
         updateIfChanged(setFeedbackHistory, data.feedback)
@@ -577,6 +581,7 @@ export const PlayerProvider = ({ children }) => {
       listenHistory,
       userPlaylists,
       listenAgain,
+      followedArtists,
       notInterested,
       preferences: { autoplay: isAutoplayEnabled, gapless: isGaplessPlaybackEnabled, dataSaving: isDataSavingEnabled },
       searchHistory,
@@ -587,7 +592,7 @@ export const PlayerProvider = ({ children }) => {
     } catch {
       // The server remains the durable copy if browser storage is unavailable.
     }
-  }, [activeLikedUserId, accountDataReady, feedbackHistory, isAutoplayEnabled, isDataSavingEnabled, isGaplessPlaybackEnabled, listenAgain, listenHistory, notInterested, searchHistory, userPlaylists])
+  }, [activeLikedUserId, accountDataReady, feedbackHistory, followedArtists, isAutoplayEnabled, isDataSavingEnabled, isGaplessPlaybackEnabled, listenAgain, listenHistory, notInterested, searchHistory, userPlaylists])
 
   useEffect(() => {
     queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, { listenHistory })
@@ -600,6 +605,10 @@ export const PlayerProvider = ({ children }) => {
   useEffect(() => {
     queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, { listenAgain })
   }, [listenAgain, activeLikedUserId, accountDataReady])
+
+  useEffect(() => {
+    queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, { followedArtists })
+  }, [followedArtists, activeLikedUserId, accountDataReady])
 
   useEffect(() => {
     queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, activeLikedUserId, accountDataReady, { notInterested })
@@ -675,6 +684,7 @@ export const PlayerProvider = ({ children }) => {
         setListenHistory(accountData.listenHistory)
         setUserPlaylists(accountData.userPlaylists)
         setListenAgain(accountData.listenAgain)
+        setFollowedArtists(accountData.followedArtists)
         setNotInterested(accountData.notInterested)
         setSearchHistory(accountData.searchHistory)
         setFeedbackHistory(accountData.feedback)
@@ -780,6 +790,15 @@ export const PlayerProvider = ({ children }) => {
     setDuration(0)
   }
   const isLiked = (trackId) => likedSongs.some((song) => String(song.id) === String(trackId))
+  const toggleFollowArtist = (artist) => {
+    const id = String(artist?.id || artist?._id || '')
+    if (!id) return
+    setFollowedArtists((artists) => (
+      artists.some((item) => String(item?.id || item?._id || '') === id)
+        ? artists.filter((item) => String(item?.id || item?._id || '') !== id)
+        : [...artists, { id, name: String(artist?.name || artist?.title || 'Artist') }].slice(-500)
+    ))
+  }
   const toggleLike = (track) => {
     const song = normalizeLikedSong(track)
     if (!song) return
@@ -1108,6 +1127,11 @@ export const PlayerProvider = ({ children }) => {
   }, [currentIndex, currentTrack, isAutoplayEnabled, isGaplessPlaybackEnabled, isShuffleEnabled, queue])
 
   useEffect(() => {
+    recommendationBufferRef.current = []
+    lastRecommendationAttemptRef.current = ''
+  }, [followedArtists])
+
+  useEffect(() => {
     if (!currentTrack?.id) return undefined
     if (!isAutoplayEnabled) {
       recommendationBufferRef.current = []
@@ -1152,6 +1176,7 @@ export const PlayerProvider = ({ children }) => {
     const activeDislikes = getActiveDislikedTrackIds(recommendationEvents)
     const preferenceKey = [
       ...likedSongs.map((song) => String(song?.id || '')),
+      ...followedArtists.map((artist) => `artist:${String(artist?.id || artist?._id || '')}`),
       ...notInterested.map((id) => String(id)),
       ...activeDislikes,
       ...recommendationEvents.filter((event) => event.type === 'track_skipped').map((event) => String(event.trackId))
@@ -1177,6 +1202,7 @@ export const PlayerProvider = ({ children }) => {
       targetUpcomingCount: UPCOMING_QUEUE_TARGET,
       history: [...listenHistory, ...behaviorHistory],
       likedSongs,
+      followedArtists,
       notInterested: disinterestedIds,
       recentIds,
       skipEvents: recommendationEvents.filter((event) => event.type === 'track_skipped'),
@@ -1208,7 +1234,7 @@ export const PlayerProvider = ({ children }) => {
     })
 
     return undefined
-  }, [currentIndex, currentTrack, isAutoplayEnabled, isQueueLoading, likedSongs, listenHistory, notInterested, queueRefillRequest, recommendationEvents, queue])
+  }, [currentIndex, currentTrack, followedArtists, isAutoplayEnabled, isQueueLoading, likedSongs, listenHistory, notInterested, queueRefillRequest, recommendationEvents, queue])
 
   useEffect(() => {
     shuffleEnabledRef.current = isShuffleEnabled
@@ -1260,7 +1286,7 @@ export const PlayerProvider = ({ children }) => {
   }, [isAutoplayEnabled, isRepeatEnabled, isShuffleEnabled, volume])
 
   return (
-    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, isQueueLoading, isAutoplayEnabled, setIsAutoplayEnabled: setAutoplayEnabled, isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled: setGaplessPlaybackEnabled, isDataSavingEnabled, setIsDataSavingEnabled: setDataSavingEnabled, listenHistory, likedSongs, recommendationEvents, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, searchHistory, setSearchHistory, feedbackHistory, setFeedbackHistory, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue, prepareTransferredPlayback, pauseForHandoff, setPlaybackPaused, startPreparedPlayback }}>
+    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, isQueueLoading, isAutoplayEnabled, setIsAutoplayEnabled: setAutoplayEnabled, isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled: setGaplessPlaybackEnabled, isDataSavingEnabled, setIsDataSavingEnabled: setDataSavingEnabled, listenHistory, likedSongs, followedArtists, toggleFollowArtist, recommendationEvents, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, searchHistory, setSearchHistory, feedbackHistory, setFeedbackHistory, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue, prepareTransferredPlayback, pauseForHandoff, setPlaybackPaused, startPreparedPlayback }}>
         {children}
         <audio ref={preloadAudioRef} preload="auto" aria-hidden="true" className="hidden" />
     </PlayerContext.Provider>

@@ -6,6 +6,11 @@
 html, body {
   overscroll-behavior-y: contain;
 }
+html { scrollbar-color: #4a4138 #0d0e0c; scrollbar-width: thin; }
+html::-webkit-scrollbar { width: 10px; height: 10px; }
+html::-webkit-scrollbar-track { background: #0d0e0c; }
+html::-webkit-scrollbar-thumb { background: #4a4138; border: 2px solid #0d0e0c; border-radius: 999px; }
+html::-webkit-scrollbar-thumb:hover { background: #8b6338; }
 body { margin: 0; min-width: 320px; background: #0d0e0c; }
 button, input { font: inherit; }
 .mobile-nav { height: calc(3.75rem + max(10px, env(safe-area-inset-bottom))); }

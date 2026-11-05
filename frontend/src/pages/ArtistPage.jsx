@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Play, Search, Shuffle, X } from 'lucide-react';
+import { ArrowLeft, Check, MoreVertical, Play, Plus, Search, Shuffle, X } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import Albums from '../components/sections/Albums';
 import QuickPicks from '../components/sections/QuickPicks';
@@ -9,6 +9,7 @@ import { getBestAudioUrl, getBestImageUrl } from '../utils/mediaQuality';
 import SongActionsMenu from '../components/common/SongActionsMenu';
 import Loader from '../components/common/Loader';
 import NowPlayingOverlay from '../components/common/NowPlayingOverlay';
+import { useAuth } from '../context/AuthContext';
 
 const getSongArtists = (song = {}) => {
   const items = [];
@@ -74,11 +75,13 @@ export default function ArtistPage() {
   const navigate = useNavigate();
   const goBack = () => navigate(-1);
   const { artistId, artistName: routeArtistName } = useParams();
-  const { playTrack, currentTrack, isPlaying } = usePlayer();
+  const { playTrack, currentTrack, isPlaying, followedArtists, toggleFollowArtist } = usePlayer();
+  const { isAuthenticated } = useAuth();
   const [songs, setSongs] = useState([]);
   const [albums, setAlbums] = useState([]);
   const [artistBio, setArtistBio] = useState('');
   const [artistImage, setArtistImage] = useState('');
+  const [artistDataId, setArtistDataId] = useState(artistId || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -98,6 +101,7 @@ export default function ArtistPage() {
         setLoading(true);
         setError('');
         setArtistImage('');
+        setArtistDataId(String(artistId || ''));
 
         let resolvedArtistId = artistId;
         let resolvedArtistName = artistName;
@@ -119,6 +123,7 @@ export default function ArtistPage() {
         }
 
         if (!resolvedArtistId) {
+          setArtistDataId('');
           setArtistImage('');
           setSongs([]);
           setAlbums([]);
@@ -126,6 +131,7 @@ export default function ArtistPage() {
           setLoading(false);
           return;
         }
+        setArtistDataId(String(resolvedArtistId));
 
         const [songsResult, albumsResult] = await Promise.allSettled([
           axiosInstance.get(`/artists/${resolvedArtistId}/songs`, {
@@ -226,6 +232,8 @@ export default function ArtistPage() {
   }, [artistId, artistName, loading]);
 
   const displayArtistImage = artistImage || 'https://placehold.co/400x400/1F2937/FFFFFF?text=Artist';
+  const followedArtistId = String(artistDataId || artistId || routeArtistName || '');
+  const isFollowing = followedArtists.some((artist) => String(artist?.id || artist?._id || '') === followedArtistId);
 
   const filteredSongs = useMemo(() => {
     const matching = songs;
@@ -414,7 +422,25 @@ export default function ArtistPage() {
 
       <section className="mt-5 pb-12">
         <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Artist profile</p>
-        <h2 className="font-['Space_Grotesk'] text-3xl font-bold leading-none tracking-[-0.04em] text-white">About the Artist</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-['Space_Grotesk'] text-2xl font-bold leading-tight text-white sm:text-3xl">About the Artist</h2>
+          <button
+            type="button"
+            onClick={() => {
+              if (!isAuthenticated) {
+                navigate('/login');
+                return;
+              }
+              toggleFollowArtist({ id: followedArtistId, name: artistName });
+            }}
+            aria-pressed={isFollowing}
+            aria-label={isFollowing ? `Unfollow ${artistName}` : `Follow ${artistName}`}
+            className={`inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black ${isFollowing ? 'border border-white/60 bg-black text-white hover:bg-white/10' : 'bg-white text-black hover:bg-white/85'}`}
+          >
+            {isFollowing ? <Check size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+            {isFollowing ? 'Following' : 'Follow'}
+          </button>
+        </div>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-white/60 line-clamp-3">{artistBio}</p>
       </section>
     </div>

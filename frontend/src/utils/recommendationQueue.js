@@ -235,6 +235,28 @@ const getArtistNames = (song = {}) => {
     .filter((artist) => artist && artist !== 'unknown' && artist !== 'unknown artist'))]
 }
 
+const getArtistIds = (song = {}) => [
+  ...(Array.isArray(song.artists?.primary) ? song.artists.primary : []),
+  ...(Array.isArray(song.artists?.all) ? song.artists.all : []),
+  ...(Array.isArray(song.artists?.featured) ? song.artists.featured : [])
+].map((artist) => String(artist?.id || '')).filter(Boolean)
+
+const matchesFollowedArtist = (song, followedArtists = []) => {
+  const followedIds = new Set(followedArtists.map((artist) => String(artist?.id || artist?._id || '')).filter(Boolean))
+  if (getArtistIds(song).some((artistId) => followedIds.has(artistId))) return true
+
+  const normalizeArtistName = (value) => String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ')
+  const candidateNames = new Set([
+    ...getArtistNames(song),
+    ...(Array.isArray(song.artists?.primary) ? song.artists.primary : []).map((artist) => artist?.name || artist?.title),
+    ...(Array.isArray(song.artists?.all) ? song.artists.all : []).map((artist) => artist?.name || artist?.title),
+    song.artist,
+    song.primaryArtists,
+    song.subtitle
+  ].map(normalizeArtistName).filter(Boolean))
+  return followedArtists.some((artist) => candidateNames.has(normalizeArtistName(artist?.name || artist?.title)))
+}
+
 const getGenres = (song = {}) => {
   const genres = Array.isArray(song.genre) ? song.genre : [song.genre, ...(Array.isArray(song.genres) ? song.genres : [])]
   return new Set(genres.map(normalizeText).filter(Boolean))
@@ -339,7 +361,7 @@ const getSkipPenalty = (candidate, skipEvents = []) => {
   return Math.min(0.3, skippedCount * 0.08)
 }
 
-export const scoreRecommendationCandidate = ({ candidate, sourceSong, history = [], likedSongs = [], notInterested = [], recentIds = new Set(), skipEvents = [] }) => {
+export const scoreRecommendationCandidate = ({ candidate, sourceSong, history = [], likedSongs = [], followedArtists = [], notInterested = [], recentIds = new Set(), skipEvents = [] }) => {
   const rawSource = sourceSong || {}
   const rawCandidate = candidate || {}
   const source = normalizeRecommendationSong(rawSource)
@@ -365,13 +387,14 @@ export const scoreRecommendationCandidate = ({ candidate, sourceSong, history = 
     { value: getDiscoveryScore(song, history, compatibility), weight: 0.10 }
   ]
   const normalizedScore = averageSignals(components) ?? 0.2
+  const followedArtistBonus = matchesFollowedArtist(song, followedArtists) ? 0.18 : 0
   const recentPenalty = songId && recentIdSet.has(songId) ? 0.18 : 0
   const skipPenalty = getSkipPenalty(song, skipEvents)
   const sourceVersion = getSongVersionToken(source)
   const candidateVersion = getSongVersionToken(song)
   const versionPenalty = sourceVersion && candidateVersion && sourceVersion !== candidateVersion ? 0.04 : 0
 
-  return Math.max(0, Math.min(1, normalizedScore - recentPenalty - skipPenalty - versionPenalty))
+  return Math.max(0, Math.min(1, normalizedScore + followedArtistBonus - recentPenalty - skipPenalty - versionPenalty))
 }
 
 export const getUpcomingTrackCount = (queue = [], currentIndex = -1) => {
@@ -515,12 +538,12 @@ export const diversifyRecommendationCandidates = (rankedCandidates = [], limit =
   return selected
 }
 
-const rankCandidates = ({ candidates, sourceSong, history, likedSongs, notInterested, recentIds, skipEvents }) => dedupeSongs(candidates)
+const rankCandidates = ({ candidates, sourceSong, history, likedSongs, followedArtists, notInterested, recentIds, skipEvents }) => dedupeSongs(candidates)
   .filter((candidate) => candidate.id && candidate.audio && getSongIdentity(candidate) !== getSongIdentity(sourceSong))
   .filter((candidate) => shouldRetainSongLanguage(sourceSong, candidate))
   .map((candidate) => ({
     ...candidate,
-    score: scoreRecommendationCandidate({ candidate, sourceSong, history, likedSongs, notInterested, recentIds, skipEvents })
+    score: scoreRecommendationCandidate({ candidate, sourceSong, history, likedSongs, followedArtists, notInterested, recentIds, skipEvents })
   }))
   .filter((candidate) => Number.isFinite(candidate.score))
   .sort((first, second) => second.score - first.score || getSongIdentity(first).localeCompare(getSongIdentity(second)))
@@ -529,6 +552,7 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
   targetUpcomingCount = 50,
   history = [],
   likedSongs = [],
+  followedArtists = [],
   notInterested = [],
   recentIds = new Set(),
   skipEvents = [],
@@ -557,6 +581,7 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
       sourceSong: normalizedSource,
       history: historyCandidates,
       likedSongs: likedCandidates,
+      followedArtists,
       notInterested,
       recentIds,
       skipEvents
@@ -638,6 +663,7 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
     sourceSong: normalizedSource,
     history: historyCandidates,
     likedSongs: likedCandidates,
+    followedArtists,
     notInterested,
     recentIds,
     skipEvents
