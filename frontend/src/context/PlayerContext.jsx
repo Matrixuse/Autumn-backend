@@ -792,7 +792,7 @@ export const PlayerProvider = ({ children }) => {
         return songs.filter((item) => item.id !== song.id)
       }
 
-      return [song, ...songs]
+      return [...songs, song]
     })
   }
   const addToQueue = (track, playNext = false) => {

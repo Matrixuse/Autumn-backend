@@ -67,8 +67,8 @@ export default function LikedSongPage() {
   }
 
   return (
-    <div className="relative flex min-h-[60vh] flex-col gap-3 text-white md:flex-row">
-      <div className="w-full rounded-xl p-2 shadow-xl md:w-2/6 md:p-5">
+    <div className="relative flex min-h-[60vh] flex-col gap-3 text-white md:h-[calc(100dvh-190px)] md:min-h-0 md:overflow-hidden md:flex-row lg:h-[calc(100dvh-188px)]">
+      <div className="w-full rounded-xl p-2 shadow-xl md:w-[38%] md:shrink-0 md:overflow-hidden md:p-5 lg:w-[34%]">
         <div className="flex items-center justify-between gap-3">
           <button type="button" onClick={() => navigate(-1)} aria-label="Go back" className="rounded-full p-2 hover:bg-white/12"><ArrowLeft size={20} /></button>
           <button type="button" onClick={() => setSearchOpen((open) => !open)} aria-label={searchOpen ? 'Close search' : 'Search liked songs'} className="rounded-full bg-white/6 p-2 hover:bg-white/12">{searchOpen ? <X size={20} /> : <Search size={23} />}</button>
@@ -99,7 +99,7 @@ export default function LikedSongPage() {
         {searchOpen && <input autoFocus value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search liked songs..." aria-label="Search liked songs" className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/35 focus:border-[#dcd5d5]" />}
       </div>
 
-      <div ref={songListRef} className="w-full flex-1 md:w-2/6">
+      <div ref={songListRef} className="w-full flex-1 md:min-h-0 md:min-w-0 md:overflow-y-auto md:overscroll-contain md:pr-1">
         {likedSongs.length === 0 ? (
             <div className="grid min-h-56 place-items-center rounded-2xl border border-white/10 bg-white/3 p-8 text-center">
                 <div>
