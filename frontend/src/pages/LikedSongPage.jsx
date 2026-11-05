@@ -106,7 +106,7 @@ export default function LikedSongPage() {
 
       <div className="flex min-w-0 flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
         <div className="flex shrink-0 justify-start"><SongSortMenu sortMode={sortMode} onSortChange={setSortMode} /></div>
-        <div ref={songListRef} className="w-full md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:pr-1 md:custom-scrollbar">
+        <div ref={songListRef} className="w-full md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:pr-1 md:custom-scrollbar scrollbar-none">
         {likedSongs.length === 0 ? (
             <div className="grid min-h-56 place-items-center rounded-2xl border border-white/10 bg-white/3 p-8 text-center">
                 <div>
