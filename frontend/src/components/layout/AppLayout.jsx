@@ -14,6 +14,7 @@ export default function AppLayout() {
     const [searchState, setSearchState] = useState({ query: '', history: [], results: [], loading: false })
     const isHomePage = location.pathname === '/'
     const isKeepListeningRoute = location.pathname.startsWith('/keep-listening')
+    const isLikedSongsRoute = location.pathname.startsWith('/liked-songs')
     const isNowPlayingRoute = location.pathname.startsWith('/now-playing')
     const isFooterInfoRoute = location.pathname.startsWith('/info/')
     const isPublicInfoRoute = location.pathname.startsWith('/info/') || location.pathname === '/feedback'
