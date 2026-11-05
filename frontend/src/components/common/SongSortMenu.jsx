@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { ArrowDown01, ArrowDownAZ, ArrowUp10, Check, ListSortDescending } from 'lucide-react'
 
 const sortOptions = [
-  { value: 'ascending', label: 'Ascending', icon: ArrowDown01 },
-  { value: 'descending', label: 'Descending', icon: ArrowUp10 },
+  { value: 'ascending', label: 'Descending', icon: ArrowDown01 },
+  { value: 'descending', label: 'Ascending', icon: ArrowUp10 },
   { value: 'title', label: 'Title wise', icon: ArrowDownAZ },
 ]
 
