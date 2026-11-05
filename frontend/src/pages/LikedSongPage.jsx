@@ -5,6 +5,8 @@ import { usePlayer } from '../context/PlayerContext'
 import { formatTime } from '../utils/formatTime'
 import SongActionsMenu from '../components/common/SongActionsMenu'
 import NowPlayingOverlay from '../components/common/NowPlayingOverlay'
+import SongSortMenu from '../components/common/SongSortMenu'
+import { sortSongs } from '../utils/sortSongs'
 
 function LikedSongCover({ song, active }) {
   const [imageFailed, setImageFailed] = useState(false)
@@ -25,6 +27,7 @@ export default function LikedSongPage() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showCompactHeader, setShowCompactHeader] = useState(false)
+  const [sortMode, setSortMode] = useState('ascending')
   const songListRef = useRef(null)
 
   useEffect(() => {
@@ -56,13 +59,15 @@ export default function LikedSongPage() {
     return likedSongs.filter((song) => `${song.title} ${song.artist}`.toLowerCase().includes(term))
   }, [likedSongs, searchTerm])
 
+  const sortedSongs = useMemo(() => sortSongs(filteredSongs, sortMode), [filteredSongs, sortMode])
+
   const playAll = () => {
-    if (likedSongs.length) playTrack(likedSongs[0], likedSongs)
+    if (sortedSongs.length) playTrack(sortedSongs[0], sortedSongs)
   }
 
   const shuffleAll = () => {
-    if (!likedSongs.length) return
-    const shuffled = [...likedSongs].sort(() => Math.random() - 0.5)
+    if (!sortedSongs.length) return
+    const shuffled = [...sortedSongs].sort(() => Math.random() - 0.5)
     playTrack(shuffled[0], shuffled)
   }
 
@@ -99,7 +104,9 @@ export default function LikedSongPage() {
         {searchOpen && <input autoFocus value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search liked songs..." aria-label="Search liked songs" className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/35 focus:border-[#dcd5d5]" />}
       </div>
 
-      <div ref={songListRef} className="w-full flex-1 md:min-h-0 md:min-w-0 md:overflow-y-auto md:overscroll-contain md:pr-1">
+      <div className="flex min-w-0 flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
+        <div className="flex shrink-0 justify-start"><SongSortMenu sortMode={sortMode} onSortChange={setSortMode} /></div>
+        <div ref={songListRef} className="w-full md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:pr-1 md:custom-scrollbar">
         {likedSongs.length === 0 ? (
             <div className="grid min-h-56 place-items-center rounded-2xl border border-white/10 bg-white/3 p-8 text-center">
                 <div>
@@ -112,26 +119,27 @@ export default function LikedSongPage() {
                     </p>
                 </div>
             </div>
-        ) : filteredSongs.length === 0 ? (
+        ) : sortedSongs.length === 0 ? (
           <p className="py-10 text-center text-sm text-white/45">No liked songs match your search.</p>
         ) : (
           <div className="overflow-hidden rounded md:border border-white/10 md:bg-white/3">
-            {filteredSongs.map((song, index) => {
+              {sortedSongs.map((song, index) => {
               const active = String(currentTrack?.id) === String(song.id) && isPlaying
               return (
                 <article key={song.id} className={`flex items-center gap-3 border-b border-white/6  px-2 md:px-4 py-2 md:py-3 last:border-b-0 ${active ? 'bg-[#c88d3b]/10' : 'hover:bg-white/4'}`}>
                     <span className="w-6 hidden sm:block text-center text-xs text-white/35">{index + 1}</span>
-                    <button type="button" onClick={() => playTrack(song, likedSongs)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                    <button type="button" onClick={() => playTrack(song, sortedSongs)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
                         <LikedSongCover song={song} active={active} />
                         <span className="min-w-0"><span className="block truncate text-sm font-semibold">{song.title || 'Untitled track'}</span><span className="block truncate text-xs text-white/45">{song.artist || 'Unknown Artist'}</span></span>
                     </button>
-                    <SongActionsMenu song={song} queue={likedSongs} alwaysVisible />
+                    <SongActionsMenu song={song} queue={sortedSongs} alwaysVisible />
                     <span className="hidden text-xs text-white/40 sm:block">{formatTime(song.duration)}</span>
                 </article>
               )
             })}
           </div>
         )}
+        </div>
       </div>
     </div>
   )

@@ -10,6 +10,8 @@ import SongActionsMenu from '../components/common/SongActionsMenu';
 import NowPlayingOverlay from '../components/common/NowPlayingOverlay';
 import Loader from '../components/common/Loader';
 import PlaylistCover from '../components/common/PlaylistCover';
+import SongSortMenu from '../components/common/SongSortMenu';
+import { sortSongs } from '../utils/sortSongs';
 
 const ImageWithFallback = ({ src, alt, className, fallback }) => (
   <img src={src || fallback} alt={alt} className={className} onError={(event) => { event.currentTarget.src = fallback; }} />
@@ -82,6 +84,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
   const desktopScrollContainerRef = useRef(null);
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(true);
   const [isVibeShuffleMode, setIsVibeShuffleMode] = useState(false);
+  const [sortMode, setSortMode] = useState('ascending');
   const [isEditingPlaylist, setIsEditingPlaylist] = useState(false);
   const [editPlaylistName, setEditPlaylistName] = useState('');
   const [editPlaylistDescription, setEditPlaylistDescription] = useState('');
@@ -177,6 +180,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
 
   const displayName = playlist?.name || playlistTitle || 'Playlist';
   const dailySongs = songs;
+  const sortedSongs = useMemo(() => sortSongs(dailySongs, sortMode), [dailySongs, sortMode]);
   const isLocalPlaylist = userPlaylists.some((item) => String(item.id) === String(encodedPlaylistId));
 
   const handleSavePlaylistDetails = (event) => {
@@ -204,16 +208,16 @@ export default function PlaylistPage({ libraryOption = '' }) {
 
   const filteredSongs = useMemo(() => {
     if (!searchTerm.trim()) {
-      return dailySongs;
+      return sortedSongs;
     }
     const q = searchTerm.toLowerCase();
-    const result = dailySongs.filter((song) => {
+    const result = sortedSongs.filter((song) => {
       const title = (song.title || '').toLowerCase();
       const artist = Array.isArray(song.artist) ? song.artist.join(' ').toLowerCase() : (song.artist || '').toLowerCase();
       return title.includes(q) || artist.includes(q);
     });
     return result;
-  }, [dailySongs, searchTerm]);
+  }, [searchTerm, sortedSongs]);
 
   const handleToggleShuffle = useCallback(() => {
     setIsVibeShuffleMode(prev => !prev);
@@ -248,13 +252,13 @@ export default function PlaylistPage({ libraryOption = '' }) {
 
   const handleSelectSong = useCallback((songId) => {
     const queueSource = isVibeShuffleMode
-      ? [...dailySongs].sort(() => Math.random() - 0.5)
-      : dailySongs;
+      ? [...sortedSongs].sort(() => Math.random() - 0.5)
+      : sortedSongs;
 
     const selectedIndex = queueSource.findIndex(s => String(s.id) === String(songId));
 
     if (queueSource[selectedIndex >= 0 ? selectedIndex : 0]) playTrack(queueSource[selectedIndex >= 0 ? selectedIndex : 0], queueSource);
-  }, [dailySongs, isVibeShuffleMode, playTrack]);
+  }, [isVibeShuffleMode, playTrack, sortedSongs]);
 
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
@@ -366,8 +370,8 @@ export default function PlaylistPage({ libraryOption = '' }) {
                     </button>}
                     <button
                       onClick={() => {
-                        if (dailySongs.length > 0) {
-                          handleSelectSong(dailySongs[0].id);
+                        if (sortedSongs.length > 0) {
+                          handleSelectSong(sortedSongs[0].id);
                         }
                       }}
                       className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 shadow-sm shadow-red-500/40 transition-all hover:bg-blue-500"
@@ -375,7 +379,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
                     >
                       {isPlaying ? <Pause className="h-5 w-5 fill-white text-white" /> : <Play className="ml-1 h-5 w-5 fill-white text-white" />}
                     </button>
-                    <SongActionsMenu song={playlist || { id: encodedPlaylistId, name: displayName }} itemType="playlist" items={dailySongs} alwaysVisible onDelete={isLocalPlaylist ? handleDeletePlaylist : undefined} />
+                    <SongActionsMenu song={playlist || { id: encodedPlaylistId, name: displayName }} itemType="playlist" items={sortedSongs} alwaysVisible onDelete={isLocalPlaylist ? handleDeletePlaylist : undefined} />
                   </div>
                 </div>
               </div>
@@ -404,6 +408,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
             </div>
           )}
 
+          {isLocalPlaylist && dailySongs.length > 0 && <div className="flex shrink-0 justify-end pr-2"><SongSortMenu sortMode={sortMode} onSortChange={setSortMode} /></div>}
           <hr className="h-px bg-[#5f5f5f]" />
           <div ref={mobileScrollContainerRef} className="grow overflow-y-auto custom-scrollbar p-1 pt-5 pb-24">
           {filteredSongs.length > 0 ? (
@@ -494,8 +499,8 @@ export default function PlaylistPage({ libraryOption = '' }) {
                   </button>}
                   <button
                     onClick={() => {
-                      if (dailySongs.length > 0) {
-                        handleSelectSong(dailySongs[0].id);
+                      if (sortedSongs.length > 0) {
+                        handleSelectSong(sortedSongs[0].id);
                       }
                     }}
                     className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 shadow-sm shadow-red-500/40 transition-all hover:bg-blue-500 md:h-16 md:w-16"
@@ -504,7 +509,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
                     {isPlaying ? <Pause className="h-7 w-7 fill-white text-white md:h-8 md:w-8" /> : <Play className="ml-1 h-7 w-7 fill-white text-white md:h-8 md:w-8" />}
                   </button>
 
-                  <SongActionsMenu song={playlist || { id: encodedPlaylistId, name: displayName }} itemType="playlist" items={dailySongs} alwaysVisible onDelete={isLocalPlaylist ? handleDeletePlaylist : undefined} />
+                  <SongActionsMenu song={playlist || { id: encodedPlaylistId, name: displayName }} itemType="playlist" items={sortedSongs} alwaysVisible onDelete={isLocalPlaylist ? handleDeletePlaylist : undefined} />
                 </div>
               </div>
             </div>
@@ -532,6 +537,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
             </div>
           </div>
 
+          {isLocalPlaylist && dailySongs.length > 0 && <div className="flex shrink-0 justify-end pr-2"><SongSortMenu sortMode={sortMode} onSortChange={setSortMode} /></div>}
           <div ref={desktopScrollContainerRef} className="flex-1 min-h-0 mt-2 overflow-y-auto overscroll-contain custom-scrollbar p-4 pb-28 md:p-4 md:pb-28">
             {filteredSongs.length > 0 ? (
               <div className="space-y-1 md:space-y-1 mr-8">
@@ -568,7 +574,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
                           <span className="text-xs text-gray-300 md:text-sm mr-1">{formatDuration(song)}</span>
-                          <SongActionsMenu song={song} queue={songs} tabletAlwaysVisible />
+                          <SongActionsMenu song={song} queue={filteredSongs} tabletAlwaysVisible />
                         </div>
                       </div>
                     </div>
