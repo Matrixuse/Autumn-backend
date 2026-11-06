@@ -6,7 +6,11 @@ import {
   getActiveDislikedTrackIds,
   getUpcomingTrackCount,
   isRecommendationRequestCurrent,
+  isPlayRequestCurrent,
+  buildIndependentQueueSeed,
   mergeRecommendationTracks,
+  RECOMMENDATION_WEIGHTS,
+  resolveRecommendationLanguage,
   scoreRecommendationCandidate,
   shouldRefillRecommendations,
   diversifyRecommendationCandidates,
@@ -56,6 +60,61 @@ test('following an artist raises the score of their songs', () => {
     followedArtists: [{ id: 'artist-1', name: 'Followed Artist' }]
   })
   assert.ok(followed > baseline)
+})
+
+test('recommendation weights are configurable and include the requested signals', () => {
+  assert.deepEqual(RECOMMENDATION_WEIGHTS, {
+    genre: 0.2,
+    mood: 0.15,
+    artist: 0.15,
+    userPreference: 0.2,
+    history: 0.1,
+    audioCharacteristics: 0.1,
+    album: 0.1
+  })
+
+  const sourceWithFeatures = track('source-features', {
+    mood: ['chill'],
+    audioFeatures: { energy: 0.2, danceability: 0.3, tempo: 90 }
+  })
+  const closeMatch = track('close-match', {
+    mood: ['chill'],
+    audioFeatures: { energy: 0.25, danceability: 0.35, tempo: 95 }
+  })
+  const mismatch = track('mismatch', {
+    mood: ['party'],
+    audioFeatures: { energy: 0.9, danceability: 0.85, tempo: 180 }
+  })
+  const weights = { genre: 0, mood: 0.5, artist: 0, userPreference: 0, history: 0, audioCharacteristics: 0.5, album: 0 }
+  const closeScore = scoreRecommendationCandidate({ candidate: closeMatch, sourceSong: sourceWithFeatures, scoringWeights: weights })
+  const mismatchScore = scoreRecommendationCandidate({ candidate: mismatch, sourceSong: sourceWithFeatures, scoringWeights: weights })
+  assert.ok(closeScore > mismatchScore)
+})
+
+test('unknown seed language resolves only from explicit preference or a confident history majority', () => {
+  const unknownSeed = track('unknown-seed', { language: 'unknown', title: 'Mystery' })
+  const hindiHistory = Array.from({ length: 3 }, (_, index) => track(`hindi-history-${index}`, { language: 'hindi' }))
+
+  assert.equal(resolveRecommendationLanguage(unknownSeed, { history: [...hindiHistory, track('english-history')] }), 'hindi')
+  assert.equal(resolveRecommendationLanguage(unknownSeed, { history: [hindiHistory[0], track('english-history')] }), 'unknown')
+  assert.equal(resolveRecommendationLanguage(unknownSeed, { userPreferences: { preferredLanguage: 'hi' } }), 'hindi')
+})
+
+test('multilingual candidates are accepted only when the preference is explicitly enabled', async () => {
+  const englishTracks = Array.from({ length: 10 }, (_, index) => track(`opt-in-english-${index}`, { language: 'english' }))
+  const apiClient = {
+    get: async (path) => path.includes('/suggestions')
+      ? { data: { data: englishTracks } }
+      : { data: { data: { results: [] } } }
+  }
+  const queue = await buildUpNextQueue(track('opt-in-hindi-seed', { language: 'hindi' }), apiClient, {
+    targetUpcomingCount: 6,
+    userPreferences: { multilingualRecommendations: true },
+    refreshSeed: 'multilingual-opt-in'
+  })
+
+  assert.equal(queue.length, 7)
+  assert.ok(queue.slice(1).every((song) => song.language === 'english'))
 })
 
 test('missing metadata produces a finite score', () => {
@@ -120,6 +179,38 @@ test('queue merge never trims a user queue already above the target', () => {
   assert.deepEqual(merged, existing)
 })
 
+test('selecting from a collection seeds an independent queue and preserves only upcoming manual tracks', () => {
+  const collection = [track('quick-pick-before'), track('selected-song'), track('quick-pick-after')]
+  const existingQueue = [
+    { ...track('already-played-manual'), queueSource: 'manual' },
+    track('current-recommendation'),
+    { ...track('manual-first'), queueSource: 'manual' },
+    { ...track('queued-recommendation'), queueSource: 'recommendation' },
+    { ...track('manual-second'), queueSource: 'manual' }
+  ]
+
+  const seeded = buildIndependentQueueSeed(collection[1], existingQueue, 1)
+
+  assert.deepEqual(seeded.map((song) => song.id), ['selected-song', 'manual-first', 'manual-second'])
+  assert.deepEqual(seeded.map((song) => song.queueSource), ['seed', 'manual', 'manual'])
+})
+
+test('user collections are scored as candidates rather than copied as a queue', async () => {
+  const playlistSongs = [track('playlist-a'), track('playlist-b'), track('playlist-a')]
+  const queue = await buildUpNextQueue(source, null, {
+    targetUpcomingCount: 10,
+    collections: [
+      { id: 'playlist', mood: 'chill', songs: playlistSongs },
+      [track('listen-again-song')]
+    ]
+  })
+
+  assert.deepEqual(new Set(queue.slice(1).map((song) => song.id)), new Set(['playlist-a', 'playlist-b', 'listen-again-song']))
+  assert.notDeepEqual(queue.slice(1).map((song) => song.id), playlistSongs.map((song) => song.id))
+  assert.ok(queue.slice(1).every((song) => song.recommendationSource === 'user collections'))
+  assert.ok(queue.slice(1).filter((song) => song.id.startsWith('playlist-')).every((song) => song.mood === 'chill'))
+})
+
 test('refill starts at the low-water threshold and is disabled with autoplay', () => {
   const current = track('current')
   const queue = [current, ...Array.from({ length: 39 }, (_, index) => track(`queued-${index}`))]
@@ -131,6 +222,8 @@ test('stale recommendation responses are rejected', () => {
   assert.ok(isRecommendationRequestCurrent(7, 7, true))
   assert.ok(!isRecommendationRequestCurrent(7, 8, true))
   assert.ok(!isRecommendationRequestCurrent(7, 7, false))
+  assert.ok(isPlayRequestCurrent(7, 7))
+  assert.ok(!isPlayRequestCurrent(7, 8))
 })
 
 test('playback events can be claimed only once per event key', () => {
@@ -144,11 +237,38 @@ test('artist diversity avoids long runs when alternatives are available', () => 
     { ...track('a1', { artist: 'Artist A' }), score: 1 },
     { ...track('a2', { artist: 'Artist A' }), score: 0.99 },
     { ...track('a3', { artist: 'Artist A' }), score: 0.98 },
-    { ...track('b1', { artist: 'Artist B' }), score: 0.8 }
+    { ...track('b1', { artist: 'Artist B' }), score: 0.8 },
+    { ...track('c1', { artist: 'Artist C' }), score: 0.7 },
+    { ...track('d1', { artist: 'Artist D' }), score: 0.6 }
   ]
-  const selected = diversifyRecommendationCandidates(ranked, 4, { maxConsecutiveArtist: 2, maxPerArtist: 4 })
+  const selected = diversifyRecommendationCandidates(ranked, 6, { maxConsecutiveArtist: 2, maxPerArtist: 4 })
   assert.equal(selected[0].artist, 'Artist A')
-  assert.equal(selected[2].artist, 'Artist B')
+  assert.equal(new Set(selected.slice(0, 4).map((song) => song.artist)).size, 4)
+})
+
+test('artist cooldown relaxes when the available catalog is too small', () => {
+  const ranked = [
+    { ...track('limited-a1', { artist: 'Artist A' }), score: 1 },
+    { ...track('limited-a2', { artist: 'Artist A' }), score: 0.9 },
+    { ...track('limited-b1', { artist: 'Artist B' }), score: 0.8 }
+  ]
+  const selected = diversifyRecommendationCandidates(ranked, 3, { refreshSeed: 'small-artist-catalog' })
+  assert.equal(selected.length, 3)
+  assert.equal(new Set(selected.map((song) => song.id)).size, 3)
+})
+
+test('weighted selection varies close scores without promoting distant low scores', () => {
+  const ranked = [
+    { ...track('close-a', { artist: 'Artist A' }), score: 0.9 },
+    { ...track('close-b', { artist: 'Artist B' }), score: 0.9 },
+    { ...track('distant-low', { artist: 'Artist C', genre: ['classical'] }), score: 0.2 }
+  ]
+  const first = diversifyRecommendationCandidates(ranked, 1, { refreshSeed: 'weighted-a', rng: () => 0 })
+  const second = diversifyRecommendationCandidates(ranked, 1, { refreshSeed: 'weighted-b', rng: () => 0.99 })
+
+  assert.equal(first[0].id, 'close-a')
+  assert.equal(second[0].id, 'close-b')
+  assert.notEqual(first[0].id, 'distant-low')
 })
 
 test('candidate builder returns 40 upcoming playable tracks when sources supply enough', async () => {
@@ -187,9 +307,10 @@ test('english seed yields a 50-song english-only queue when enough eligible trac
     ...track(`hindi-${index}`, { language: 'hindi', artist: `Hindi Artist ${index % 4}` }),
     audio: `https://audio.example/hindi-${index}.mp3`
   }))
+  const unknownLanguageTracks = Array.from({ length: 5 }, (_, index) => track(`unknown-${index}`, { language: 'unknown' }))
   const apiClient = {
     get: async (path) => {
-      if (path.includes('/suggestions')) return { data: { data: [...englishTracks, ...nonEnglishTracks] } }
+      if (path.includes('/suggestions')) return { data: { data: [...englishTracks, ...nonEnglishTracks, ...unknownLanguageTracks] } }
       return { data: { data: { results: [] } } }
     }
   }
@@ -202,6 +323,51 @@ test('english seed yields a 50-song english-only queue when enough eligible trac
   assert.ok(queue.length >= 51)
   assert.ok(queue.slice(1).every((song) => String(song.language || song.lang || '').toLowerCase() === 'english'))
   assert.equal(new Set(queue.map((song) => song.id)).size, queue.length)
+})
+
+test('Hindi seed excludes English and unknown-language candidates at the final filter', async () => {
+  const hindiTracks = Array.from({ length: 12 }, (_, index) => track(`hindi-only-${index}`, { language: 'hindi' }))
+  const otherTracks = [track('english-leak', { language: 'english' }), track('unknown-leak', { language: 'unknown' })]
+  const apiClient = {
+    get: async (path) => path.includes('/suggestions')
+      ? { data: { data: [...hindiTracks, ...otherTracks] } }
+      : { data: { data: { results: [] } } }
+  }
+  const hindiSeed = track('hindi-seed', { language: 'hi' })
+  const queue = await buildUpNextQueue(hindiSeed, apiClient, { targetUpcomingCount: 8, refreshSeed: 'hindi-test' })
+
+  assert.ok(queue.slice(1).length > 0)
+  assert.ok(queue.slice(1).every((song) => song.language === 'hindi'))
+  assert.ok(!queue.some((song) => ['english-leak', 'unknown-leak'].includes(song.id)))
+})
+
+test('unknown seed with no confident language does not call mixed-language discovery', async () => {
+  let requestCount = 0
+  const apiClient = { get: async () => { requestCount += 1; return { data: { data: [] } } } }
+  const unknownSeed = track('unknown-seed', { language: 'unknown', title: 'Mystery' })
+  const queue = await buildUpNextQueue(unknownSeed, apiClient, { targetUpcomingCount: 50 })
+
+  assert.deepEqual(queue.map((song) => song.id), ['unknown-seed'])
+  assert.equal(requestCount, 0)
+})
+
+test('small eligible catalogs return unique available tracks without padding', async () => {
+  const first = track('small-a')
+  const second = track('small-b')
+  const third = track('small-c')
+  const apiClient = {
+    get: async (path) => path.includes('/suggestions')
+      ? { data: { data: [first, second, first] } }
+      : { data: { data: { results: [second, third, third] } } }
+  }
+  const queue = await buildUpNextQueue(source, apiClient, {
+    targetUpcomingCount: 50,
+    history: [third],
+    refreshSeed: 'small-catalog'
+  })
+
+  assert.deepEqual(new Set(queue.map((song) => song.id)), new Set(['seed', 'small-a', 'small-b', 'small-c']))
+  assert.equal(queue.length, 4)
 })
 
 test('two-pass shuffle preserves identities and count while permuting order deterministically', () => {

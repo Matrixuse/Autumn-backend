@@ -17,6 +17,8 @@ export default function Settings() {
     setIsGaplessPlaybackEnabled,
     isDataSavingEnabled,
     setIsDataSavingEnabled,
+    isMultilingualRecommendationsEnabled,
+    setMultilingualRecommendationsEnabled,
     isAutoplayEnabled,
     setIsAutoplayEnabled
   } = usePlayer()
@@ -84,6 +86,12 @@ export default function Settings() {
           description="Continue automatically through Up Next when a track finishes."
           checked={isAutoplayEnabled}
           onChange={setIsAutoplayEnabled}
+        />
+        <PreferenceRow
+          title="Multilingual recommendations"
+          description="Allow Up Next to include known songs in other languages."
+          checked={isMultilingualRecommendationsEnabled}
+          onChange={setMultilingualRecommendationsEnabled}
         />
       </section>
 

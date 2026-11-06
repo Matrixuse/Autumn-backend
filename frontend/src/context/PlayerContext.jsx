@@ -18,11 +18,14 @@ import {
 } from '../lib/audioEngine'
 import {
   buildUpNextQueue,
+  buildIndependentQueueSeed,
   claimRecommendationEventKey,
   getActiveDislikedTrackIds,
   getSongIdentity,
   getUpcomingTrackCount,
+  getSongLanguage,
   isRecommendationRequestCurrent,
+  isPlayRequestCurrent,
   mergeRecommendationTracks,
   normalizeRecommendationSong,
   resolveQueueSelection,
@@ -40,7 +43,8 @@ const HISTORY_LIMIT = 18
 const PLAYER_PREFERENCES = {
   gapless: 'autumn_gapless_playback',
   dataSaving: 'autumn_data_saving',
-  autoplay: 'autumn_autoplay'
+  autoplay: 'autumn_autoplay',
+  multilingualRecommendations: 'autumn_multilingual_recommendations'
 }
 
 const readBooleanPreference = (key, fallback) => {
@@ -152,7 +156,7 @@ const getEmptyAccountData = () => ({
   listenAgain: [],
   followedArtists: [],
   notInterested: [],
-  preferences: { autoplay: true, gapless: false, dataSaving: false },
+  preferences: { autoplay: true, gapless: true, dataSaving: false },
   searchHistory: [],
   feedback: []
 })
@@ -282,12 +286,17 @@ export const PlayerProvider = ({ children }) => {
   const [isAutoplayEnabled, setIsAutoplayEnabled] = useState(() => initialAudioState.autoplay ?? initialAccountData.preferences.autoplay)
   const [isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled] = useState(() => initialAccountData.preferences.gapless)
   const [isDataSavingEnabled, setIsDataSavingEnabled] = useState(() => initialAccountData.preferences.dataSaving)
+  const [userPreferences, setUserPreferences] = useState(() => initialAccountData.preferences)
+  const [isMultilingualRecommendationsEnabled, setIsMultilingualRecommendationsEnabled] = useState(() => (
+    readBooleanPreference(PLAYER_PREFERENCES.multilingualRecommendations, initialAccountData.preferences.multilingualRecommendations === true)
+  ))
   const [isQueueOpen, setIsQueueOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(initialAudioState.currentIndex)
   const shuffleEnabledRef = useRef(isShuffleEnabled)
   const repeatModeRef = useRef(initialAudioState.repeat)
   const metadataSyncedRef = useRef(false)
   const recommendationRequestRef = useRef(0)
+  const playRequestRef = useRef(0)
   const recommendationBufferRef = useRef([])
   const lastRecommendationAttemptRef = useRef('')
   const recommendationCacheRef = useRef(new Map())
@@ -549,6 +558,7 @@ export const PlayerProvider = ({ children }) => {
         updateIfChanged(setIsAutoplayEnabled, data.preferences.autoplay)
         updateIfChanged(setIsGaplessPlaybackEnabled, data.preferences.gapless)
         updateIfChanged(setIsDataSavingEnabled, data.preferences.dataSaving)
+        updateIfChanged(setUserPreferences, data.preferences)
         setAccountDataReady(true)
         if (pending.userId === userId && Object.keys(pending.changes).length) {
           queueAccountDataPatch(pendingAccountChangesRef, accountPatchTimerRef, userId, true, pending.changes)
@@ -691,6 +701,7 @@ export const PlayerProvider = ({ children }) => {
         setIsAutoplayEnabled(accountData.preferences.autoplay)
         setIsGaplessPlaybackEnabled(accountData.preferences.gapless)
         setIsDataSavingEnabled(accountData.preferences.dataSaving)
+        setUserPreferences(accountData.preferences)
         setAccountDataReady(!userId)
         pendingAccountChangesRef.current = { userId, changes: userId ? readPendingAccountChanges(userId) : {} }
         if (accountPatchTimerRef.current) window.clearTimeout(accountPatchTimerRef.current)
@@ -717,41 +728,45 @@ export const PlayerProvider = ({ children }) => {
     return audio ? { ...track, audio } : track
   }
 
-  const playTrack = (track, selectedQueue) => {
+  const playTrack = (track, selectedQueue, queueOverride, playRequestId) => {
     if (!track) return
-    if (!track.audio && !track.downloadUrl && track.id) {
-      const trackId = String(track.id)
-      if (resolvingQueueTrackIdsRef.current.has(trackId)) return
+    const needsTrackResolution = !track.audio && !track.downloadUrl && track.id
+    const trackId = String(track.id || '')
+    if (needsTrackResolution && playRequestId === undefined && resolvingQueueTrackIdsRef.current.has(trackId)) return
+
+    const activePlayRequestId = playRequestId === undefined ? playRequestRef.current + 1 : playRequestId
+    if (playRequestId === undefined) {
+      playRequestRef.current = activePlayRequestId
+      recommendationRequestRef.current += 1
+    } else if (!isPlayRequestCurrent(activePlayRequestId, playRequestRef.current)) {
+      return
+    }
+
+    const activeQueue = Array.isArray(queueOverride) ? queueOverride : queue
+    if (needsTrackResolution) {
       resolvingQueueTrackIdsRef.current.add(trackId)
       getSongById(trackId).then((resolvedTrack) => {
-        if (!resolvedTrack) return
-        const sourceQueue = Array.isArray(selectedQueue) ? selectedQueue : queue
-        const resolvedQueue = sourceQueue.map((queuedTrack) => String(queuedTrack?.id) === trackId ? { ...queuedTrack, ...resolvedTrack } : queuedTrack)
-        playTrack({ ...track, ...resolvedTrack }, resolvedQueue)
+        if (!resolvedTrack || !isPlayRequestCurrent(activePlayRequestId, playRequestRef.current)) return
+        const resolvedQueue = activeQueue.map((queuedTrack) => String(queuedTrack?.id) === trackId ? { ...queuedTrack, ...resolvedTrack } : queuedTrack)
+        playTrack({ ...track, ...resolvedTrack }, selectedQueue, resolvedQueue, activePlayRequestId)
       }).catch(() => {}).finally(() => resolvingQueueTrackIdsRef.current.delete(trackId))
       return
     }
 
-    const requestedQueue = Array.isArray(selectedQueue)
-      ? selectedQueue.map((queuedTrack) => queuedTrack && !queuedTrack.queueSource
-        ? { ...queuedTrack, queueSource: 'manual' }
-        : queuedTrack)
-      : queue
-    const selection = resolveQueueSelection(requestedQueue, track)
+    const isCollectionSelection = Array.isArray(selectedQueue)
+    const selection = isCollectionSelection
+      ? { queue: [track], currentIndex: -1, track, shouldRegenerate: true }
+      : resolveQueueSelection(activeQueue, track)
     const selectedTrack = selectTrackAudio(selection.track)
+    if (selectedTrack.queueSource === 'recommendation') recordRecommendationEvent(selectedTrack, 'recommendation_selected')
+    const shouldRegenerate = isCollectionSelection
+      || selection.shouldRegenerate
+      || selection.currentIndex !== currentIndex
 
-    if (!selection.shouldRegenerate) {
-      recommendationRequestRef.current += 1
+    if (!shouldRegenerate) {
       lastRecommendationAttemptRef.current = ''
       setIsQueueLoading(false)
-      if (selectedTrack.queueSource === 'recommendation') recordRecommendationEvent(selectedTrack, 'recommendation_selected')
-      if (Array.isArray(selectedQueue)) {
-        const selectedTracks = selection.queue.map((queuedTrack) => String(queuedTrack?.id) === String(selectedTrack.id) ? selectedTrack : queuedTrack)
-        setQueue(selectedTracks)
-        setAudioEngineQueue(selectedTracks, selection.currentIndex)
-      } else {
-        setAudioEngineQueue(queue, selection.currentIndex)
-      }
+      setAudioEngineQueue(activeQueue, selection.currentIndex)
       if (isShuffleEnabled) shufflePlayedIdsRef.current.add(String(selectedTrack.id))
       setCurrentIndex(selection.currentIndex)
       setListenHistory((history) => pushHistory(history, selectedTrack))
@@ -760,13 +775,10 @@ export const PlayerProvider = ({ children }) => {
       return
     }
 
-    recommendationRequestRef.current += 1
     const sourceTrack = selectTrackAudio({ ...normalizeRecommendationSong(selection.track), queueSource: 'seed' })
-    const preservedTracks = queue.filter((queuedTrack) => (
-      queuedTrack?.queueSource === 'manual' || !queuedTrack?.queueSource
-    ) && String(queuedTrack?.id || '') !== String(sourceTrack.id || ''))
+    const preserveAfterIndex = isCollectionSelection || selection.shouldRegenerate ? currentIndex : selection.currentIndex
+    const nextQueue = buildIndependentQueueSeed(sourceTrack, activeQueue, preserveAfterIndex)
     if (isShuffleEnabled) shufflePlayedIdsRef.current = new Set([String(sourceTrack.id)])
-    const nextQueue = [sourceTrack, ...preservedTracks]
     setQueue(nextQueue)
     setAudioEngineQueue(nextQueue, 0)
     setCurrentIndex(0)
@@ -780,6 +792,7 @@ export const PlayerProvider = ({ children }) => {
 
   const togglePlay = () => engineTogglePlay()
   const stopPlayback = () => {
+    playRequestRef.current += 1
     engineStop()
     setCurrentTrack(null)
     setQueue([])
@@ -916,6 +929,7 @@ export const PlayerProvider = ({ children }) => {
       nextTrack = queue[nextIndex]
     }
     if (!nextTrack) return
+    playRequestRef.current += 1
     if (isShuffleEnabled) shufflePlayedIdsRef.current.add(String(nextTrack.id))
     if (manualSkip && currentTrack) {
       const actualDuration = Number(audioRef.current?.duration) || Number(duration) || 0
@@ -941,6 +955,7 @@ export const PlayerProvider = ({ children }) => {
     const previousIndex = currentIndex - 1
     const previousTrack = queue[previousIndex]
     if (!previousTrack) return
+    playRequestRef.current += 1
     recommendationRequestRef.current += 1
     enginePrevious()
   }
@@ -953,6 +968,8 @@ export const PlayerProvider = ({ children }) => {
     engineSeekTo(position)
   }
   const prepareTransferredPlayback = (snapshot, resolvedQueue) => new Promise((resolve) => {
+    playRequestRef.current += 1
+    recommendationRequestRef.current += 1
     const tracks = Array.isArray(resolvedQueue) ? resolvedQueue : []
     const index = Math.max(0, Math.min(Number(snapshot.currentIndex) || 0, tracks.length - 1))
     const track = selectTrackAudio(tracks[index] || snapshot.track)
@@ -1074,6 +1091,26 @@ export const PlayerProvider = ({ children }) => {
     setIsQueueLoading(false)
     setIsAutoplayEnabled(Boolean(enabled))
   }
+  const setMultilingualRecommendationsEnabled = (enabled) => {
+    const nextEnabled = Boolean(enabled)
+    try { localStorage.setItem(PLAYER_PREFERENCES.multilingualRecommendations, String(nextEnabled)) } catch { /* Preference stays in memory if storage is unavailable. */ }
+    recommendationRequestRef.current += 1
+    recommendationBufferRef.current = []
+    recommendationCacheRef.current.clear()
+    lastRecommendationAttemptRef.current = ''
+    setIsQueueLoading(false)
+    setIsMultilingualRecommendationsEnabled(nextEnabled)
+
+    if (!nextEnabled && currentTrack) {
+      const currentLanguage = getSongLanguage(currentTrack)
+      setQueue((currentQueue) => [
+        ...currentQueue.slice(0, currentIndex + 1),
+        ...currentQueue.slice(currentIndex + 1).filter((track) => (
+          track.queueSource === 'manual' || (currentLanguage !== 'unknown' && getSongLanguage(track) === currentLanguage)
+        ))
+      ])
+    }
+  }
   const setGaplessPlaybackEnabled = (enabled) => setIsGaplessPlaybackEnabled(Boolean(enabled))
   const setDataSavingEnabled = (enabled) => setIsDataSavingEnabled(Boolean(enabled))
   const toggleQueue = () => setIsQueueOpen((open) => !open)
@@ -1173,15 +1210,25 @@ export const PlayerProvider = ({ children }) => {
         .slice(0, HISTORY_LIMIT)
         .map((event) => String(event.trackId || ''))
     ].filter(Boolean))
+    const collectionTracks = [
+      ...(Array.isArray(listenAgain) ? listenAgain : []),
+      ...(Array.isArray(userPlaylists) ? userPlaylists.flatMap((playlist) => (
+        Array.isArray(playlist?.songs) ? playlist.songs : Array.isArray(playlist?.tracks) ? playlist.tracks : []
+      )) : [])
+    ]
+    const collectionSignature = collectionTracks.map(getSongIdentity).sort().join(',')
+    const historySignature = [...recentIds].sort().join(',')
     const activeDislikes = getActiveDislikedTrackIds(recommendationEvents)
     const preferenceKey = [
       ...likedSongs.map((song) => String(song?.id || '')),
       ...followedArtists.map((artist) => `artist:${String(artist?.id || artist?._id || '')}`),
       ...notInterested.map((id) => String(id)),
       ...activeDislikes,
-      ...recommendationEvents.filter((event) => event.type === 'track_skipped').map((event) => String(event.trackId))
+      ...recommendationEvents.filter((event) => event.type === 'track_skipped').map((event) => String(event.trackId)),
+      `language:${userPreferences.preferredLanguage || ''}`,
+      `multilingual:${isMultilingualRecommendationsEnabled}`
     ].sort().join(',')
-    const cacheKey = `${getSongIdentity(currentTrack)}:${preferenceKey}`
+    const cacheKey = `${getSongIdentity(currentTrack)}:${preferenceKey}:${historySignature}:${collectionSignature}`
     const cached = recommendationCacheRef.current.get(cacheKey)
     if (cached && cached.expiresAt > Date.now()) {
       const recentIdentities = new Set([...recentIds].map((id) => `id:${id}`))
@@ -1201,11 +1248,13 @@ export const PlayerProvider = ({ children }) => {
     buildUpNextQueue(currentTrack, axiosInstance, {
       targetUpcomingCount: UPCOMING_QUEUE_TARGET,
       history: [...listenHistory, ...behaviorHistory],
+      collections: [listenAgain, userPlaylists],
       likedSongs,
       followedArtists,
       notInterested: disinterestedIds,
       recentIds,
       skipEvents: recommendationEvents.filter((event) => event.type === 'track_skipped'),
+      userPreferences: { ...userPreferences, multilingualRecommendations: isMultilingualRecommendationsEnabled },
       refreshSeed: String(requestId)
     }).then((generatedQueue) => {
       if (!isRecommendationRequestCurrent(requestId, recommendationRequestRef.current, isAutoplayEnabled)) return
@@ -1234,7 +1283,7 @@ export const PlayerProvider = ({ children }) => {
     })
 
     return undefined
-  }, [currentIndex, currentTrack, followedArtists, isAutoplayEnabled, isQueueLoading, likedSongs, listenHistory, notInterested, queueRefillRequest, recommendationEvents, queue])
+  }, [currentIndex, currentTrack, followedArtists, isAutoplayEnabled, isMultilingualRecommendationsEnabled, isQueueLoading, likedSongs, listenAgain, listenHistory, notInterested, queueRefillRequest, recommendationEvents, queue, userPlaylists, userPreferences])
 
   useEffect(() => {
     shuffleEnabledRef.current = isShuffleEnabled
@@ -1286,7 +1335,7 @@ export const PlayerProvider = ({ children }) => {
   }, [isAutoplayEnabled, isRepeatEnabled, isShuffleEnabled, volume])
 
   return (
-    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, isQueueLoading, isAutoplayEnabled, setIsAutoplayEnabled: setAutoplayEnabled, isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled: setGaplessPlaybackEnabled, isDataSavingEnabled, setIsDataSavingEnabled: setDataSavingEnabled, listenHistory, likedSongs, followedArtists, toggleFollowArtist, recommendationEvents, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, searchHistory, setSearchHistory, feedbackHistory, setFeedbackHistory, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue, prepareTransferredPlayback, pauseForHandoff, setPlaybackPaused, startPreparedPlayback }}>
+    <PlayerContext.Provider value={{ currentTrack, queue, currentIndex, isQueueLoading, isAutoplayEnabled, setIsAutoplayEnabled: setAutoplayEnabled, isGaplessPlaybackEnabled, setIsGaplessPlaybackEnabled: setGaplessPlaybackEnabled, isDataSavingEnabled, setIsDataSavingEnabled: setDataSavingEnabled, isMultilingualRecommendationsEnabled, setMultilingualRecommendationsEnabled, listenHistory, likedSongs, followedArtists, toggleFollowArtist, recommendationEvents, isLiked, toggleLike, addToQueue, addTracksToQueue, reorderQueue, listenAgain, addToListenAgain, isNotInterested, markNotInterested, restoreInterest, addToLibrary, removeFromLibrary, userPlaylists, setUserPlaylists, searchHistory, setSearchHistory, feedbackHistory, setFeedbackHistory, isPlaying, progress, duration, volume, setVolume, isShuffleEnabled, isRepeatEnabled, isQueueOpen, playTrack, togglePlay, stopPlayback, next, previous, seek, toggleShuffle, toggleRepeat, toggleQueue, closeQueue, prepareTransferredPlayback, pauseForHandoff, setPlaybackPaused, startPreparedPlayback }}>
         {children}
         <audio ref={preloadAudioRef} preload="auto" aria-hidden="true" className="hidden" />
     </PlayerContext.Provider>
