@@ -1,4 +1,4 @@
-import { getBestImageUrl } from '../utils/mediaQuality'
+import { getBestAudioUrl, getBestImageUrl, getSameQualityAlternateAudioUrl } from '../utils/mediaQuality'
 import { logLifecycle } from './lifecycleLog'
 
 const QUEUE_KEY = 'autumn_player_state_v1'
@@ -87,35 +87,44 @@ const getTrackArtist = (song) => song?.artists?.primary?.map((artist) => artist?
 const getTrackAlbum = (song) => song?.album?.name || (typeof song?.album === 'string' ? song.album : '') || 'Autumn'
 
 const audioVariants = (song) => {
-  const field = song?.downloadUrl
-  const variants = typeof field === 'string'
-    ? [{ url: field, quality: 0 }]
-    : Array.isArray(field)
-      ? field
-      : field && typeof field === 'object'
-        ? Object.entries(field).map(([key, value]) => typeof value === 'string' ? { url: value, quality: key } : { ...value, quality: value.quality || value.bitrate || key })
-        : []
-  return variants.map((item) => ({
-    url: item?.url || item?.src || item?.link || item?.downloadUrl,
-    quality: Number(String(item?.quality || item?.bitrate || item?.kbps || item?.key || '').match(/\d+/)?.[0]) || 0
-  })).filter((item) => typeof item.url === 'string' && item.url.trim())
+  const variants = [song?.downloadUrl, song?.audio].flatMap((field) => (
+    typeof field === 'string'
+      ? [{ url: field, quality: 0 }]
+      : Array.isArray(field)
+        ? field
+        : field && typeof field === 'object'
+          ? Object.entries(field).map(([key, value]) => typeof value === 'string' ? { url: value, quality: key } : { ...value, quality: value.quality || value.bitrate || key })
+          : []
+  ))
+  const uniqueVariants = new Map()
+
+  variants.forEach((item) => {
+    const url = item?.url || item?.src || item?.link || item?.downloadUrl
+    if (typeof url !== 'string' || !url.trim()) return
+
+    const quality = Number(String(item?.quality || item?.bitrate || item?.kbps || item?.key || '').match(/\d+/)?.[0]) || 0
+    const existing = uniqueVariants.get(url)
+    if (!existing || quality > existing.quality) uniqueVariants.set(url, { url, quality })
+  })
+
+  return [...uniqueVariants.values()]
 }
 
 const pickUrl = (song) => {
-  const variants = audioVariants(song)
-  return variants.find((item) => item.quality === 160)?.url
-    || variants.find((item) => item.quality === 320)?.url
-    || variants[0]?.url
+  return getBestAudioUrl(audioVariants(song))
     || song?.audio
     || null
 }
 
-const pickAlternateUrl = (song, currentUrl) => audioVariants(song).find((item) => item.url !== currentUrl)?.url || null
+const pickAlternateUrl = (song, currentUrl) => getSameQualityAlternateAudioUrl(audioVariants(song), currentUrl)
 
 const trimSong = (song) => {
   if (!song?.id) return null
-  const variants = audioVariants(song).filter((item) => item.quality === 160 || item.quality === 320)
-  const downloadUrl = variants.map(({ url, quality }) => ({ url, quality: `${quality}kbps` }))
+  const variants = audioVariants(song)
+  const downloadUrl = variants.map(({ url, quality }) => ({
+    url,
+    ...(quality ? { quality: `${quality}kbps` } : {})
+  }))
   const image = getBestImageUrl(song.image)
   return {
     id: song.id,

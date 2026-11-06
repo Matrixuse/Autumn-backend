@@ -57,29 +57,26 @@ const numericValue = (item, keys) => {
     }
   }
 
-  const text = Object.values(item || {}).map((value) => String(value ?? '')).join(' ')
-  const parsed = normalizedNumber(text)
-  return parsed || 0
+  return 0
 }
 
-/** Returns the highest bitrate URL from a string, keyed object, or variant array. */
-export const getBestAudioUrl = (audioField) => entriesFrom(audioField)
+const collectAudioCandidates = (audioField) => entriesFrom(audioField)
   .map((item) => ({
     url: usableUrl(item.url || item.src || item.link || item.downloadUrl),
-    score: numericValue(item, ['bitrate', 'kbps', 'quality', 'size'])
+    score: numericValue(item, ['bitrate', 'kbps', 'quality', 'key'])
   }))
   .filter((item) => item.url)
+
+/** Returns the highest bitrate URL from a string, keyed object, or variant array. */
+export const getBestAudioUrl = (audioField) => collectAudioCandidates(audioField)
   .sort((a, b) => b.score - a.score)[0]?.url || null
 
-export const getDataSavingAudioUrl = (audioField) => {
-  const variants = entriesFrom(audioField)
-    .map((item) => ({
-      url: usableUrl(item.url || item.src || item.link || item.downloadUrl),
-      score: normalizedNumber(item.bitrate ?? item.kbps ?? item.quality ?? item.key)
-    }))
-    .filter((item) => item.url)
-  const knownBitrates = variants.filter((item) => item.score > 0).sort((first, second) => first.score - second.score)
-  return knownBitrates[0]?.url || variants[0]?.url || getBestAudioUrl(audioField)
+export const getSameQualityAlternateAudioUrl = (audioField, currentUrl) => {
+  const candidates = collectAudioCandidates(audioField)
+  const current = candidates.find((candidate) => candidate.url === currentUrl)
+  if (!current) return null
+
+  return candidates.find((candidate) => candidate.url !== currentUrl && candidate.score === current.score)?.url || null
 }
 
 /** Returns the largest image URL from a string, keyed object, or variant array. */

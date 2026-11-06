@@ -6,7 +6,9 @@ const productionApiOrigin = 'https://autumn-backend.getvoroa.com'
 const useProductionFallback = import.meta.env.PROD && (
   !configuredBaseUrl || configuredBaseUrl.includes('.run.app') || configuredBaseUrl.includes('.workers.dev')
 )
-const apiOrigin = useProductionFallback ? productionApiOrigin : configuredBaseUrl
+const apiOrigin = import.meta.env.DEV
+  ? null
+  : useProductionFallback ? productionApiOrigin : configuredBaseUrl
 const baseURL = apiOrigin
   ? (apiOrigin.endsWith('/api') ? apiOrigin : `${apiOrigin}/api`)
   : '/api'
