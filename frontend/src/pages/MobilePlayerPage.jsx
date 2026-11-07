@@ -383,7 +383,7 @@ export default function MobilePlayerPage() {
           aria-modal="true"
           onClick={(event) => event.stopPropagation()}
           className={`absolute inset-x-0 bottom-0 h-dvh overflow-hidden rounded-t-xl border-t border-white/10 bg-[#101010] shadow-[0_-20px_80px_rgba(0,0,0,0.65)] ${detailsDragOffset ? '' : 'transition-transform duration-500 ease-out'} ${isDetailsOpen ? 'translate-y-0' : 'translate-y-full'}`}
-          style={{ transform: `translateY(${isDetailsOpen ? detailsDragOffset : window.innerHeight}px)` }}
+          style={{ backgroundColor: detailsBackgroundColor, transform: `translateY(${isDetailsOpen ? detailsDragOffset : window.innerHeight}px)` }}
         >
           <div
             className="mx-4 mt-4 flex touch-none items-center gap-3 border-b border-white/10 pb-2"
@@ -412,12 +412,7 @@ export default function MobilePlayerPage() {
                 {isPlaying ? <Pause size={25} fill="currentColor" /> : <Play size={25} fill="currentColor" />}
             </button>
           </div>
-          <div
-            style={{
-              backgroundColor: detailsBackgroundColor,
-              transform: `translateY(${isDetailsOpen ? detailsDragOffset : window.innerHeight}px)`
-            }}
-          >
+          <div>
             <button
               type="button"
               aria-label="Close player details"
