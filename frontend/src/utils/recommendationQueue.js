@@ -76,10 +76,28 @@ export const shuffleRecommendationList = (items = [], { rng = Math.random, seed 
   return list
 }
 
+const hollywoodArtistHints = [
+  'adele', 'alan walker', 'billie eilish', 'bruno mars', 'coldplay', 'dua lipa', 'ed sheeran',
+  'harry styles', 'imagine dragons', 'justin bieber', 'one direction', 'taylor swift', 'the weeknd'
+]
+const hollywoodTitleHints = ['as it was', 'bad guy', 'flowers', 'levitating', 'shape of you']
+
+const getRecommendationLanguage = (song = {}) => {
+  const language = getSongLanguage(song)
+  if (language !== 'unknown') return language
+  const title = normalizeText(song.title || song.name)
+  const artist = normalizeText(getPrimaryArtistName(song))
+  return hollywoodArtistHints.some((hint) => artist.includes(hint))
+    || hollywoodTitleHints.some((hint) => title.includes(hint))
+    ? 'english'
+    : 'unknown'
+}
+
 const shouldRetainSongLanguage = (sourceSong = {}, candidateSong = {}, allowMultilingual = false) => {
-  const sourceLanguage = getSongLanguage(sourceSong)
-  const candidateLanguage = getSongLanguage(candidateSong)
+  const sourceLanguage = getRecommendationLanguage(sourceSong)
+  const candidateLanguage = getRecommendationLanguage(candidateSong)
   if (candidateLanguage === 'unknown') return false
+  if (sourceLanguage === 'english') return candidateLanguage === 'english'
   if (allowMultilingual) return true
   if (sourceLanguage === 'unknown') return false
   return candidateLanguage === sourceLanguage
@@ -90,7 +108,7 @@ export const resolveRecommendationLanguage = (sourceSong = {}, {
   likedSongs = [],
   userPreferences = {}
 } = {}) => {
-  const sourceLanguage = getSongLanguage(sourceSong)
+  const sourceLanguage = getRecommendationLanguage(sourceSong)
   if (sourceLanguage !== 'unknown') return sourceLanguage
 
   const preferences = userPreferences && typeof userPreferences === 'object' ? userPreferences : {}
@@ -656,6 +674,29 @@ const rankCandidates = ({ candidates, sourceSong, history, likedSongs, followedA
   .filter((candidate) => Number.isFinite(candidate.score))
   .sort((first, second) => second.score - first.score || getSongIdentity(first).localeCompare(getSongIdentity(second)))
 
+const interleaveRecommendationSources = (candidates = [], limit = 50) => {
+  const sources = new Map()
+  for (const candidate of candidates) {
+    const source = candidate.recommendationSource || 'recommendations'
+    if (!sources.has(source)) sources.set(source, [])
+    sources.get(source).push(candidate)
+  }
+
+  const mixed = []
+  while (mixed.length < limit) {
+    let added = false
+    for (const sourceCandidates of sources.values()) {
+      const candidate = sourceCandidates.shift()
+      if (!candidate) continue
+      mixed.push(candidate)
+      added = true
+      if (mixed.length >= limit) break
+    }
+    if (!added) break
+  }
+  return mixed
+}
+
 const flattenCollectionSongs = (collections = []) => {
   const songs = []
   const visit = (value, inheritedMood = '') => {
@@ -689,6 +730,7 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
   collections = [],
   moodCollections = [],
   availableSongs = [],
+  candidateSources = {},
   followedArtists = [],
   notInterested = [],
   recentIds = new Set(),
@@ -735,13 +777,14 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
       allowMultilingual,
       scoringWeights
     })
-    const recommendations = diversifyRecommendationCandidates(ranked, target, {
+    const balancedCandidates = interleaveRecommendationSources(ranked, target)
+    const recommendations = diversifyRecommendationCandidates(balancedCandidates, target, {
       maxConsecutiveArtist,
       maxPerArtist,
       refreshSeed: `${refreshSeed || shuffleSeed || 'autumn'}:${stage}`,
       rng
     })
-    const queue = [normalizedSource, ...recommendations]
+    const queue = [normalizedSource, ...interleaveRecommendationSources(recommendations, target)]
     try {
       onUpdate(queue, { stage, count: recommendations.length, target, consideredBySource, acceptedBySource })
     } catch {
@@ -784,8 +827,35 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
   addCandidates([...likedCandidates, ...historyCandidates], 'user library and history')
   addCandidates(collectionCandidates, 'user collections')
   addCandidates(catalogCandidates, 'available catalog')
+  addCandidates(candidateSources.quickPicks, 'quick picks')
+  addCandidates(candidateSources.mostListened, 'most listened')
+  addCandidates(candidateSources.followedArtists, 'followed artists')
+  addCandidates(candidateSources.moods, 'mood discovery')
+  addCandidates(candidateSources.popular, 'most popular')
 
   if (target > 0 && apiClient && (sourceLanguage !== 'unknown' || allowMultilingual)) {
+    const followedArtistQueries = (Array.isArray(followedArtists) ? followedArtists : [])
+      .map((artist) => String(artist?.name || artist?.title || '').trim())
+      .filter(Boolean)
+      .slice(0, 5)
+    const moodQueries = [...new Set([
+      ...(Array.isArray(normalizedSource.mood) ? normalizedSource.mood : [normalizedSource.mood]),
+      ...(Array.isArray(normalizedSource.moods) ? normalizedSource.moods : []),
+      ...getGenres(normalizedSource)
+    ].map((value) => String(value || '').trim()).filter(Boolean))].slice(0, 3)
+    const discoveryBatches = await Promise.all([
+      ...followedArtistQueries.map((artist) => getSearchSongs(apiClient, artist, 12)),
+      ...moodQueries.map((mood) => getSearchSongs(apiClient, `${sourceLanguage} ${mood} songs`, 12)),
+      getSearchSongs(apiClient, `popular ${sourceLanguage} songs`, 24),
+      getSearchSongs(apiClient, `trending ${sourceLanguage} songs`, 24)
+    ])
+    const followedCount = followedArtistQueries.length
+    const moodCount = moodQueries.length
+    followedArtistQueries.forEach((_, index) => addCandidates(discoveryBatches[index], 'followed artists'))
+    moodQueries.forEach((_, index) => addCandidates(discoveryBatches[followedCount + index], 'mood discovery'))
+    addCandidates(discoveryBatches[followedCount + moodCount], 'most popular')
+    addCandidates(discoveryBatches[followedCount + moodCount + 1], 'most popular')
+
     if (candidatePool.length < target && !acceptedBySource['artist search']) {
       const artist = getPrimaryArtistName(normalizedSource).split(',')[0].trim()
       const artistResults = await getSearchSongs(apiClient, artist, 50)
@@ -823,19 +893,22 @@ export const buildUpNextQueue = async (sourceSong, apiClient, {
     allowMultilingual,
     scoringWeights
   })
-  const diversifiedCandidates = diversifyRecommendationCandidates(rankedCandidates, Math.max(target, rankedCandidates.length), {
+  const balancedCandidates = interleaveRecommendationSources(rankedCandidates, target)
+  const diversifiedCandidates = diversifyRecommendationCandidates(balancedCandidates, target, {
     maxConsecutiveArtist,
     maxPerArtist,
     refreshSeed: `${refreshSeed || shuffleSeed || 'autumn'}:complete`,
     rng
   })
-  const recommendations = diversifiedCandidates.slice(0, target)
+  const recommendations = interleaveRecommendationSources(diversifiedCandidates, target)
   const queue = [normalizedSource, ...recommendations]
   const validation = validateGeneratedQueue(queue, { sourceSong: languageSource, targetLength: target, requireMinimum: false, allowMultilingual })
 
   if (recommendations.length < target || !validation.isValid) {
-    const fallbackCandidates = rankedCandidates.filter((candidate) => shouldRetainSongLanguage(languageSource, candidate, allowMultilingual))
-      .slice(0, target)
+    const fallbackCandidates = interleaveRecommendationSources(
+      rankedCandidates.filter((candidate) => shouldRetainSongLanguage(languageSource, candidate, allowMultilingual)),
+      target
+    )
     const fallbackQueue = [normalizedSource, ...fallbackCandidates]
     const resetValidation = validateGeneratedQueue(fallbackQueue, { sourceSong: languageSource, targetLength: target, requireMinimum: false, allowMultilingual })
     if (resetValidation.isValid) {

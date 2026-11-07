@@ -1,5 +1,6 @@
 import { getBestAudioUrl, getBestImageUrl, getSameQualityAlternateAudioUrl } from '../utils/mediaQuality'
 import { logLifecycle } from './lifecycleLog'
+import { isRestorableQueueState, QUEUE_SCHEMA_VERSION } from '../utils/playerQueueState.js'
 
 const QUEUE_KEY = 'autumn_player_state_v1'
 const POSITION_KEY = 'autumn_player_pos_v1'
@@ -33,20 +34,21 @@ const restoreValid = savedQueueState
   && Date.now() - Number(savedQueueState.savedAt || 0) <= MAX_STATE_AGE
   && Array.isArray(savedQueueState.queue)
   && savedQueueState.queue.every((song) => song?.id)
-if (!restoreValid) {
+const restoreQueue = isRestorableQueueState(savedQueueState)
+if (!restoreValid || !restoreQueue) {
   try {
     localStorage.removeItem(QUEUE_KEY)
     localStorage.removeItem(POSITION_KEY)
   } catch { /* Invalid or expired playback state is discarded silently. */ }
 }
 
-let queue = restoreValid
+let queue = restoreQueue
   ? savedQueueState.queue.map((song, index) => ({
     ...song,
     ...(savedQueueState.origin?.queueSources?.[index] ? { queueSource: savedQueueState.origin.queueSources[index] } : {})
   }))
   : []
-let currentIndex = restoreValid && Number.isInteger(savedQueueState.currentIndex)
+let currentIndex = restoreQueue && Number.isInteger(savedQueueState.currentIndex)
   ? Math.min(Math.max(savedQueueState.currentIndex, -1), queue.length - 1)
   : -1
 let shuffle = restoreValid && Boolean(savedQueueState.shuffle)
@@ -58,11 +60,11 @@ let metadataPending = false
 let lastPositionWrite = 0
 let lastMediaPositionUpdate = 0
 let lastQueuePayload = ''
-let pendingPosition = restoreValid && savedPositionState
+let pendingPosition = restoreQueue && savedPositionState
   && Date.now() - Number(savedPositionState.savedAt || 0) <= MAX_STATE_AGE
   ? Math.max(0, Number(savedPositionState.position) || 0)
   : 0
-let persistedIsPlaying = Boolean(savedPositionState?.isPlaying)
+let persistedIsPlaying = Boolean(restoreQueue && savedPositionState?.isPlaying)
 let onTrackChanged = () => {}
 let onStateChange = () => {}
 let onProgress = () => {}
@@ -74,7 +76,7 @@ let onError = () => {}
 let retryCount = 0
 let failureHandled = false
 let playedIds = new Set(currentIndex >= 0 && queue[currentIndex]?.id ? [String(queue[currentIndex].id)] : [])
-let restorePending = Boolean(restoreValid && queue[currentIndex])
+let restorePending = Boolean(restoreQueue && queue[currentIndex])
 let preloadEnabled = PRELOAD_NEXT
 let preloadedUrl = null
 let preloadedTrackId = null
@@ -145,6 +147,7 @@ const persistQueue = () => {
   const trimmedQueue = queue.map(trimSong).filter(Boolean)
   const state = {
     version: 1,
+    queueSchemaVersion: QUEUE_SCHEMA_VERSION,
     queue: trimmedQueue,
     currentIndex,
     shuffle,
@@ -437,7 +440,7 @@ export function stop() {
 }
 
 const restoreSavedTrack = () => {
-  if (!audio || !restoreValid || currentIndex < 0 || !queue[currentIndex]) return
+  if (!audio || !restoreQueue || currentIndex < 0 || !queue[currentIndex]) return
   const song = queue[currentIndex]
   audio.volume = volume
   audio.src = pickUrl(song) || ''

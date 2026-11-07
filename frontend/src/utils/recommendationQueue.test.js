@@ -298,6 +298,29 @@ test('candidate builder returns only real playable history tracks when providers
   assert.deepEqual(queue.map((song) => song.id), ['seed', 'known-history'])
 })
 
+test('up next interleaves Quick Picks, listening, followed-artist, mood, and popular sources', async () => {
+  const makeSource = (prefix) => Array.from({ length: 4 }, (_, index) => track(`${prefix}-${index}`, {
+    artist: `${prefix} Artist ${index}`
+  }))
+  const queue = await buildUpNextQueue(source, null, {
+    targetUpcomingCount: 10,
+    candidateSources: {
+      quickPicks: makeSource('quick'),
+      mostListened: makeSource('listened'),
+      followedArtists: makeSource('followed'),
+      moods: makeSource('mood'),
+      popular: makeSource('popular')
+    }
+  })
+
+  const sources = queue.slice(1).map((song) => song.recommendationSource)
+  assert.equal(queue.length, 11)
+  assert.deepEqual(new Set(sources), new Set(['quick picks', 'most listened', 'followed artists', 'mood discovery', 'most popular']))
+  for (const sourceName of new Set(sources)) {
+    assert.equal(sources.filter((name) => name === sourceName).length, 2)
+  }
+})
+
 test('english seed yields a 50-song english-only queue when enough eligible tracks exist', async () => {
   const englishTracks = Array.from({ length: 60 }, (_, index) => ({
     ...track(`english-${index}`, { language: 'english', artist: `English Artist ${index % 8}` }),
@@ -323,6 +346,43 @@ test('english seed yields a 50-song english-only queue when enough eligible trac
   assert.ok(queue.length >= 51)
   assert.ok(queue.slice(1).every((song) => String(song.language || song.lang || '').toLowerCase() === 'english'))
   assert.equal(new Set(queue.map((song) => song.id)).size, queue.length)
+})
+
+test('English-only selection overrides the multilingual recommendations preference', async () => {
+  const candidates = [
+    track('english-candidate', { language: 'english' }),
+    track('hindi-candidate', { language: 'hindi' })
+  ]
+  const apiClient = {
+    get: async () => ({ data: { data: candidates } })
+  }
+  const queue = await buildUpNextQueue(source, apiClient, {
+    targetUpcomingCount: 10,
+    userPreferences: { multilingualRecommendations: true }
+  })
+
+  assert.ok(queue.slice(1).length > 0)
+  assert.ok(queue.slice(1).every((song) => song.language === 'english'))
+  assert.ok(!queue.some((song) => song.id === 'hindi-candidate'))
+})
+
+test('Hollywood seed without language metadata still gets English-only recommendations', async () => {
+  const hollywoodSeed = track('hollywood-seed', {
+    title: 'Bad Guy',
+    artist: 'Billie Eilish',
+    language: 'unknown'
+  })
+  const candidates = [
+    track('hollywood-candidate', { title: 'Shape of You', artist: 'Ed Sheeran', language: 'unknown' }),
+    track('hindi-candidate', { language: 'hindi' })
+  ]
+  const apiClient = { get: async () => ({ data: { data: candidates } }) }
+  const queue = await buildUpNextQueue(hollywoodSeed, apiClient, {
+    targetUpcomingCount: 10,
+    userPreferences: { multilingualRecommendations: true }
+  })
+
+  assert.deepEqual(queue.slice(1).map((song) => song.id), ['hollywood-candidate'])
 })
 
 test('Hindi seed excludes English and unknown-language candidates at the final filter', async () => {
