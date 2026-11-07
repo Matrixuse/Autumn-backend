@@ -261,7 +261,7 @@ export default function KeepListening() {
   )
 
   return (
-    <div className="flex h-[calc(100vh-11rem)] animate-[queue-reveal_.45s_ease-out] flex-col gap-2 overflow-hidden rounded bg-linear-to-br from-[#0f0f0f] to-[#080a0c] shadow-2xl sm:flex-row">
+    <div className="flex h-[calc(100vh-11rem)] animate-[queue-reveal_.45s_ease-out] flex-col gap-2 overflow-hidden rounded bg-transparent shadow-2xl sm:flex-row">
       <div className="min-h-0 w-3/5 overflow-hidden md:w-1/2 sm:w-3/5">
         <div className="flex h-full min-h-0 flex-col items-center">
           <h1 className="mb-4 w-full text-2xl font-bold">Keep Listening</h1>
