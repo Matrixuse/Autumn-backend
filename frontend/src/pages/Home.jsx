@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useState } from 'react'
 import MoodChips from '../components/sections/MoodChips'
 import ListenAgain from '../components/sections/ListenAgain'
 import PopularArtists from '../components/sections/PopularArtists'
@@ -70,6 +70,17 @@ const fixedArtistNames = [
   'Guru Randhawa',
   'Badshah'
 ]
+
+const homeSectionRequests = new Map()
+
+const getOrCreateHomeSectionRequest = (key, loader) => {
+  const activeRequest = homeSectionRequests.get(key)
+  if (activeRequest) return activeRequest
+
+  const request = Promise.resolve().then(loader)
+  homeSectionRequests.set(key, request)
+  return request
+}
 
 const normalizeName = (value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 
@@ -163,6 +174,7 @@ export default function Home() {
   const shouldShowPastPlays = isPastPlaysEligible && pastPlaysSongs.length > 0
   const { songs: newReleaseSongs, loading: releaseLoading, error: releaseError } = useFetchNewReleases(listenHistory)
   const { songs: longSongs, loading: longLoading, error: longError } = useFetchLongSongs(listenHistory)
+  const getCurrentListenHistory = useEffectEvent(() => listenHistory)
   const discoverySongs = useMemo(() => getDiscoveryPool(
     songs,
     newReleaseSongs,
@@ -307,11 +319,14 @@ export default function Home() {
     const loadArtists = async () => {
       const cached = readDailyCache('artists', userId, rotationDate)
       if (isCompleteArtistSet(cached)) {
-        setArtists(cached)
+        if (isMounted) setArtists(cached)
         return
       }
 
-      const results = await mapWithConcurrency(fixedArtistNames, fetchArtistDetails, 3)
+      const results = await getOrCreateHomeSectionRequest(
+        `artists:${userId}:${rotationDate}`,
+        () => mapWithConcurrency(fixedArtistNames, fetchArtistDetails, 3)
+      )
       if (isCompleteArtistSet(results)) writeDailyCache('artists', results, userId, rotationDate)
       if (isMounted) setArtists(results)
     }
@@ -319,10 +334,13 @@ export default function Home() {
     const loadMixPlaylists = async () => {
       const cached = readDailyCache('mix', userId, rotationDate)
       if (cached?.length) {
-        setMixPlaylists(cached)
+        if (isMounted) setMixPlaylists(cached)
         return
       }
-      const results = await getMixForYouPlaylists(listenHistory, 10)
+      const results = await getOrCreateHomeSectionRequest(
+        `mix:${userId}:${rotationDate}`,
+        () => getMixForYouPlaylists(getCurrentListenHistory(), 10)
+      )
       const shuffled = shuffleForDailyRotation(results, { userId, scope: 'mix-for-you', date: rotationDate })
       writeDailyCache('mix', shuffled, userId, rotationDate)
       if (isMounted) setMixPlaylists(shuffled)
@@ -331,10 +349,13 @@ export default function Home() {
     const loadAlbums = async () => {
       const cached = readDailyCache('albums', userId, rotationDate)
       if (cached?.length) {
-        setAlbumsForYou(cached)
+        if (isMounted) setAlbumsForYou(cached)
         return
       }
-      const results = await getAlbumsForYou(listenHistory, 10)
+      const results = await getOrCreateHomeSectionRequest(
+        `albums:${userId}:${rotationDate}`,
+        () => getAlbumsForYou(getCurrentListenHistory(), 10)
+      )
       const shuffled = shuffleForDailyRotation(results, { userId, scope: 'albums-for-you', date: rotationDate })
       writeDailyCache('albums', shuffled, userId, rotationDate)
       if (isMounted) setAlbumsForYou(shuffled)
@@ -347,7 +368,7 @@ export default function Home() {
     return () => {
       isMounted = false
     }
-  }, [listenHistory, rotationDate, userId])
+  }, [rotationDate, userId])
 
   useEffect(() => {
     let isMounted = true
@@ -366,7 +387,7 @@ export default function Home() {
   return (
     <div className="min-h-screen w-full overflow-x-hidden">
         <div className="flex flex-col space-y-5 md:space-y-10">
-          <div className="order-0 lg:order-1"><MoodChips /></div>
+            <div className="order-0 lg:order-1"><MoodChips /></div>
             <div className="order-1 lg:order-3"><QuickPicks songs={quickPickSongs} homeMobileGrid /></div>
             <div className="order-2 lg:order-2"><ListenAgain songs={listenAgainSongs} /></div>
             <div className="order-3 lg:order-5"><Library songs={librarySongs} /></div>

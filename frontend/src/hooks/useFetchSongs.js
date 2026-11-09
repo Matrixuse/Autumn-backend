@@ -5,6 +5,7 @@ import { setItemWithCacheEviction } from '../utils/storage'
 
 const getLibraryBucketKey = () => Math.floor(Date.now() / LIBRARY_ROTATION_MS)
 const quickPicksRequests = new Map()
+const dailySectionRequests = new Map()
 
 const getOrCreateQuickPicksRequest = (key, options) => {
   const activeRequest = quickPicksRequests.get(key)
@@ -14,6 +15,15 @@ const getOrCreateQuickPicksRequest = (key, options) => {
     if (quickPicksRequests.get(key) === request) quickPicksRequests.delete(key)
   })
   quickPicksRequests.set(key, request)
+  return request
+}
+
+const getOrCreateDailySectionRequest = (key, loader) => {
+  const activeRequest = dailySectionRequests.get(key)
+  if (activeRequest) return activeRequest
+
+  const request = Promise.resolve().then(loader)
+  dailySectionRequests.set(key, request)
   return request
 }
 
@@ -188,7 +198,10 @@ export const useFetchNewReleases = (history = []) => {
       setError(null)
 
       try {
-        const results = await getNewReleaseSongs(history, 8)
+        const results = await getOrCreateDailySectionRequest(
+          `new-releases-${getLibraryBucketKey()}`,
+          () => getNewReleaseSongs(history, 8)
+        )
         setSongs(results)
       } catch (err) {
         setError(err)
@@ -215,7 +228,10 @@ export const useFetchLongSongs = (history = []) => {
       setError(null)
 
       try {
-        const results = await getLongToListenSongs(history, 24)
+        const results = await getOrCreateDailySectionRequest(
+          `long-songs-${getLibraryBucketKey()}`,
+          () => getLongToListenSongs(history, 24)
+        )
         setSongs(results)
       } catch (err) {
         setError(err)

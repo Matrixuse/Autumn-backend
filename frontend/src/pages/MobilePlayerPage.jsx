@@ -65,13 +65,36 @@ export default function MobilePlayerPage() {
     albumsLoading
   } = useRelatedTrackDetails(currentTrack)
   const gestureStartRef = useRef(null)
+  const artworkSwipeStartRef = useRef(null)
+  const artworkSwipeTimerRef = useRef(null)
+  const tabSwipeStartRef = useRef(null)
+  const tabContentRef = useRef(null)
+  const previousTabRef = useRef(activeTab)
   const [playerDragOffset, setPlayerDragOffset] = useState(0)
+  const [artworkSwipeOffset, setArtworkSwipeOffset] = useState(0)
+  const [isArtworkSwipeAnimating, setIsArtworkSwipeAnimating] = useState(false)
 
   const image = getBestImageUrl(currentTrack?.image)
   const currentTitle = currentTrack?.title || currentTrack?.name || 'Unknown Track'
   const currentArtist = getSongArtists(currentTrack)
   const nextTracks = currentIndex >= 0 ? queue.slice(currentIndex + 1) : queue
   const { lyrics, copyright: lyricsCopyright, loading: lyricsLoading } = useLyrics(currentTrack, activeTab === 'LYRICS')
+
+  useEffect(() => {
+    const content = tabContentRef.current
+    const previousIndex = tabs.indexOf(previousTabRef.current)
+    const currentIndex = tabs.indexOf(activeTab)
+    previousTabRef.current = activeTab
+
+    if (!content || previousIndex === currentIndex || typeof content.animate !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
+
+    const animation = content.animate([
+      { opacity: 0.72, transform: `translateX(${currentIndex > previousIndex ? '18px' : '-18px'})` },
+      { opacity: 1, transform: 'translateX(0)' }
+    ], { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' })
+
+    return () => animation.cancel()
+  }, [activeTab])
 
   useEffect(() => {
     let midnightTimer
@@ -91,6 +114,8 @@ export default function MobilePlayerPage() {
     updateDailyBackground()
     return () => window.clearTimeout(midnightTimer)
   }, [])
+
+  useEffect(() => () => window.clearTimeout(artworkSwipeTimerRef.current), [])
 
   const recommendedTracks = useMemo(() => {
     const normalize = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -185,6 +210,62 @@ export default function MobilePlayerPage() {
     if (delta > 64) minimizePlayer()
   }
 
+  const handleArtworkTouchStart = (event) => {
+    if (event.touches.length !== 1) {
+      artworkSwipeStartRef.current = null
+      return
+    }
+
+    event.stopPropagation()
+    window.clearTimeout(artworkSwipeTimerRef.current)
+    setArtworkSwipeOffset(0)
+    setIsArtworkSwipeAnimating(false)
+    const touch = event.touches[0]
+    artworkSwipeStartRef.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  const handleArtworkTouchMove = (event) => {
+    const start = artworkSwipeStartRef.current
+    if (!start) return
+
+    event.stopPropagation()
+    const touch = event.touches[0]
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      setArtworkSwipeOffset(Math.max(-140, Math.min(140, deltaX)))
+    } else {
+      setArtworkSwipeOffset(0)
+    }
+  }
+
+  const handleArtworkTouchEnd = (event) => {
+    const start = artworkSwipeStartRef.current
+    artworkSwipeStartRef.current = null
+    event.stopPropagation()
+    if (!start || !event.changedTouches.length) return
+
+    const touch = event.changedTouches[0]
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) < 60 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) {
+      setIsArtworkSwipeAnimating(true)
+      setArtworkSwipeOffset(0)
+      artworkSwipeTimerRef.current = window.setTimeout(() => setIsArtworkSwipeAnimating(false), 180)
+      return
+    }
+
+    event.preventDefault()
+    setIsArtworkSwipeAnimating(true)
+    setArtworkSwipeOffset(deltaX < 0 ? -window.innerWidth : window.innerWidth)
+    artworkSwipeTimerRef.current = window.setTimeout(() => {
+      if (deltaX < 0) next()
+      else previous()
+      setArtworkSwipeOffset(0)
+      setIsArtworkSwipeAnimating(false)
+    }, 180)
+  }
+
   const handleSheetTouchStart = (event) => {
     gestureStartRef.current = event.touches[0].clientY
   }
@@ -201,6 +282,50 @@ export default function MobilePlayerPage() {
     gestureStartRef.current = null
     if (delta > 64) setIsDetailsOpen(false)
     setDetailsDragOffset(0)
+  }
+
+  const handleTabContentTouchStart = (event) => {
+    if (event.touches.length !== 1) {
+      tabSwipeStartRef.current = null
+      return
+    }
+
+    const target = event.target instanceof Element ? event.target : null
+    if (!target || target.closest('input, [data-no-tab-swipe]')) {
+      tabSwipeStartRef.current = null
+      return
+    }
+
+    let element = target
+    while (element && element !== event.currentTarget) {
+      const style = window.getComputedStyle(element)
+      if ((style.overflowX === 'auto' || style.overflowX === 'scroll') && element.scrollWidth > element.clientWidth) {
+        tabSwipeStartRef.current = null
+        return
+      }
+      element = element.parentElement
+    }
+
+    const touch = event.touches[0]
+    tabSwipeStartRef.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  const handleTabContentTouchEnd = (event) => {
+    const start = tabSwipeStartRef.current
+    tabSwipeStartRef.current = null
+    if (!start || !event.changedTouches.length) return
+
+    const touch = event.changedTouches[0]
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) < 60 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) return
+
+    const currentIndex = tabs.indexOf(activeTab)
+    const nextIndex = currentIndex + (deltaX < 0 ? 1 : -1)
+    if (nextIndex >= 0 && nextIndex < tabs.length) {
+      event.preventDefault()
+      setActiveTab(tabs[nextIndex])
+    }
   }
 
   const renderPanelContent = () => {
@@ -331,14 +456,28 @@ export default function MobilePlayerPage() {
         onTouchEnd={handlePlayerTouchEnd}
         style={{ transform: `translateY(${playerDragOffset}px)`, transition: playerDragOffset === 0 ? 'transform 220ms ease-out' : 'none' }}
       >
-        <div className="mx-auto aspect-square w-full max-w-80 overflow-hidden bg-[#171717] shadow-[0_18px_70px_rgba(255,255,255,0.08)]">
+        <div
+          className="mx-auto aspect-square w-full max-w-80 overflow-hidden bg-[#171717] shadow-[0_18px_70px_rgba(255,255,255,0.08)]"
+          onTouchStart={handleArtworkTouchStart}
+          onTouchMove={handleArtworkTouchMove}
+          onTouchEnd={handleArtworkTouchEnd}
+          onTouchCancel={() => {
+            artworkSwipeStartRef.current = null
+            setIsArtworkSwipeAnimating(true)
+            setArtworkSwipeOffset(0)
+          }}
+          style={{
+            transform: `translateX(${artworkSwipeOffset}px)`,
+            transition: isArtworkSwipeAnimating ? 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none'
+          }}
+        >
           {image ? <img src={image} alt={currentTitle} className="h-full w-full object-cover" /> : <div className="h-full w-full art-sheen" />}
         </div>
 
         <div className="mt-7 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h1 className="truncate text-[22px] font-bold tracking-tight">{currentTitle}</h1>
-            <p className="mt-1 truncate text-sm text-white/60">{currentArtist || 'Unknown Artist'}</p>
+            <p className="mt-1 truncate text-sm text-white/60">{currentArtist || ' '}</p>
           </div>
           <button type="button" aria-label={isLiked(currentTrack.id) ? 'Unlike current song' : 'Like current song'} onClick={() => toggleLike(currentTrack)} className={`mt-1 p-2 hover:text-white ${isLiked(currentTrack.id) ? 'text-[#edeeee]' : 'text-white/70'}`}>
             <ThumbsUp size={21} fill={isLiked(currentTrack.id) ? 'currentColor' : 'none'} />
@@ -403,7 +542,7 @@ export default function MobilePlayerPage() {
               onTouchEnd={handleSheetTouchEnd}
               className="min-w-0 flex-1 text-left">
               <p className="truncate text-sm font-bold">{currentTitle}</p>
-              <p className="mt-0.5 truncate text-xs text-white/45">{currentArtist || 'Unknown Artist'}</p>
+              <p className="mt-0.5 truncate text-xs text-white/45">{currentArtist || ' '}</p>
             </div>
             <button onClick={toggleShuffle} aria-label={isShuffleEnabled ? 'Disable shuffle' : 'Enable shuffle'} className={`hover:text-white ${isShuffleEnabled ? 'text-[#5b7cff]' : ''}`}>
               <Shuffle size={20} />
@@ -438,7 +577,13 @@ export default function MobilePlayerPage() {
                 </button>
               ))}
             </div>
-            <div className="max-h-[calc(98dvh-3.5rem)] overflow-y-auto scrollbar-none">
+            <div
+              ref={tabContentRef}
+              className="max-h-[calc(98dvh-3.5rem)] overflow-y-auto scrollbar-none"
+              onTouchStart={handleTabContentTouchStart}
+              onTouchEnd={handleTabContentTouchEnd}
+              onTouchCancel={() => { tabSwipeStartRef.current = null }}
+            >
               {renderPanelContent()}
             </div>
           </div>
