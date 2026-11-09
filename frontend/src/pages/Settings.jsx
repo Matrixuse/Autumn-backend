@@ -17,8 +17,6 @@ export default function Settings() {
     setIsGaplessPlaybackEnabled,
     isDataSavingEnabled,
     setIsDataSavingEnabled,
-    isMultilingualRecommendationsEnabled,
-    setMultilingualRecommendationsEnabled,
     isAutoplayEnabled,
     setIsAutoplayEnabled
   } = usePlayer()
@@ -77,7 +75,7 @@ export default function Settings() {
         />
         <PreferenceRow
           title="Data saving"
-          description="Use the lowest available audio bitrate for tracks started after changing this setting."
+          description="Playback always uses the highest available bitrate, up to 320 kbps, regardless of this setting."
           checked={isDataSavingEnabled}
           onChange={setIsDataSavingEnabled}
         />
@@ -86,12 +84,6 @@ export default function Settings() {
           description="Continue automatically through Up Next when a track finishes."
           checked={isAutoplayEnabled}
           onChange={setIsAutoplayEnabled}
-        />
-        <PreferenceRow
-          title="Multilingual recommendations"
-          description="Allow Up Next to include known songs in other languages."
-          checked={isMultilingualRecommendationsEnabled}
-          onChange={setMultilingualRecommendationsEnabled}
         />
       </section>
 

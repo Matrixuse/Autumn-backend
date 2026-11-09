@@ -19,10 +19,10 @@ const shortTitle = (value, max = 26) => {
 }
 
 const getArtistLabel = (artist) => {
-    if (!artist) return 'Unknown Artist'
+    if (!artist) return ' '
     if (typeof artist === 'string') return artist
-    if (Array.isArray(artist)) return artist.filter(Boolean).map((item) => String(item.name || item.title || item)).join(', ') || 'Unknown Artist'
-    if (typeof artist === 'object') return artist.name || artist.title || 'Unknown Artist'
+    if (Array.isArray(artist)) return artist.filter(Boolean).map((item) => String(item.name || item.title || item)).join(', ') || ' '
+    if (typeof artist === 'object') return artist.name || artist.title || ' '
     return String(artist)
 }
 

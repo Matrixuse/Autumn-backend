@@ -25,7 +25,7 @@ const moodMap = {
 
 const normalizeArtist = (artist = {}) => ({
   id: artist.id || artist._id || artist.name,
-  name: artist.name || artist.title || 'Unknown Artist',
+  name: artist.name || artist.title || ' ',
   image: getBestImageUrl(artist.image || artist.images || artist.thumbnail),
 })
 
@@ -45,7 +45,7 @@ const getMoodArtists = async (moodQuery, moodSongs = []) => {
   const artists = new Map()
   responses.flat().forEach((artist) => {
     const normalized = normalizeArtist(artist)
-    if (normalized.id && normalized.name !== 'Unknown Artist') artists.set(String(normalized.id), normalized)
+    if (normalized.id && normalized.name !== ' ') artists.set(String(normalized.id), normalized)
   })
 
   moodSongs.forEach((song) => {

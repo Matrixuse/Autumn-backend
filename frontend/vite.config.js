@@ -11,56 +11,56 @@ export default defineConfig(({ mode }) => {
     .replace(/\/$/, '')
 
   return {
-    plugins: [
-      react(),
-      tailwindcss(),
-      VitePWA({
-        registerType: 'autoUpdate',
-        includeAssets: ['apple-touch-icon.png', 'logo2.png'],
-        manifest: {
-          name: 'Autumn',
-          short_name: 'Autumn',
-          description: 'A focused music player for your listening sessions.',
-          start_url: '/',
-          scope: '/',
-          display: 'standalone',
-          orientation: 'portrait',
-          background_color: '#050505',
-          theme_color: '#050505',
-          icons: [
-            { src: '/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-            { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-            { src: '/pwa-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-            { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
-          ],
-        },
-        workbox: {
-          inlineWorkboxRuntime: true,
-          cleanupOutdatedCaches: true,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
-          navigateFallback: '/index.html',
-          navigateFallbackDenylist: [/^\/api(?:\/|$)/],
-          runtimeCaching: [
-            {
-              urlPattern: ({ url }) => /saavncdn/i.test(url.hostname),
-              handler: 'NetworkOnly',
-            },
-          ],
-        },
-      }),
-    ],
-    server: {
-      host: 'localhost',
-      hmr: {
-        host: 'localhost',
-        protocol: 'ws',
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['apple-touch-icon.png', 'logo2.png'],
+      manifest: {
+        name: 'Autumn',
+        short_name: 'Autumn',
+        description: 'A focused music player for your listening sessions.',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#050505',
+        theme_color: '#050505',
+        icons: [
+          { src: '/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/pwa-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
+        ],
       },
-      proxy: {
-        '/api': {
-          target: apiTarget,
-          changeOrigin: true,
-        },
+      workbox: {
+        inlineWorkboxRuntime: true,
+        cleanupOutdatedCaches: true,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => /saavncdn/i.test(url.hostname),
+            handler: 'NetworkOnly',
+          },
+        ],
+      },
+    }),
+  ],
+  server: {
+    host: 'localhost',
+    hmr: {
+      host: 'localhost',
+      protocol: 'ws',
+    },
+    proxy: {
+      '/api': {
+        target: apiTarget,
+        changeOrigin: true,
       },
     },
+  },
   }
 })

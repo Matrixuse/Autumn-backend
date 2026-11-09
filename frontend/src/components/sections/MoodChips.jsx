@@ -1,9 +1,11 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 const moods = ['Relax', 'Romance', 'Feel good', 'Party', 'Energise', 'Sad', 'Focus', 'Work out', 'Sleep']
 
 export default function MoodChips() {
     const navigate = useNavigate()
+    const location = useLocation()
+    const isHomePage = location.pathname === '/'
 
     return (
         <div className="scrollbar-none flex gap-3 overflow-x-auto">
@@ -12,7 +14,7 @@ export default function MoodChips() {
                     key={mood}
                     type="button"
                     onClick={() => navigate(`/mood/${encodeURIComponent(mood)}`)}
-                    className="whitespace-nowrap rounded-lg border border-white/4 bg-[#1f2325] px-3 py-1 text-xs font-semibold text-white/85 transition hover:bg-[#33373a]"
+                    className={`${isHomePage ? 'bg-white/7' : 'bg-[#1f2325]'} whitespace-nowrap rounded-lg px-3 py-1 text-sm font-semibold text-white/85 transition hover:bg-[#33373a]`}
                 >
                     {mood}
                 </button>

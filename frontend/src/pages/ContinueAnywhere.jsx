@@ -237,7 +237,7 @@ export default function ContinueAnywhere() {
 function DeviceRow({ device, onRename, onRemove, onMove, canMove }) {
   const Icon = device.platform === 'android' ? Smartphone : Laptop
   const status = device.status === 'online' ? 'Online' : device.status === 'recently-active' ? 'Recently active' : 'Offline'
-  return <div className="grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-3 border-b border-white/10 py-4 last:border-b-0 sm:flex">
+  return <div className="flex min-w-0 items-center gap-3 border-b border-white/10 py-4 last:border-b-0">
     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/[0.06] text-white/75"><Icon size={19} /></span>
     <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-2">
@@ -251,10 +251,8 @@ function DeviceRow({ device, onRename, onRemove, onMove, canMove }) {
       <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-white/45"><span>{status}</span><span aria-hidden="true">·</span><Clock3 size={12} /><span>{formatLastSeen(device.lastSeenAt)}</span>{device.isPlaybackOwner && <span className="text-[#e6a44a]">· Playing here</span>}</p>
       <p className="mt-1 text-xs text-white/40">{device.available ? 'Available for playback' : device.isCurrent ? device.enabled ? 'Ready to receive playback' : 'Continue Anywhere disabled' : 'Unavailable for playback'}</p>
     </div>
-    <div className="col-span-2 flex min-w-0 items-center justify-end gap-2 sm:col-span-1 sm:contents">
-      {onMove && <button type="button" disabled={!canMove} onClick={onMove} className="mr-auto shrink-0 whitespace-nowrap rounded-lg border border-[#e6a44a]/30 px-3 py-2 text-xs font-semibold text-[#e6a44a] hover:bg-[#e6a44a]/10 disabled:cursor-not-allowed disabled:opacity-35 sm:mr-0">Move Playback</button>}
-      <button type="button" onClick={onRename} aria-label={`Rename ${device.name}`} title="Rename device" className="rounded-lg p-2 text-white/55 hover:bg-white/10 hover:text-white"><Pencil size={16} /></button>
-      {onRemove && <button type="button" disabled={device.isPlaybackOwner} onClick={onRemove} aria-label={`Remove ${device.name}`} title={device.isPlaybackOwner ? 'Move playback before removing this device' : 'Remove device'} className="rounded-lg p-2 text-white/45 hover:bg-white/10 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-35"><Trash2 size={16} /></button>}
-    </div>
+    <button type="button" onClick={onRename} aria-label={`Rename ${device.name}`} title="Rename device" className="rounded-lg p-2 text-white/55 hover:bg-white/10 hover:text-white"><Pencil size={16} /></button>
+    {onMove && <button type="button" disabled={!canMove} onClick={onMove} className="shrink-0 rounded-lg border border-[#e6a44a]/30 px-3 py-2 text-xs font-semibold text-[#e6a44a] hover:bg-[#e6a44a]/10 disabled:cursor-not-allowed disabled:opacity-35">Move Playback</button>}
+    {onRemove && <button type="button" onClick={onRemove} aria-label={`Remove ${device.name}`} title="Remove device" className="rounded-lg p-2 text-white/45 hover:bg-white/10 hover:text-rose-300"><Trash2 size={16} /></button>}
   </div>
 }

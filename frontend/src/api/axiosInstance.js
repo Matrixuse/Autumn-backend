@@ -17,8 +17,14 @@ const axiosInstance = axios.create({ baseURL, withCredentials: true })
 
 axiosInstance.interceptors.request.use((config) => {
   const isAuthSubmission = /^\/auth\/(?:login|google|register)(?:\/|$)/.test(config.url || '')
-  const token = isAuthSubmission ? null : localStorage.getItem(SESSION_TOKEN_KEY)
-  if (token) config.headers.set('Authorization', `Bearer ${token}`)
+  const isPublicSearch = /^\/search(?:\/|$)/.test(config.url || '')
+  const token = isAuthSubmission || isPublicSearch ? null : localStorage.getItem(SESSION_TOKEN_KEY)
+  if (isPublicSearch) {
+    config.withCredentials = false
+    config.headers.delete?.('Authorization')
+  } else if (token) {
+    config.headers.set('Authorization', `Bearer ${token}`)
+  }
   return config
 })
 

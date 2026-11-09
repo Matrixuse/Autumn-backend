@@ -92,7 +92,7 @@ export default function SongActionsMenu({ song, queue = [], itemType = 'song', i
     return tracks.map((track) => ({
       id: track.id,
       title: track.name || track.title || 'Unknown Track',
-      artist: (track.artists?.all || track.artists?.primary || []).map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ') || track.subtitle || 'Unknown Artist',
+      artist: (track.artists?.all || track.artists?.primary || []).map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ') || track.subtitle || ' ',
       image: getBestImageUrl(track.image),
       audio: getBestAudioUrl(track.downloadUrl || track.audio),
       duration: Number(track.duration || track.more_info?.duration || 0) || 0,
@@ -209,7 +209,7 @@ export default function SongActionsMenu({ song, queue = [], itemType = 'song', i
             <div className="flex items-start gap-4 border-b border-white/15 px-5 pb-2 pt-3">
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-xl font-semibold text-white">{title}</h2>
-                <p className="line-clamp-2 text-sm text-white/65">{isSong ? getArtistName(song) || 'Unknown Artist' : song?.description || 'Your collection'}</p>
+                <p className="line-clamp-2 text-sm text-white/65">{isSong ? getArtistName(song) || ' ' : song?.description || 'Your collection'}</p>
               </div>
               <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); close() }} className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white hover:bg-white/10" aria-label="Close actions">
                 <X size={25} />

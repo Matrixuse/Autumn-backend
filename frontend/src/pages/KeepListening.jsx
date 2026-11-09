@@ -24,7 +24,7 @@ const normalizeSong = (song = {}) => ({
   title: song.name || song.title || 'Unknown Track',
   artist: Array.isArray(song.artists?.all)
     ? song.artists.all.map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ')
-    : song.artist || song.subtitle || 'Unknown Artist',
+    : song.artist || song.subtitle || ' ',
   image: getBestImageUrl(song.image || song.cover || song.artwork || song.thumbnail || []) || null,
   audio: getBestAudioUrl(song.downloadUrl || song.audio) || null,
   duration: Number(song.duration || song.more_info?.duration || 0) || 0,

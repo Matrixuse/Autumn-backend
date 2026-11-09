@@ -23,6 +23,7 @@ import Settings from '../pages/Settings'
 import ContinueAnywhere from '../pages/ContinueAnywhere'
 import FooterInfoPage from '../pages/FooterInfoPage'
 import ProtectedRoute from './ProtectedRoute'
+import React from 'react'
 
 export default function AppRoutes() {
     return (

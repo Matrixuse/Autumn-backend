@@ -290,10 +290,6 @@ export default function Library({locked = false}) {
             </div>
         </section>
         <section aria-labelledby="suggested-artists-heading" className="mt-8">
-            <div className="mb-4">
-                <p className="mb-1 text-xs font-bold uppercase tracking-[.18em] text-[#d29a55]">Picked for your listening</p>
-                <h2 id="suggested-artists-heading" className="font-['Space_Grotesk'] text-xl font-bold sm:text-2xl">Suggested</h2>
-            </div>
             {suggestionsLoading ? (
                 <p className="text-sm text-white/45" role="status">Finding artists for you...</p>
             ) : suggestedArtists.length ? (
@@ -302,31 +298,31 @@ export default function Library({locked = false}) {
                         const isFollowing = followedArtists.some((followed) => String(followed?.id || followed?._id || '') === artist.id)
                         const artistUrl = `/artist/${encodeURIComponent(artist.id)}/${encodeURIComponent(artist.name)}`
                         return (
-                            <div key={artist.id} className="flex min-h-16 items-center gap-3 bg-transparent px-3 py-2 transition-colors hover:bg-white/5 sm:gap-4 sm:px-4">
-                                <Link to={artistUrl} aria-label={`Open ${artist.name}`} className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-white/5 text-sm font-semibold text-white/50 sm:h-12 sm:w-12">
-                                    <span aria-hidden="true">{artist.name.slice(0, 1).toUpperCase()}</span>
-                                    {artist.image && <img src={artist.image} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(event) => event.currentTarget.remove()} />}
-                                </Link>
-                                <Link to={artistUrl} className="min-w-0 flex-1 truncate text-sm font-semibold text-white hover:underline sm:text-base">
-                                    {artist.name}
-                                </Link>
-                                <button
-                                    type="button"
-                                    aria-pressed={isFollowing}
-                                    aria-label={isFollowing ? `Unfollow ${artist.name}` : `Follow ${artist.name}`}
-                                    onClick={() => {
-                                        if (!isAuthenticated) {
-                                            navigate('/login')
-                                            return
-                                        }
-                                        toggleFollowArtist(artist)
-                                    }}
-                                    className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:px-4 sm:text-sm ${isFollowing ? 'border border-white/35 bg-transparent text-white hover:bg-white/10' : 'bg-white text-black hover:bg-white/85'}`}
-                                >
-                                    {isFollowing ? <Check size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}
-                                    {isFollowing ? 'Following' : 'Follow'}
-                                </button>
-                            </div>
+                                <div key={artist.id} className="flex min-h-16 items-center gap-3 bg-transparent px-3 py-2 transition-colors hover:bg-white/5 sm:gap-4 sm:px-4">
+                                    <Link to={artistUrl} aria-label={`Open ${artist.name}`} className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-white/5 text-sm font-semibold text-white/50 sm:h-12 sm:w-12">
+                                        <span aria-hidden="true">{artist.name.slice(0, 1).toUpperCase()}</span>
+                                        {artist.image && <img src={artist.image} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(event) => event.currentTarget.remove()} />}
+                                    </Link>
+                                    <Link to={artistUrl} className="min-w-0 flex-1 truncate text-sm font-semibold text-white hover:underline sm:text-base">
+                                        {artist.name}
+                                    </Link>
+                                    <button
+                                        type="button"
+                                        aria-pressed={isFollowing}
+                                        aria-label={isFollowing ? `Unfollow ${artist.name}` : `Follow ${artist.name}`}
+                                        onClick={() => {
+                                            if (!isAuthenticated) {
+                                                navigate('/login')
+                                                return
+                                            }
+                                            toggleFollowArtist(artist)
+                                        }}
+                                        className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:px-4 sm:text-sm ${isFollowing ? 'border border-white/35 bg-transparent text-white hover:bg-white/10' : 'bg-white text-black hover:bg-white/85'}`}
+                                    >
+                                        {isFollowing ? <Check size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}
+                                        {isFollowing ? 'Following' : 'Follow'}
+                                    </button>
+                                </div>
                         )
                     })}
                 </div>

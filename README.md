@@ -1,6 +1,6 @@
-# Autumn Music Player
+# Saavan Player
 
-A music player application for both PC and mobile.
+A music player frontend backed by a JioSaavn API service.
 
 ## Project Structure
 
@@ -30,7 +30,7 @@ copy .env.example .env
 bun run dev
 ```
 
-Set the MongoDB values in `backend_folder/.env` before starting the backend. The real `.env` files are intentionally ignored by Git.
+Set the MongoDB values in `jiosaavn-api-backend/.env` before starting the backend. The real `.env` files are intentionally ignored by Git.
 
 ## Checks
 
@@ -43,4 +43,4 @@ bun run lint
 bun run test
 ```
 
-This project is for personal use only, install it and listen to your loved songs.
+This project uses the unofficial JioSaavn API service and is not affiliated with JioSaavn.

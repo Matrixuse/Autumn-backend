@@ -14,8 +14,8 @@ export default function AppLayout() {
     const [searchState, setSearchState] = useState({ query: '', history: [], results: [], loading: false })
     const isHomePage = location.pathname === '/'
     const isKeepListeningRoute = location.pathname.startsWith('/keep-listening')
-    const isLikedSongsRoute = location.pathname.startsWith('/liked-songs')
     const isNowPlayingRoute = location.pathname.startsWith('/now-playing')
+    const isLikedSongsRoute = location.pathname.startsWith('/liked-songs')
     const isFooterInfoRoute = location.pathname.startsWith('/info/')
     const isPublicInfoRoute = location.pathname.startsWith('/info/') || location.pathname === '/feedback'
     const locked = !loading && !isAuthenticated && !isKeepListeningRoute && !isPublicInfoRoute
@@ -28,9 +28,9 @@ export default function AppLayout() {
             </>}
             <div className="relative z-10 w-full">
             <Sidebar locked={locked} />
-            <main className={`min-h-screen lg:pl-60 ${isHomePage ? 'bg-gradient-to-b from-[#1628069b] via-[#0c0c14] to-[#0d0a27]' : isLikedSongsRoute ? 'bg-gradient-to-b from-[#0b0b0b] via-[#0c0c14] to-[#000000]' : 'bg-gradient-to-b from-[#0811289b] via-[#0c0c14] to-[#000000]'} text-white`}>
+            <main className={`${isLikedSongsRoute ? 'min-h-screen md:h-dvh md:min-h-0 md:overflow-hidden' : 'min-h-screen'} lg:pl-60 ${isHomePage ? 'bg-gradient-to-b from-[#1628069b] via-[#0c0c14] to-[#0d0a27]' : isLikedSongsRoute ? 'bg-gradient-to-b from-[#0b0b0b] via-[#0c0c14] to-[#000000]' : 'bg-gradient-to-b from-[#0811289b] via-[#0c0c14] to-[#000000]'} text-white`}>
                 <div className={isNowPlayingRoute ? 'hidden lg:block' : isFooterInfoRoute ? 'hidden md:block' : ''}><Topbar locked={locked} onSearchStateChange={setSearchState} /></div>
-                <div className={`relative mx-auto min-h-100vh w-full ${isNowPlayingRoute ? 'px-0 pb-0 pt-0 lg:px-20 lg:pb-24 lg:pt-9' : isHomePage ? 'px-4 pb-44 pt-1 sm:px-4 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9' : 'px-4 pb-44 pt-5 sm:px-4 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9'}`}>
+                <div className={`relative mx-auto min-h-100vh w-full ${isNowPlayingRoute ? 'px-0 pb-0 pt-0 lg:px-20 lg:pb-24 lg:pt-9' : isHomePage ? 'px-4 pb-44 pt-1 sm:px-4 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9' : isLikedSongsRoute ? 'px-4 pb-44 pt-5 sm:px-4 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9' : 'px-4 pb-44 pt-5 sm:px-4 sm:pb-24 sm:pt-7 lg:px-20 lg:pb-24 lg:pt-9'}`}>
                     <Outlet context={{ searchState }} />
                     {locked && (
                         <div className="absolute inset-0 z-10 flex items-start justify-center bg-[#050505]/80 px-4 pt-24 backdrop-blur-[3px] sm:pt-32">

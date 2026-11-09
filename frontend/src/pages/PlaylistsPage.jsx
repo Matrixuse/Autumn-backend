@@ -104,7 +104,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
             title: song.name || song.title || 'Unknown Track',
             artist: Array.isArray(song.artists?.all || song.artists?.primary)
               ? (song.artists.all || song.artists.primary).map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ')
-              : song.artist || song.subtitle || 'Unknown Artist',
+              : song.artist || song.subtitle || ' ',
             image: getBestImageUrl(song.image || song.cover || song.thumbnail || []),
             audio: getBestAudioUrl(song.downloadUrl || song.audio),
             duration: Number(song.duration || song.more_info?.duration || 0) || 0,
@@ -125,7 +125,7 @@ export default function PlaylistPage({ libraryOption = '' }) {
         const normalized = (data?.songs || []).map((song) => ({
           id: song.id,
           title: song.name || song.title || 'Unknown Track',
-          artist: (song.artists?.all || song.artists?.primary || []).map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ') || 'Unknown Artist',
+          artist: (song.artists?.all || song.artists?.primary || []).map((artist) => artist?.name || artist?.title).filter(Boolean).join(', ') || ' ',
           image: getBestImageUrl(song.image) || null,
           audio: getBestAudioUrl(song.downloadUrl || song.audio || song.more_info?.encrypted_media_url) || null,
           duration: Number(song.duration || 0) || 0,

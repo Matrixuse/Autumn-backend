@@ -112,13 +112,12 @@ const audioVariants = (song) => {
   return [...uniqueVariants.values()]
 }
 
-const pickUrl = (song) => {
-  return getBestAudioUrl(audioVariants(song))
-    || song?.audio
-    || null
-}
+const pickUrl = (song) => getBestAudioUrl(audioVariants(song))
 
-const pickAlternateUrl = (song, currentUrl) => getSameQualityAlternateAudioUrl(audioVariants(song), currentUrl)
+const pickAlternateUrl = (song, currentUrl) => getSameQualityAlternateAudioUrl(
+  audioVariants(song),
+  currentUrl
+)
 
 const trimSong = (song) => {
   if (!song?.id) return null

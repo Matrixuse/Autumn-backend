@@ -35,7 +35,7 @@ const getSongArtists = (song = {}) => {
 const normalizeSong = (song = {}) => ({
   id: song.id || song._id || `${song.name || song.title || 'song'}-${Math.random().toString(36).slice(2, 8)}`,
   title: song.name || song.title || 'Unknown Track',
-  artist: getSongArtists(song).join(', ') || song.subtitle || 'Unknown Artist',
+  artist: getSongArtists(song).join(', ') || song.subtitle || ' ',
   image: getBestImageUrl(song.image || song.cover || song.artwork || song.thumbnail || []) || null,
   audio: getBestAudioUrl(song.downloadUrl || song.audio) || null,
   duration: Number(song.duration || song.more_info?.duration || 0) || 0,

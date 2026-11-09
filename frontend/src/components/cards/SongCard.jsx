@@ -40,7 +40,7 @@ export default function SongCard({ song, queue = [], playQueue = queue }) {
     const image = imageFailed ? null : imageSource
     const color = artwork[getColorIndex(song?.id)]
     const title = song?.title || song?.name || 'Untitled track'
-    const artist = song?.artist || song?.artists?.all?.[0]?.name || song?.subtitle || 'Unknown Artist'
+    const artist = song?.artist || song?.artists?.all?.[0]?.name || song?.subtitle || ' '
 
     return (
         <article className="group relative min-w-35 flex-1 md:min-w-40 md:max-w-45">

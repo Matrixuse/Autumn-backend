@@ -59,7 +59,9 @@ export default function LikedSongPage() {
     return likedSongs.filter((song) => `${song.title} ${song.artist}`.toLowerCase().includes(term))
   }, [likedSongs, searchTerm])
 
-  const sortedSongs = useMemo(() => sortSongs(filteredSongs, sortMode), [filteredSongs, sortMode])
+  const sortedSongs = useMemo(() => {
+    return sortSongs(filteredSongs, sortMode)
+  }, [filteredSongs, sortMode])
 
   const playAll = () => {
     if (sortedSongs.length) playTrack(sortedSongs[0], sortedSongs)
@@ -88,6 +90,7 @@ export default function LikedSongPage() {
             <p className="mt-1 text-sm text-white/45">{likedSongs.length} {likedSongs.length === 1 ? 'Liked Songs' : 'Liked Song'}</p>
         </div>
         <div className="mt-6 flex justify-center items-center gap-3">
+          {/* <SongActionsMenu song={song} queue={likedSongs} alwaysVisible /> */}
           <button type="button" onClick={playAll} disabled={!likedSongs.length} className="flex items-center gap-2 rounded-full bg-[#f5f1f1] px-5 py-3 text-sm font-bold text-[#21160a] disabled:cursor-not-allowed disabled:opacity-40"><Play size={17} fill="currentColor" />Play all</button>
           <button type="button" onClick={shuffleAll} disabled={!likedSongs.length} aria-label="Shuffle liked songs" className="rounded-full border border-white/10 bg-white/6 p-3 disabled:cursor-not-allowed disabled:opacity-40"><Shuffle size={18} /></button>
         </div>
@@ -106,39 +109,47 @@ export default function LikedSongPage() {
 
       <div className="flex min-w-0 flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
         <div className="flex shrink-0 justify-start"><SongSortMenu sortMode={sortMode} onSortChange={setSortMode} /></div>
+
         <div ref={songListRef} className="w-full md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:pr-1 md:custom-scrollbar scrollbar-none">
-        {likedSongs.length === 0 ? (
-            <div className="grid min-h-56 place-items-center rounded-2xl border border-white/10 bg-white/3 p-8 text-center">
-                <div>
-                    <Heart className="mx-auto mb-3 text-white" size={34} />
-                    <p className="text-lg font-semibold">
-                        No liked songs yet
-                    </p>
-                    <p className="mt-2 text-sm text-white/45">
-                        Tap the like button on songs to save it here.
-                    </p>
-                </div>
-            </div>
-        ) : sortedSongs.length === 0 ? (
-          <p className="py-10 text-center text-sm text-white/45">No liked songs match your search.</p>
-        ) : (
-          <div className="overflow-hidden rounded md:border border-white/10 md:bg-white/3">
+          {likedSongs.length === 0 ? (
+              <div className="grid min-h-56 place-items-center rounded-2xl border border-white/10 bg-white/3 p-8 text-center">
+                  <div>
+                      <Heart className="mx-auto mb-3 text-white" size={34} />
+                      <p className="text-lg font-semibold">
+                          No liked songs yet
+                      </p>
+                      <p className="mt-2 text-sm text-white/45">
+                          Tap the like button on songs to save it here.
+                      </p>
+                  </div>
+              </div>
+          ) : sortedSongs.length === 0 ? (
+            <p className="py-10 text-center text-sm text-white/45">No liked songs match your search.</p>
+          ) : (
+            <div className="overflow-hidden rounded md:border border-white/10 md:bg-white/3">
               {sortedSongs.map((song, index) => {
-              const active = String(currentTrack?.id) === String(song.id) && isPlaying
-              return (
-                <article key={song.id} className={`flex items-center gap-3 border-b border-white/6  px-2 md:px-4 py-2 md:py-3 last:border-b-0 ${active ? 'bg-[#c88d3b]/10' : 'hover:bg-white/4'}`}>
-                    <span className="w-6 hidden sm:block text-center text-xs text-white/35">{index + 1}</span>
-                    <button type="button" onClick={() => playTrack(song, sortedSongs)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                        <LikedSongCover song={song} active={active} />
-                        <span className="min-w-0"><span className="block truncate text-sm font-semibold">{song.title || 'Untitled track'}</span><span className="block truncate text-xs text-white/45">{song.artist || 'Unknown Artist'}</span></span>
-                    </button>
-                    <SongActionsMenu song={song} queue={sortedSongs} alwaysVisible />
-                    <span className="hidden text-xs text-white/40 sm:block">{formatTime(song.duration)}</span>
-                </article>
-              )
-            })}
-          </div>
-        )}
+                const active = String(currentTrack?.id) === String(song.id) && isPlaying
+                return (
+                  <article key={song.id} className={`flex items-center gap-3 border-b border-white/6  px-2 md:px-4 py-2 md:py-2.5 last:border-b-0 ${active ? 'bg-[#c88d3b]/10' : 'hover:bg-white/4'}`}>
+                      <span className="w-6 hidden sm:block text-center text-xs text-white/35">{index + 1}</span>
+                        <button type="button" onClick={() => playTrack(song, sortedSongs)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                          <LikedSongCover song={song} active={active} />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold">
+                              {song.title || 'Untitled track'}
+                            </span>
+                            <span className="block truncate text-xs text-white/45">
+                              {song.artist || ' '}
+                            </span>
+                          </span>
+                      </button>
+                      <SongActionsMenu song={song} queue={likedSongs} alwaysVisible />
+                      <span className="hidden text-xs text-white/40 sm:block">{formatTime(song.duration)}</span>
+                  </article>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

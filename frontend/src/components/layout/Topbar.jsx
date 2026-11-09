@@ -133,7 +133,8 @@ export default function Topbar({ locked = false, onSearchStateChange }) {
                                         </Link>
                                     </div>
                             }
-                        </div>}
+                        </div>
+                        }
                     </div>
                 </div>
             </div>

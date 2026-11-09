@@ -32,7 +32,7 @@ export class LikedSongService {
     const collection = await this.getCollection()
     const documents = await collection
       .find({ userId: new ObjectId(userId) })
-      .sort({ createdAt: 1, _id: 1 })
+      .sort({ updatedAt: -1, _id: -1 })
       .toArray()
     return documents.map(({ song }) => song)
   }
